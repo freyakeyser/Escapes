@@ -135,15 +135,15 @@ y <- sites$Lat
 xy <- cbind(x, y)
 siterast <- as.matrix(xy)
 
-# test escaped fish location
-x <- -56.4
-y <- 47.5
-xy <- cbind(x, y)
-x <- -55.7
-y <- 47.35
-xy2 <- cbind(x, y)
-xy <- rbind(xy, xy2)
-testrast <- as.matrix(xy)
+# escaped fish location
+escapes <- read.csv("C:/Users/keyserf/Documents/Data/Gillnetting2015 - Master Copy.csv")
+str(escapes)
+
+escapes <- subset(escapes, Life.Stage == "Farmed")
+
+escapelocs <- unique(select(escapes, Waypoint.ID, Latitude..N., Longitude..E.))
+escapemat <- as.matrix(cbind(escapelocs$Longitude..E., escapelocs$Latitude..N.))
+
 ```
 
 # SKIP IF ENVIRONMENT LOADED! change values in raster so that land is impassable (i.e. distances would be massive). 
@@ -160,21 +160,31 @@ tr3 <- transition(1/NLrast, transitionFunction=mean, directions=8)
 tr3c <- geoCorrection(tr3, type="c")
 
 # calculate least-cost distance between siterast (site location) and testrast (escaped fish location)
-d2 <- costDistance(tr3c, fromCoords = testrast, toCoords = siterast)
+d2 <- costDistance(tr3c, fromCoords = siterast, toCoords = escapemat)
 d2 
 
-# pick the shortest spatiallines obj
-distances <- data.frame(test1 = d2[1,], test2=d2[2,])
-distances <- cbind(siterast, distances)
-distances$shorter <- ifelse(distances$test1 < distances$test2, "test1", "test2")
-short1 <- subset(distances, shorter=="test1")
-short2 <- subset(distances, shorter=="test2")
+shortest.dist <- apply(d2, 2, min)
+shortest.col <- apply(d2, 2, which.min)
+
+sitedist <- data.frame(lat=escapelocs$Latitude..N., long = escapelocs$Longitude..E., shortest.dist = shortest.dist, shortest.col = shortest.col)
+
+sitelist <- data.frame(shortest.col = 1:49, siteLat = sites$Lat, siteLong = sites$Long)
+
+sitedist.join <- join(sitedist, sitelist, type="left")
+
+
+# # pick the shortest spatiallines obj
+# distances <- data.frame(test1 = d2[1,], test2=d2[2,])
+# distances <- cbind(siterast, distances)
+# distances$shorter <- ifelse(distances$test1 < distances$test2, "test1", "test2")
+# short1 <- subset(distances, shorter=="test1")
+# short2 <- subset(distances, shorter=="test2")
 ```
 
 # Use shortestPath to make a plot
 ```{r}
 # get spatiallines obj for shortest path
-sPath1 <- shortestPath(tr3c, testrast[1,], as.matrix(cbind(short1$x, short1$y)), output="SpatialLines")
+sPath1 <- shortestPath(tr3c, escapemat[1,], as.matrix(cbind(short1$x, short1$y)), output="SpatialLines")
 sPath2 <- shortestPath(tr3c, testrast[2,], as.matrix(cbind(short2$x, short2$y)), output="SpatialLines")
 
 plot(NLrast)
@@ -189,6 +199,21 @@ points(-56.2197, 47.6495, pch=16, col="yellow") ## 22.212 km
 # need to make a df first
 # NLrastplot <- data.frame(rasterToPoints(NLrast))
 # ggplot() + geom_raster(data=NLrastplot, aes(x, y, fill=as.factor(layer))) 
+
+sPath <- shortestPath(tr3c, cbind(sitedist.join[,2], sitedist.join[,1]), cbind(sitedist.join[,6], sitedist.join[,5]), output="SpatialLines")
+
+# ### test
+# sPathtest <- shortestPath(tr3c, cbind(coastdist.join[47,2], coastdist.join[47,1]), 
+#                           cbind(coastdist.join[47,6], coastdist.join[47,5]), output="SpatialLines")
+
+??linelength
+SpatialLinesLengths(sPathtest) 
+
+plot(NLrast, xlim=c(-55.5, -55.25), ylim=c(47.6, 47.8))
+lines(sPath)
+points(sitedist.join[,2], sitedist.join[,1], pch=16, cex=2, col="red")
+points(sitedist.join[,6], sitedist.join[,5], pch=16, col="yellow")
+
 ```
 
 ##########################################################################################################################

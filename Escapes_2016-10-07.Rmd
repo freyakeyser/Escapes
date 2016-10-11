@@ -125,6 +125,37 @@ r <- raster(ncol=1125, nrow=560)
 # extent(r) <- extent(NL.low.ocean)
 # NLrast <- rasterize(NL.low.ocean, r, fun="first")
 # plot(NLrast)
+
+### FOR SAMPLING DATA (HIGH RES, SMALL AREA)
+
+# require(rcanvec)
+# 
+# nts(lon=-55.5, lat=47.6)
+# #001M11
+# canvec.download(nts('001M11'))
+# canvec1 <- canvec.load(nts('001M11'), "waterbody")
+# plot(canvec1)
+# 
+# nts(lon=-55.75, lat=47.9)
+# #001M13
+# canvec.download(nts('001M13'))
+# canvec2 <- canvec.load(nts('001M13'), "waterbody")
+# plot(canvec2, add=TRUE)
+# 
+# nts(lon=-55.5, lat=47.9)
+# #001M14
+# canvec.download(nts('001M14'))
+# canvec3 <- canvec.load(nts('001M14'), "waterbody")
+# plot(canvec3, add=TRUE)
+# 
+# nts(lon=-55.75, lat=47.6)
+# #001M12
+# canvec.download(nts('001M12'))
+# canvec4 <- canvec.load(nts('001M12'), "waterbody")
+# plot(canvec4, add=TRUE)
+# 
+# plot(NLrast, add=TRUE)
+
 ```
 
 ##### START HERE IF ENVIRONMENT IS READY #####
@@ -151,12 +182,13 @@ escapemat <- as.matrix(cbind(escapelocs$Longitude..E., escapelocs$Latitude..N.))
 # Also get rid of ocean blob
 # NLrast@data@values <- ifelse(is.na(NLrast@data@values)=="TRUE", 10000, 1)
 # NLrast@data@values <- ifelse(coordinates(NLrast)[,1] < -56 & coordinates(NLrast)[,2] < 47.4, 1, NLrast@data@values)
+NLlinerast@data@values <- ifelse(is.na(NLlinerast@data@values)=="TRUE", 1, 10000)
 ```
 
 # Transition layer, Geocorrection, calculate distance matrix, find shortest distance
 ```{r}
 # create transition layer for raster (likelihood of presence within cell). 
-tr3 <- transition(1/NLrast, transitionFunction=mean, directions=8)
+tr3 <- transition(1/NLlinerast, transitionFunction=mean, directions=8)
 tr3c <- geoCorrection(tr3, type="c")
 
 # calculate least-cost distance between siterast (site location) and testrast (escaped fish location)
@@ -200,7 +232,7 @@ points(-56.2197, 47.6495, pch=16, col="yellow") ## 22.212 km
 # NLrastplot <- data.frame(rasterToPoints(NLrast))
 # ggplot() + geom_raster(data=NLrastplot, aes(x, y, fill=as.factor(layer))) 
 
-sPath <- shortestPath(tr3c, cbind(sitedist.join[,2], sitedist.join[,1]), cbind(sitedist.join[,6], sitedist.join[,5]), output="SpatialLines")
+sPath <- shortestPath(tr3c, cbind(sitedist.join[,6], sitedist.join[,5]), cbind(sitedist.join[,2], sitedist.join[,1]), output="SpatialLines")
 
 # ### test
 # sPathtest <- shortestPath(tr3c, cbind(coastdist.join[47,2], coastdist.join[47,1]), 
@@ -209,7 +241,7 @@ sPath <- shortestPath(tr3c, cbind(sitedist.join[,2], sitedist.join[,1]), cbind(s
 ??linelength
 SpatialLinesLengths(sPathtest) 
 
-plot(NLrast, xlim=c(-55.5, -55.25), ylim=c(47.6, 47.8))
+plot(NLlinerast, xlim=c(-55.5, -55.25), ylim=c(47.6, 47.8))
 lines(sPath)
 points(sitedist.join[,2], sitedist.join[,1], pch=16, cex=2, col="red")
 points(sitedist.join[,6], sitedist.join[,5], pch=16, col="yellow")

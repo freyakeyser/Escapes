@@ -1,0 +1,153 @@
+
+# Read in packages
+```
+require(ggplot2)
+require(plyr)
+require(lubridate)
+require(dplyr)
+require(sp)
+require(maptools)
+require(ggmap)
+require(ggplot2)
+require(reshape2)
+require(rgdal)
+require(raster)
+require(rgeos)
+require(PBSmapping)
+require(gdistance)
+```
+
+##########################################################################################################################
+######################### SOUTHERN NEWFOUNDLAND CAGE SITE DISTANCES TEMPLATE CODE ########################################
+##########################################################################################################################
+
+## read in NL open cage site coordinates
+```{r}
+sites <- read.csv("C:/Users/keyserf/Documents/Data/NL Stocking 2010-2013.csv")
+str(sites)
+```
+
+## for low-res generic mapping
+```{r}
+## http://ftp.geogratis.gc.ca/pub/nrcan_rncan/vector/atlas/75m_prod/geog/shape/
+prov <- readShapeSpatial("./R/canvec/pvp/pvp.shp", proj4string=CRS("+proj=longlat +ellps=GRS80 +no_defs"))
+#prov <- fortify(model=prov)
+```
+
+## Calculate distances between points with boundaries, need fine scale data for raster
+## SKIP DOWN IF ENVIRONMENT IS LOADED
+### read in shapefiles, create raster file
+```{r}
+## http://ftp.geogratis.gc.ca/pub/nrcan_rncan/vector/canvec/shp/Hydro/
+#NL <- readOGR(dsn = "./R/canvec/canvec_50K_NL_Hydro_shp/waterbody_2_1.shp", layer="waterbody_2_1")
+## THIS TAKES WAY TOO LONG, try lower resolution:
+## http://ftp.geogratis.gc.ca/pub/nrcan_rncan/vector/canvec/shp/Land/
+## NL.low <- readOGR(dsn = "./canvec/canvec_250K_NL_Hydro_shp/waterbody_2.shp", layer="waterbody_2")
+
+# #cropping shapefile to the area and details I need
+# NL.low.ocean <- crop(NL.low, extent(-57, -54, 47, 48))
+# NL.low.ocean <- subset(NL.low.ocean, perm_en=="Permanent")
+# writeOGR(obj=NL.low.ocean, dsn="canvec", layer="NL.low.ocean", driver="ESRI Shapefile")
+# rm(NL.low)
+
+# read in cropped shapefile: NL.low.ocean
+# NL.low.ocean <- readOGR(dsn="C:/Users/keyserf/Documents/R/canvec/NL.low.ocean.dbf", layer="NL.low.ocean")
+# plot(NL.low.ocean)
+# points(siterast, pch=16, col="red")
+
+# # creating raster
+# r <- raster(ncol=1125, nrow=560)
+# extent(r) <- extent(NL.low.ocean)
+# NLrast <- rasterize(NL.low.ocean, r, fun="first")
+
+```
+
+##### START HERE IF ENVIRONMENT IS READY #####
+```{r}
+# site coords
+x <- sites$Long
+y <- sites$Lat
+xy <- cbind(x, y)
+siterast <- as.matrix(xy)
+
+# escaped fish location
+escapes <- read.csv("C:/Users/keyserf/Documents/Data/Gillnetting2015 - Master Copy.csv")
+str(escapes)
+
+escapes <- subset(escapes, Life.Stage == "Farmed")
+
+escapelocs <- unique(select(escapes, Latitude..N., Longitude..E.))
+escapemat <- as.matrix(cbind(escapelocs$Longitude..E., escapelocs$Latitude..N.))
+
+```
+
+## River mouths
+```{r}
+## To get river mouth locations, use click(). Click on the plot to get coords for the river mouths with sampling sites on them.
+plot(NLrast)
+text(escapelocs$Longitude..E., escapelocs$Latitude..N.)
+lines(NLline)
+# rivermouths <- SpatialPoints(click(n=3))
+rivermouths <- snapPointsToLines(rivermouths, NLline)
+rivermouths <- fortify(as.data.frame(rivermouths))
+text(rivermouths$X, rivermouths$Y, col="yellow")
+
+```
+
+# SKIP IF ENVIRONMENT LOADED! change values in raster so that land is impassable (i.e. distances would be massive). 
+```{r}
+# Also get rid of ocean blob
+# NLrast@data@values <- ifelse(is.na(NLrast@data@values)=="TRUE", 10000, 1)
+# NLrast@data@values <- ifelse(coordinates(NLrast)[,1] < -56 & coordinates(NLrast)[,2] < 47.4, 1, NLrast@data@values)
+```
+
+# Transition layer, Geocorrection, calculate distance matrix, calculate Cumulative Weighted Distances
+```{r}
+# create transition layer for raster (likelihood of presence within cell). 
+tr3 <- transition(1/NLrast, transitionFunction=mean, directions=8)
+tr3c <- geoCorrection(tr3, type="c")
+plot(NLrast)
+
+# calculate least-cost distance between siterast (site location) and testrast (escaped fish location)
+d3 <- costDistance(tr3c, fromCoords = siterast, toCoords = cbind(rivermouths$X, rivermouths$Y))
+d3 
+
+# calculate cumulative weighted distance. for each river: sum(1/distance to each AQ site)
+cum.wt.dist <- apply(d3, 2, function(x) sum(1/x))
+
+riverCWD <- data.frame(lat=rivermouths[,3], long = rivermouths[,2], cum.wt.dist = cum.wt.dist)
+
+```
+
+# match rivermouths to sampling sites
+```{r}
+escapelocs$rivermouth <- c(2,2,2,2,1,3)
+
+riverCWD$rivermouth <- c(1,2,3)
+
+escapelocs <- join(escapelocs, riverCWD, type="left")
+```
+
+# calculate propagule pressure as totalfish/cum.wt.dist and plot
+```{r}
+escapelocs$FYCWD <- sum(inventory$totalfish)/escapelocs$cum.wt.dist
+
+plot1 <- ggplot() + 
+  geom_polygon(data=prov, aes(long, lat, group=group), fill="grey")+
+  geom_point(data=inventory, aes(Long, Lat, size=totalfish), fill="red", shape=21, colour="black") + 
+  theme_bw() +
+  coord_map(xlim=c(-56.4, -55.0), ylim=c(47.4, 47.8)) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
+  scale_size_continuous(name="totalfish")
+
+plot2 <- ggplot() + 
+  geom_polygon(data=prov, aes(long, lat, group=group), fill="grey")+
+  geom_point(data=escapelocs, aes(long, lat, size=FYCWD), fill="yellow", shape=21, colour="black") +
+  theme_bw() +
+  coord_map(xlim=c(-56.4, -55.0), ylim=c(47.4, 47.8)) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
+  scale_size_continuous(name="Total fish / sum(1/d)")
+
+grid.arrange(plot1, plot2)
+
+```

@@ -72,15 +72,6 @@ standard <- ddply(.data=inventory, .(ID),
                   totalfish = sum(fishcount),
                   totalyears = length(unique(ReportYear)))
 
-standard$fishperyear <- standard$totalfish/standard$totalyears
-
-ggplot() + geom_point(data=standard, aes(as.factor(ID), fishperyear)) + 
-  geom_point(data=standard2, aes(as.factor(ID), FishEachYear), colour="red") + theme_bw()
-
-standard2 <- ddply(.data=inventory, .(ID, ReportYear),
-                  summarize,
-                  FishEachYear = sum(fishcount))
-
 
 ### Combine with coordinate data
 
@@ -100,6 +91,8 @@ inventory <- ddply(.data=inventory, .(ID, Lat, Long),
                    years = length(unique(ReportYear)))
 
 inventory <- join(inventory, standard, type="left")
+#### inventory$totalfish is the column I need! 
+
 
 prov <- readOGR(dsn="C:/Users/keyserf/Documents/R/canvec/NL.low.ocean.dbf", layer="NL.low.ocean")
 prov <- fortify(prov)

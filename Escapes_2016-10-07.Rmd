@@ -115,46 +115,14 @@ ggplot() +
 # rm(NL.low)
 
 # read in cropped shapefile: NL.low.ocean
-# NL.low.ocean <- readOGR(dsn="./canvec/NL.low.ocean.dbf", layer="NL.low.ocean")
-#
+# NL.low.ocean <- readOGR(dsn="C:/Users/keyserf/Documents/R/canvec/NL.low.ocean.dbf", layer="NL.low.ocean")
 # plot(NL.low.ocean)
 # points(siterast, pch=16, col="red")
+
 # # creating raster
-# r <- raster(ncol=2250, nrow=1120)
-r <- raster(ncol=1125, nrow=560)
+# r <- raster(ncol=1125, nrow=560)
 # extent(r) <- extent(NL.low.ocean)
 # NLrast <- rasterize(NL.low.ocean, r, fun="first")
-# plot(NLrast)
-
-### FOR SAMPLING DATA (HIGH RES, SMALL AREA)
-
-# require(rcanvec)
-# 
-# nts(lon=-55.5, lat=47.6)
-# #001M11
-# canvec.download(nts('001M11'))
-# canvec1 <- canvec.load(nts('001M11'), "waterbody")
-# plot(canvec1)
-# 
-# nts(lon=-55.75, lat=47.9)
-# #001M13
-# canvec.download(nts('001M13'))
-# canvec2 <- canvec.load(nts('001M13'), "waterbody")
-# plot(canvec2, add=TRUE)
-# 
-# nts(lon=-55.5, lat=47.9)
-# #001M14
-# canvec.download(nts('001M14'))
-# canvec3 <- canvec.load(nts('001M14'), "waterbody")
-# plot(canvec3, add=TRUE)
-# 
-# nts(lon=-55.75, lat=47.6)
-# #001M12
-# canvec.download(nts('001M12'))
-# canvec4 <- canvec.load(nts('001M12'), "waterbody")
-# plot(canvec4, add=TRUE)
-# 
-# plot(NLrast, add=TRUE)
 
 ```
 
@@ -172,9 +140,18 @@ str(escapes)
 
 escapes <- subset(escapes, Life.Stage == "Farmed")
 
-escapelocs <- unique(select(escapes, Waypoint.ID, Latitude..N., Longitude..E.))
+escapelocs <- unique(select(escapes, Latitude..N., Longitude..E.))
 escapemat <- as.matrix(cbind(escapelocs$Longitude..E., escapelocs$Latitude..N.))
 
+```
+
+## River mouths
+```{r}
+## To get river mouth locations, use click(). Click on the plot to get coords for the river mouths with sampling sites on them.
+plot(NLrast)
+points(escapelocs$Longitude..E., escapelocs$Latitude..N.)
+lines(NLline)
+# rivermouths <- click(n=3)
 ```
 
 # SKIP IF ENVIRONMENT LOADED! change values in raster so that land is impassable (i.e. distances would be massive). 
@@ -182,21 +159,22 @@ escapemat <- as.matrix(cbind(escapelocs$Longitude..E., escapelocs$Latitude..N.))
 # Also get rid of ocean blob
 # NLrast@data@values <- ifelse(is.na(NLrast@data@values)=="TRUE", 10000, 1)
 # NLrast@data@values <- ifelse(coordinates(NLrast)[,1] < -56 & coordinates(NLrast)[,2] < 47.4, 1, NLrast@data@values)
-NLlinerast@data@values <- ifelse(is.na(NLlinerast@data@values)=="TRUE", 1, 10000)
+NLrast@data@values <- ifelse(NLrast@data@values=="10000", 100000, 1)
 ```
 
 # Transition layer, Geocorrection, calculate distance matrix, find shortest distance
 ```{r}
 # create transition layer for raster (likelihood of presence within cell). 
-tr3 <- transition(1/NLlinerast, transitionFunction=mean, directions=8)
+tr3 <- transition(1/NLrast, transitionFunction=mean, directions=8)
 tr3c <- geoCorrection(tr3, type="c")
+plot(NLrast)
 
 # calculate least-cost distance between siterast (site location) and testrast (escaped fish location)
-d2 <- costDistance(tr3c, fromCoords = siterast, toCoords = escapemat)
-d2 
+d3 <- costDistance(tr3c, fromCoords = siterast, toCoords = rivermouths)
+d3 
 
-shortest.dist <- apply(d2, 2, min)
-shortest.col <- apply(d2, 2, which.min)
+shortest.dist <- apply(d3, 2, min)
+shortest.col <- apply(d3, 2, which.min)
 
 sitedist <- data.frame(lat=escapelocs$Latitude..N., long = escapelocs$Longitude..E., shortest.dist = shortest.dist, shortest.col = shortest.col)
 
@@ -241,12 +219,28 @@ sPath <- shortestPath(tr3c, cbind(sitedist.join[,6], sitedist.join[,5]), cbind(s
 ??linelength
 SpatialLinesLengths(sPathtest) 
 
-plot(NLlinerast, xlim=c(-55.5, -55.25), ylim=c(47.6, 47.8))
+
+
+plot(NLrast, xlim=c(-55.5, -55.3), ylim=c(47.6, 47.8))
 lines(sPath)
 points(sitedist.join[,2], sitedist.join[,1], pch=16, cex=2, col="red")
 points(sitedist.join[,6], sitedist.join[,5], pch=16, col="yellow")
 
+sitedist.join$row <- 1:length(sitedist.join$lat)
+NLrastplot <- data.frame(rasterToPoints(NLrast))
+ggplot() + geom_raster(data=NLrastplot, aes(x, y, fill=as.factor(layer))) + 
+  geom_point(data=sites, aes(Long, Lat))+
+  geom_point(data=sitedist.join, aes(long, lat, shape=as.character(row)), colour="red", size=5) +
+  geom_point(data=sitedist.join, aes(siteLong, siteLat, shape=as.character(row)), colour="yellow", size=5) +
+  scale_fill_manual(values=c("grey", "white")) +
+  xlim(-55.5, -55.3) +
+  ylim(47.6, 47.8)
+
 ```
+plot(NL.low.ocean)
+plot(NLrast)
+plot(NLline, add=TRUE)
+
 
 ##########################################################################################################################
 #################################### NOVA SCOTIA CAGE SITE DISTANCES TEMPLATE CODE #######################################
@@ -509,5 +503,5 @@ points(locs)
 points(escapes$Longitude..E., escapes$Latitude..N., pch=16, col="red")
 
 
-escapes <- read.csv("./Data/Gillnetting2015 - Master Copy.csv")
+escapes <- read.csv("C:/Users/keyserf/Documents/Data/Gillnetting2015 - Master Copy.csv")
 ```

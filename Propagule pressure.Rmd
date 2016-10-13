@@ -16,17 +16,12 @@ require(rgeos)
 require(PBSmapping)
 require(gdistance)
 require(grid)
+require(gridExtra)
 ```
 
 ##########################################################################################################################
 ######################### SOUTHERN NEWFOUNDLAND CAGE SITE DISTANCES TEMPLATE CODE ########################################
 ##########################################################################################################################
-
-## read in NL open cage site coordinates
-```{r}
-sites <- read.csv("C:/Users/keyserf/Documents/Data/NL Stocking 2010-2013.csv")
-str(sites)
-```
 
 ## for low-res generic mapping
 ```{r}
@@ -121,12 +116,15 @@ dist2AQ <- join(d3, inventory, type="left")
 
 # Calculate propagule pressure for each river. 
 ```{r}
+dist2AQ[,1:5] <- apply(dist2AQ[,1:5], 2, function(x) as.character(x))
+dist2AQ[,1:5] <- apply(dist2AQ[,1:5], 2, function(x) as.numeric(x))
+
 # For each AQ site, caclulate total fish/distance from river
-dist2AQ$P1 <- dist2AQ$totalfish/as.numeric(dist2AQ$river1)
-dist2AQ$P2 <- dist2AQ$totalfish/as.numeric(dist2AQ$river2)
-dist2AQ$P3 <- dist2AQ$totalfish/as.numeric(dist2AQ$river3)
-dist2AQ$P4 <- dist2AQ$totalfish/as.numeric(dist2AQ$river4)
-dist2AQ$P5 <- dist2AQ$totalfish/as.numeric(dist2AQ$river5)
+dist2AQ$P1 <- dist2AQ$totalfish/dist2AQ$river1
+dist2AQ$P2 <- dist2AQ$totalfish/dist2AQ$river2
+dist2AQ$P3 <- dist2AQ$totalfish/dist2AQ$river3
+dist2AQ$P4 <- dist2AQ$totalfish/dist2AQ$river4
+dist2AQ$P5 <- dist2AQ$totalfish/dist2AQ$river5
 
 # sum all pressures for total propagule pressure at a river
 prop.press <- apply(as.matrix(dist2AQ[,13:17]), 2, function(x) sum(x, na.rm=TRUE))
@@ -136,18 +134,19 @@ riverCWD <- data.frame(lat=rivermouths[,3], long = rivermouths[,2], prop.press =
 
 # match rivermouths to sampling sites
 plot(NLrast)
-text(escapelocs[8,2], escapelocs[8,1])
+text(escapelocs[,2], escapelocs[,1])
 escapelocs$rivermouth <- c(3,3,3,5,3,2,1,4)
 
-text(riverCWD[,2], riverCWD[,1])
-riverCWD$rivermouth <- c(1,2,3,5,5)
+text(riverCWD[,2], riverCWD[,1], col="yellow")
+riverCWD$rivermouth <- c(1,2,3,4,5)
 
 escapelocs <- join(escapelocs, riverCWD, type="left")
+
 ```
 
 # plot propagule pressure
 ```{r}
-class(NL.low.ocean)
+
 prov <- fortify(NL.low.ocean)
 prov$group <- ifelse(prov$long < -56.2 & prov$lat < 47.375, 4771.1, prov$group)
 
@@ -180,11 +179,24 @@ grid.draw(rbind(gA, gB))
 ```{r}
 escapes <- join(escapes,escapelocs, type="left")
 str(escapes)
+unique(escapes$Life.Stage)
+farmed <- subset(escapes, Life.Stage=="Farmed")
 
-proportions <- ddply(.data=escapes, .(rivermouth, prop.press),
+proportions_f <- ddply(.data=farmed, .(rivermouth),
                      summarize,
-                    count = length(Sample.ID))
+                    farmed = length(Sample.ID))
+
+total <- ddply(.data=escapes, .(rivermouth, prop.press),
+                       summarize,
+                       total=length(Sample.ID))
+
+proportions <- join(total, proportions_f, type="left")
+proportions$farmed <- ifelse(is.na(proportions$farmed)=="TRUE", 0, proportions$farmed)
+
+proportions$prop <- proportions$farmed/proportions$total
  
-ggplot() + geom_point(data=proportions, aes(log(prop.press), count)) + theme_bw() +
-  xlab("Log(Propagule Pressure)") +
+ggplot() + geom_point(data=proportions, aes(prop.press, prop)) + 
+  geom_smooth(data=proportions, aes(prop.press, prop), method="lm") +
+  theme_bw() +
+  xlab("Propagule Pressure") +
   ylab("Number of escapees detected")

@@ -12,7 +12,6 @@ require(rgeos)
 require(PBSmapping)
 require(gdistance)
 
-
 ##### Calculate standardized measure of fish for each site
 
 inventory <- read.csv("C:/Users/keyserf/Documents/data/NL inventory master2.csv", colClasses = "character")
@@ -26,7 +25,7 @@ str(inventory)
 clean <- function(i) { 
   gsub(i, pattern=",", replacement="")
   gsub(i, pattern=" ", replacement="")
-  }
+}
 
 inventory[] <- sapply(inventory, clean)
 
@@ -54,7 +53,7 @@ inventory[,3][is.na(inventory[, 3])] <- 0
 #   1) if NRemain = 0 and CountDev > 0    --->    (NStart + NIntro + CountDev)/2
 #   2) if NRemain = 0 and CountDev <= 0   --->    (NStart + NIntro)/2
 #   3) if NRemain > 0                     --->    NRemain + (NMort + NTransfer + NHarvest)/2
-            
+
 inventory$case <- ifelse(inventory$NRemain==0 & inventory$CountDev > 0, 1, 
                          ifelse(inventory$NRemain==0 & (inventory$CountDev < 0 | inventory$CountDev == 0), 2,
                                 ifelse(inventory$NRemain>0 , 3, NA)))
@@ -68,7 +67,7 @@ ggplot() +
   facet_wrap(~ID)
 
 standard <- ddply(.data=inventory, .(ID),
-                   summarize,
+                  summarize,
                   totalfish = sum(fishcount),
                   totalyears = length(unique(ReportYear)))
 
@@ -80,6 +79,7 @@ str(sites)
 
 sites$ID <- gsub(sites$ID, pattern="AQ", replacement = "")
 sites$ID <- gsub(sites$ID, pattern = "a", replacement = "")
+sites$ID <- gsub(sites$ID, pattern = "b", replacement = "")
 
 sites$ID <- as.character(sites$ID)
 
@@ -127,7 +127,5 @@ ggplot() +
   coord_map(xlim=c(-56.4, -55.0), ylim=c(47.4, 47.8)) +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank())
 
-
-###
 
 

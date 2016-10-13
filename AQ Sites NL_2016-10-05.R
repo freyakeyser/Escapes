@@ -98,9 +98,6 @@ prov <- readOGR(dsn="C:/Users/keyserf/Documents/R/canvec/NL.low.ocean.dbf", laye
 prov <- fortify(prov)
 str(prov)
 
-inventory$fishperyear <- ifelse(inventory$fishperyear == 0, "NA", inventory$fishperyear)
-inventory$fishperyear <- as.numeric(inventory$fishperyear)
-
 inventory$totalfish <- ifelse(inventory$totalfish == 0, "NA", inventory$totalfish)
 inventory$totalfish <- as.numeric(inventory$totalfish)
 ## Number of fish per site

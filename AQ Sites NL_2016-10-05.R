@@ -62,6 +62,8 @@ inventory$fishcount <- ifelse(inventory$case==1, (inventory$NStart + inventory$N
                               ifelse(inventory$case==2, (inventory$NStart + inventory$NIntro)/2, 
                                      ifelse(inventory$case==3, inventory$NRemain + ((inventory$NMort + inventory$NHarvest + abs(inventory$NTransfer))/2), NA)))
 
+events <- inventory
+
 ggplot() + 
   geom_point(data=inventory, aes(ReportYear, fishcount)) + 
   facet_wrap(~ID)

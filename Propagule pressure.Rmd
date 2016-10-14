@@ -271,3 +271,45 @@ summary(model2)
 model3 <- lm(data=proportions, prop ~ avgdist)
 summary(model3)
 ### OK BUT WHY ARE THERE MULTIPLE ROWS OF THE SAME SITE? ARE THEY GETTING ADDED TWICE? PROBABLY.
+```
+
+### Escape events
+```{r}
+# events dataframe from AQ sites script
+names(events)
+events <- unique(select(events, ID, ReportYear, NEscape))
+
+events2 <- ddply(.data=events, .(ID),
+                 summarize,
+                 totalescape = sum(NEscape))
+```
+
+### Sampling effort
+```{r}
+sets <- read.csv("C:/Users/keyserf/Documents/Data/Gillnetting2015 - Set Details.csv")
+head(sets)
+
+sets$Date.Time.Start <- paste(sets$Date, sets$Set.Time..UTC.)
+sets$Date.Time.End <- paste(sets$Date, sets$Retrieval.Time..UTC.)
+
+sets$Date.Time.Start <- dmy_hms(sets$Date.Time.Start)
+sets$Date.Time.End <- dmy_hms(sets$Date.Time.End)
+sets$Duration <- sets$Date.Time.End - sets$Date.Time.Start
+
+sets$Duration <- ifelse(is.na(sets$Duration)==TRUE, mean(sets$Duration, na.rm=TRUE), sets$Duration)
+
+sets <- select(sets, Set.ID, River.Name, Date.Time.Start, Date.Time.End, Latitude..N., Longitude..E., Duration)
+
+sets$rivermouth[sets$River.Name=="Simm's Brook"] <- 5
+sets$rivermouth[sets$River.Name=="Bay du Nord River"] <- 6
+sets$rivermouth[sets$River.Name=="Little River"] <- 3
+sets$rivermouth[sets$River.Name=="Garnish River"] <- 10
+sets$rivermouth[sets$River.Name=="Northwest River"] <- 6
+
+effort <- ddply(.data=sets, .(rivermouth),
+                summarize,
+                effort = sum(Duration),
+                nsets = length(unique(Set.ID)))
+
+```
+

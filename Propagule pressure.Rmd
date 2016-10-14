@@ -217,19 +217,22 @@ proportions <- join(total, proportions_f, type="left")
 proportions$farmed <- ifelse(is.na(proportions$farmed)=="TRUE", 0, proportions$farmed)
 
 proportions$prop <- proportions$farmed/proportions$total
- 
+
+require(ggrepel)
+
+proportions$name <- c("Little", "Simm's", "Northwest", "Garnish")
+
 ggplot() + 
-  geom_smooth(data=proportions, aes(prop.press, prop), method="lm") +
-  geom_text(data=proportions, aes(prop.press, prop, label=rivermouth)) + 
+  geom_smooth(data=proportions, aes(prop.press, prop), method="lm", se=FALSE) +
+  geom_point(data=proportions, aes(prop.press, prop)) +
+  geom_text_repel(data=proportions, aes(prop.press, prop, label=name), nudge_y=0.1) + 
   theme_bw() +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
   xlab("Propagule Pressure") +
-  ylab("Proportion of escapees")
+  ylab("Proportion of escapees")+
+  xlim(c(750, 3500)) +
+  annotate(geom="text", x=2750, y=0.2, label="R-squared = 0.5762\np-value = 0.153", hjust=0)
 
-```
-
-# LM
-```{r}
 model1 <- lm(data=proportions, prop ~ prop.press)
 summary(model1)
 ```
@@ -260,11 +263,25 @@ proportions <- join(proportions, expanded, type="left")
 
 ggplot() + 
   geom_point(data=proportions, aes(avgdist, prop)) +
-  geom_smooth(data=proportions, aes(avgdist, prop), method="lm")
+  geom_smooth(data=proportions, aes(avgdist, prop), method="lm", se=FALSE) + 
+  geom_text_repel(data=proportions, aes(avgdist, prop, label=name), nudge_y=0.1) + 
+   theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
+  ylim(0, 1.2) +
+  annotate(geom="text", x=76000, y=1, label="R-squared = 0.1359\np-value = 0.292", hjust=0) +
+  xlab("Mean distance to aquaculture sites") +
+  ylab("Proportion of escapees")
 
 ggplot() + 
   geom_point(data=proportions, aes(count, prop)) +
-    geom_smooth(data=proportions, aes(count, prop), method="lm")
+    geom_smooth(data=proportions, aes(count, prop), method="lm", se=FALSE) +
+  geom_text_repel(data=proportions, aes(count, prop, label=name), nudge_y=0.15) + 
+   theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
+  ylim(-0.1, 1.1) +
+  annotate(geom="text", x=0, y=1, label="R-squared = 0.9825\np-value = 0.00585", hjust=0) +
+  xlab("Number of aquaculture fish within 20km") +
+  ylab("Proportion of escapees")
 
 model2 <- lm(data=proportions, prop ~ count)
 summary(model2)
@@ -328,17 +345,43 @@ melted <- join(melted, effort, type="left")
 melted$effort <- ifelse(is.na(melted$effort)==TRUE, 0, melted$effort)
 melted$nsets <- ifelse(is.na(melted$nsets)==TRUE, 0, melted$nsets)
 
+melted <- unique(select(melted, rivermouth, effort, nsets))
 
 proportions <- join(proportions, melted, type="left")
 
+ggplot() + 
+  geom_point(data=proportions, aes(effort, prop)) +
+    geom_smooth(data=proportions, aes(effort, prop), method="lm", se=FALSE) +
+  geom_text_repel(data=proportions, aes(effort, prop, label=name), nudge_y=0.15) + 
+   theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
+  ylim(-0.1, 1.2) +
+  annotate(geom="text", x=1400, y=0, label="R-squared = 0.0594\np-value = 0.3893", hjust=0) +
+  xlab("Duration of sampling effort (minutes)") +
+  ylab("Proportion of escapees")
 
-ggplot() + geom_point(data=proportions, aes(effort, prop))
 
-ggplot() + geom_point(data=proportions, aes(nsets, prop))
+ggplot() + 
+  geom_point(data=proportions, aes(nsets, prop)) +
+    geom_smooth(data=proportions, aes(nsets, prop), method="lm", se=FALSE) +
+  geom_text_repel(data=proportions, aes(nsets, prop, label=name), nudge_y=0.15) + 
+   theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
+  ylim(-0.1, 1.2) +
+  annotate(geom="text", x=9.5, y=0, label="R-squared = 0.07723\np-value = 0.380", hjust=0) +
+  xlab("Number of gill net sets") +
+  ylab("Proportion of escapees")
+
+
+model4 <- lm(data=proportions, prop~effort)
+summary(model4)
+
+model5 <- lm(data=proportions, prop~nsets)
+summary(model5)
 
 ```
 
 ### more models
 ```{r}
 
-
+```

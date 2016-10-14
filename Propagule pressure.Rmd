@@ -62,8 +62,9 @@ prov <- readShapeSpatial("C:/Users/keyserf/Documents/R/canvec/pvp/pvp.shp", proj
 ##### START HERE IF ENVIRONMENT IS READY #####
 ```{r}
 # site coords
-x <- sites$Long
-y <- sites$Lat
+sitecoords <- unique(select(sites, ID, Lat, Long))
+x <- sitecoords$Long
+y <- sitecoords$Lat
 xy <- cbind(x, y)
 siterast <- as.matrix(xy)
 
@@ -104,7 +105,8 @@ text(rivermouths$X, rivermouths$Y, col="yellow", labels=1:12)
 # Fix some AQ site coords
 ```{r}
 siterast[2,] <- c(-56.325, 47.708)
-siterast[47,] <- c(-55.605, 47.532)
+siterast[35,] <- c(-55.605, 47.532)
+
 ```
 
 # Transition layer, Geocorrection, calculate distance matrix, calculate Cumulative Weighted Distances
@@ -117,7 +119,7 @@ tr3c <- geoCorrection(tr3, type="c")
 d3 <- costDistance(tr3c, fromCoords = siterast, toCoords = cbind(rivermouths$X, rivermouths$Y))
 d3 
 
-d3 <- as.data.frame(cbind(d3, sites$ID))
+d3 <- as.data.frame(cbind(d3, sitecoords$ID))
 colnames(d3)[13] <- "ID"
 
 dist2AQ <- join(d3, inventory, type="left")
@@ -143,7 +145,7 @@ dist2AQ$P11 <- dist2AQ$totalfish/dist2AQ$V11
 dist2AQ$P12 <- dist2AQ$totalfish/dist2AQ$V12
 
 # sum all pressures for total propagule pressure at a river
-prop.press <- apply(as.matrix(dist2AQ[,20:31]), 2, function(x) sum(x, na.rm=TRUE))
+prop.press <- apply(as.matrix(dist2AQ[,18:29]), 2, function(x) sum(x, na.rm=TRUE))
 
 # match to river mouth coords
 riverCWD <- data.frame(lat=rivermouths[,3], long = rivermouths[,2], prop.press = prop.press)
@@ -186,7 +188,7 @@ plot2 <- ggplot() +
   coord_map(xlim=c(-56.7, -54.5), ylim=c(46.82, 47.9)) +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
   #scale_size_area(name="\u03A3(totalfish/d)", breaks=seq(50, 4000, 500)) +
-  scale_size_continuous(name="Propagule\npressure=\n\u03A3(total fish/dist)", range = c(0.5,10), limits=c(100,9000), breaks=c(500, 1000, 2500, 5000, 7500, 9000))
+  scale_size_continuous(name="Propagule\npressure=\n\u03A3(total fish/dist)", range = c(0.5,10), limits=c(100,5000), breaks=c(500, 1000, 3000, 5000))
 
 gA <- ggplotGrob(plot1)
 gB <- ggplotGrob(plot2)
@@ -194,7 +196,7 @@ grid.newpage()
 grid.draw(cbind(gA, gB))
 
 ```
-
+names(sites)
 # NEXT: proportion of escapees (or number of escapes) vs. propagule pressure for those 3 rivers
 ```{r}
 escapes <- join(escapes,escapelocs, type="left")
@@ -224,3 +226,48 @@ ggplot() +
   ylab("Proportion of escapees")
 
 ```
+
+# LM
+```{r}
+model1 <- lm(data=proportions, prop ~ prop.press)
+summary(model1)
+```
+
+# Yes but which is greater driver - distance or nfish?
+
+```{r}
+## calculate average distance to AQ sites
+## calculate nfish within 20KM
+
+# distances
+avgdists <- apply(dist2AQ[,1:12], 2, mean)
+avgdists <- data.frame(rivermouth = 1:12, avgdist=avgdists)
+
+# nfish within 20km
+melted <- melt(data=dist2AQ[,c(1:13, 16)], id.vars=c("ID", "totalfish"))
+closefish <- subset(melted, value < 20000)
+closecounts <- ddply(.data=closefish, .(variable),
+                     summarize,
+                     count = sum(totalfish, na.rm=TRUE))
+closecounts <- rbind(data.frame(variable="V1", count=0), closecounts, data.frame(variable=c("V9", "V10", "V11", "V12"), count=0))
+colnames(closecounts)[1] <- "rivermouth"
+closecounts[1] <- 1:12
+
+expanded <- join(avgdists, closecounts, type="left")
+
+proportions <- join(proportions, expanded, type="left")
+
+ggplot() + 
+  geom_point(data=proportions, aes(avgdist, prop)) +
+  geom_smooth(data=proportions, aes(avgdist, prop), method="lm")
+
+ggplot() + 
+  geom_point(data=proportions, aes(count, prop)) +
+    geom_smooth(data=proportions, aes(count, prop), method="lm")
+
+model2 <- lm(data=proportions, prop ~ count)
+summary(model2)
+
+model3 <- lm(data=proportions, prop ~ avgdist)
+summary(model3)
+### OK BUT WHY ARE THERE MULTIPLE ROWS OF THE SAME SITE? ARE THEY GETTING ADDED TWICE? PROBABLY.

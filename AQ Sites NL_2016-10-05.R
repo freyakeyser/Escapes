@@ -77,15 +77,21 @@ standard <- ddply(.data=inventory, .(ID),
 sites <- read.csv("C:/Users/keyserf/Documents/Data/NL Stocking 2010-2013.csv")
 str(sites)
 
+### NOTE: coordinates for Site 978 in 2011 was edited to match coords in 2010 and 2012. This site was empty in 2011, 
+### so changing these coords will not affect analysis and prevents a summation problem for propagule pressure
+
 sites$ID <- gsub(sites$ID, pattern="AQ", replacement = "")
 sites$ID <- gsub(sites$ID, pattern = "a", replacement = "")
 sites$ID <- gsub(sites$ID, pattern = "b", replacement = "")
 
 sites$ID <- as.character(sites$ID)
 
-inventory <- join(inventory, sites, type="left", by="ID")
+sites <- unique(subset(sites, select=c("ID", "Lat", "Long", "Year")))
+names(sites) <- c("ID", "Lat", "Long", "ReportYear")
 
-inventory <- ddply(.data=inventory, .(ID, Lat, Long),
+inventory <- join(inventory, sites, type="left")
+
+inventory <- ddply(.data=inventory, .(ID),
                    summarize,
                    cages = length(unique(Cage)),
                    years = length(unique(ReportYear)))

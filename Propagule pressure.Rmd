@@ -38,10 +38,10 @@ prov <- readShapeSpatial("C:/Users/keyserf/Documents/R/canvec/pvp/pvp.shp", proj
 #NL <- readOGR(dsn = "./R/canvec/canvec_50K_NL_Hydro_shp/waterbody_2_1.shp", layer="waterbody_2_1")
 ## THIS TAKES WAY TOO LONG, try lower resolution:
 ## http://ftp.geogratis.gc.ca/pub/nrcan_rncan/vector/canvec/shp/Land/
-## NL.low <- readOGR(dsn = "./canvec/canvec_250K_NL_Hydro_shp/waterbody_2.shp", layer="waterbody_2")
+## NL.low <- readOGR(dsn = "C:/Users/keyserf/Documents/R/canvec/canvec_250K_NL_Hydro_shp/waterbody_2.shp", layer="waterbody_2")
 
 # #cropping shapefile to the area and details I need
-# NL.low.ocean <- crop(NL.low, extent(-57, -54, 47, 48))
+# NL.low.ocean <- crop(NL.low, extent(-57, -54, 46.8, 48))
 # NL.low.ocean <- subset(NL.low.ocean, perm_en=="Permanent")
 # writeOGR(obj=NL.low.ocean, dsn="canvec", layer="NL.low.ocean", driver="ESRI Shapefile")
 # rm(NL.low)
@@ -56,6 +56,7 @@ prov <- readShapeSpatial("C:/Users/keyserf/Documents/R/canvec/pvp/pvp.shp", proj
 # extent(r) <- extent(NL.low.ocean)
 # NLrast <- rasterize(NL.low.ocean, r, fun="first")
 
+# NLline <- readOGR("C:/Users/keyserf/Documents/R/canvec/canvec_250K_NL_Land_shp/shoreline_1_small.shp", "shoreline_1_small")
 ```
 
 ##### START HERE IF ENVIRONMENT IS READY #####
@@ -68,12 +69,15 @@ siterast <- as.matrix(xy)
 
 # escaped fish location
 escapes <- read.csv("C:/Users/keyserf/Documents/Data/Gillnetting2015 - Master Copy.csv")
+rivers <- read.csv("C:/Users/keyserf/Documents/Data/river coords.csv")
 str(escapes)
 
 escapes$River <- gsub(escapes$River, pattern="Du", replacement="du")
-
+names(rivers) <- c("code", "V1", "V2")
 escapelocs <- unique(select(escapes, Latitude..N., Longitude..E.))
-escapemat <- as.matrix(cbind(escapelocs$Longitude..E., escapelocs$Latitude..N.))
+escapemat <- as.data.frame(cbind(escapelocs$Longitude..E., escapelocs$Latitude..N.))
+escapemat <- rbind(escapemat, rivers[,2:3])
+escapemat <- as.matrix(escapemat)
 
 ```
 
@@ -81,12 +85,12 @@ escapemat <- as.matrix(cbind(escapelocs$Longitude..E., escapelocs$Latitude..N.))
 ```{r}
 ## To get river mouth locations, use click(). Click on the plot to get coords for the river mouths with sampling sites on them.
 plot(NLrast)
-text(escapelocs$Longitude..E., escapelocs$Latitude..N.)
+text(escapemat[,1], escapemat[,2])
 lines(NLline)
-# rivermouths <- SpatialPoints(click(n=5))
+# rivermouths <- SpatialPoints(click(n=12))
 rivermouths <- snapPointsToLines(rivermouths, NLline)
 rivermouths <- fortify(as.data.frame(rivermouths))
-text(rivermouths$X, rivermouths$Y, col="yellow")
+text(rivermouths$X, rivermouths$Y, col="yellow", labels=1:12)
 
 ```
 
@@ -97,48 +101,61 @@ text(rivermouths$X, rivermouths$Y, col="yellow")
 # NLrast@data@values <- ifelse(coordinates(NLrast)[,1] < -56 & coordinates(NLrast)[,2] < 47.4, 1, NLrast@data@values)
 ```
 
+# Fix some AQ site coords
+```{r}
+siterast[2,] <- c(-56.325, 47.708)
+siterast[47,] <- c(-55.605, 47.532)
+```
+
 # Transition layer, Geocorrection, calculate distance matrix, calculate Cumulative Weighted Distances
 ```{r}
 # create transition layer for raster (likelihood of presence within cell). 
 tr3 <- transition(1/NLrast, transitionFunction=mean, directions=8)
 tr3c <- geoCorrection(tr3, type="c")
-plot(NLrast)
 
 # calculate least-cost distance between siterast (site location) and testrast (escaped fish location)
 d3 <- costDistance(tr3c, fromCoords = siterast, toCoords = cbind(rivermouths$X, rivermouths$Y))
 d3 
 
 d3 <- as.data.frame(cbind(d3, sites$ID))
-names(d3) <- c("river1", "river2", "river3", "river4", "river5", "ID")
+colnames(d3)[13] <- "ID"
 
 dist2AQ <- join(d3, inventory, type="left")
 ```
 
 # Calculate propagule pressure for each river. 
 ```{r}
-dist2AQ[,1:5] <- apply(dist2AQ[,1:5], 2, function(x) as.character(x))
-dist2AQ[,1:5] <- apply(dist2AQ[,1:5], 2, function(x) as.numeric(x))
+dist2AQ[,1:12] <- apply(dist2AQ[,1:12], 2, function(x) as.character(x))
+dist2AQ[,1:12] <- apply(dist2AQ[,1:12], 2, function(x) as.numeric(x))
 
 # For each AQ site, caclulate total fish/distance from river
-dist2AQ$P1 <- dist2AQ$totalfish/dist2AQ$river1
-dist2AQ$P2 <- dist2AQ$totalfish/dist2AQ$river2
-dist2AQ$P3 <- dist2AQ$totalfish/dist2AQ$river3
-dist2AQ$P4 <- dist2AQ$totalfish/dist2AQ$river4
-dist2AQ$P5 <- dist2AQ$totalfish/dist2AQ$river5
+dist2AQ$P1 <- dist2AQ$totalfish/dist2AQ$V1
+dist2AQ$P2 <- dist2AQ$totalfish/dist2AQ$V2
+dist2AQ$P3 <- dist2AQ$totalfish/dist2AQ$V3
+dist2AQ$P4 <- dist2AQ$totalfish/dist2AQ$V4
+dist2AQ$P5 <- dist2AQ$totalfish/dist2AQ$V5
+dist2AQ$P6 <- dist2AQ$totalfish/dist2AQ$V6
+dist2AQ$P7 <- dist2AQ$totalfish/dist2AQ$V7
+dist2AQ$P8 <- dist2AQ$totalfish/dist2AQ$V8
+dist2AQ$P9 <- dist2AQ$totalfish/dist2AQ$V9
+dist2AQ$P10 <- dist2AQ$totalfish/dist2AQ$V10
+dist2AQ$P11 <- dist2AQ$totalfish/dist2AQ$V11
+dist2AQ$P12 <- dist2AQ$totalfish/dist2AQ$V12
 
 # sum all pressures for total propagule pressure at a river
-prop.press <- apply(as.matrix(dist2AQ[,13:17]), 2, function(x) sum(x, na.rm=TRUE))
+prop.press <- apply(as.matrix(dist2AQ[,20:31]), 2, function(x) sum(x, na.rm=TRUE))
 
 # match to river mouth coords
 riverCWD <- data.frame(lat=rivermouths[,3], long = rivermouths[,2], prop.press = prop.press)
 
 # match rivermouths to sampling sites
 plot(NLrast)
-text(escapelocs[,2], escapelocs[,1])
-escapelocs$rivermouth <- c(3,3,3,5,3,2,1,4)
+text(escapemat[26,1], escapemat[26,2])
+escapelocs <- as.data.frame(escapemat)
+escapelocs$rivermouth <- c(6,6,6,10,6,5,3,6,2,3,1,10,11,9,12,3,8,7,6,6,4,5,3,3,4,9)
 
 text(riverCWD[,2], riverCWD[,1], col="yellow")
-riverCWD$rivermouth <- c(1,2,3,4,5)
+riverCWD$rivermouth <- c(1:12)
 
 escapelocs <- join(escapelocs, riverCWD, type="left")
 
@@ -151,27 +168,30 @@ prov <- fortify(NL.low.ocean)
 prov$group <- ifelse(prov$long < -56.2 & prov$lat < 47.375, 4771.1, prov$group)
 
 plot1 <- ggplot() + 
+  ggtitle("Aquaculture sites")+
   geom_polygon(data=prov, aes(long, lat, group=group), fill="grey")+ 
-  annotate(geom="rect", xmin=-57, xmax=-56, ymin=47.1, ymax= 47.3, fill="grey") +
-  geom_point(data=inventory, aes(Long, Lat, size=totalfish), fill="red", shape=21, colour="black") + 
+  annotate(geom="rect", xmin=-57, xmax=-56, ymin=46.8, ymax= 47.45, fill="grey") +
+  geom_point(data=inventory[inventory$totalfish >0,], aes(Long, Lat, size=totalfish), fill="red", shape=21, colour="black") + 
   theme_bw() +
-  coord_map(xlim=c(-56.4, -55.0), ylim=c(47.15, 47.9)) +
+  coord_map(xlim=c(-56.7, -54.5), ylim=c(46.82, 47.9)) +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
-  scale_size_continuous(name="totalfish")
+  scale_size_continuous(name="Total fish", range = c(0.5,10), limits=c(1,4000000), breaks=c(100, 1000, 10000, 100000, 1000000, 2500000, 4000000))
 
 plot2 <- ggplot() + 
+  ggtitle("Salmon rivers")+
   geom_polygon(data=prov, aes(long, lat, group=group), fill="grey")+
-  annotate(geom="rect", xmin=-57, xmax=-56, ymin=47.1, ymax= 47.3, fill="grey") +
-  geom_point(data=escapelocs, aes(long, lat, size=prop.press), fill="yellow", shape=21, colour="black") +
+  annotate(geom="rect", xmin=-57, xmax=-56, ymin=46.8, ymax= 47.45, fill="grey") +
+  geom_point(data=unique(escapelocs[,4:6]), aes(long, lat, size=prop.press), fill="yellow", shape=21, colour="black") +
   theme_bw() +
-  coord_map(xlim=c(-56.4, -55.0), ylim=c(47.15, 47.9)) +
+  coord_map(xlim=c(-56.7, -54.5), ylim=c(46.82, 47.9)) +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
-  scale_size_continuous(name="\u03A3(totalfish/d)")
+  #scale_size_area(name="\u03A3(totalfish/d)", breaks=seq(50, 4000, 500)) +
+  scale_size_continuous(name="Propagule\npressure=\n\u03A3(total fish/dist)", range = c(0.5,10), limits=c(100,9000), breaks=c(500, 1000, 2500, 5000, 7500, 9000))
 
 gA <- ggplotGrob(plot1)
 gB <- ggplotGrob(plot2)
 grid.newpage()
-grid.draw(rbind(gA, gB))
+grid.draw(cbind(gA, gB))
 
 ```
 
@@ -195,8 +215,12 @@ proportions$farmed <- ifelse(is.na(proportions$farmed)=="TRUE", 0, proportions$f
 
 proportions$prop <- proportions$farmed/proportions$total
  
-ggplot() + geom_point(data=proportions, aes(prop.press, prop)) + 
+ggplot() + 
   geom_smooth(data=proportions, aes(prop.press, prop), method="lm") +
+  geom_text(data=proportions, aes(prop.press, prop, label=rivermouth)) + 
   theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
   xlab("Propagule Pressure") +
-  ylab("Number of escapees detected")
+  ylab("Proportion of escapees")
+
+```

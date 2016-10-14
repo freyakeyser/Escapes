@@ -439,7 +439,7 @@ lines(sPath2)
 ```{r}
 #getwd()
 setwd("C:/Users/keyserf/Documents/")
-NLline <- readOGR("./R/canvec/canvec_250K_NL_Land_shp/shoreline_1_small.shp", "shoreline_1_small")
+NLline <- readOGR("C:/Users/keyserf/Documents/R/canvec/canvec_250K_NL_Land_shp/shoreline_1_small.shp", "shoreline_1_small")
 extent(NLline)
 NLline <- crop(NLline, extent(-57, -54, 47, 48))
 

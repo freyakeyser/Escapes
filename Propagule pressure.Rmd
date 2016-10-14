@@ -77,7 +77,7 @@ escapes$River <- gsub(escapes$River, pattern="Du", replacement="du")
 names(rivers) <- c("code", "V1", "V2")
 escapelocs <- unique(select(escapes, Latitude..N., Longitude..E.))
 escapemat <- as.data.frame(cbind(escapelocs$Longitude..E., escapelocs$Latitude..N.))
-escapemat <- rbind(escapemat, rivers[,2:3])
+escapemat <- rbind(escapemat, as.data.frame(rivers[,2:3]))
 escapemat <- as.matrix(escapemat)
 
 ```
@@ -199,9 +199,10 @@ grid.draw(cbind(gA, gB))
 names(sites)
 # NEXT: proportion of escapees (or number of escapes) vs. propagule pressure for those 3 rivers
 ```{r}
-escapes <- join(escapes,escapelocs, type="left")
-str(escapes)
-unique(escapes$Life.Stage)
+names(escapelocs) <- c("Longitude..E.", "Latitude..N.", "rivermouth", "lat", "long", "prop.press")
+
+escapes <- join(escapes, escapelocs, type="left")
+
 farmed <- subset(escapes, Life.Stage=="Farmed")
 
 proportions_f <- ddply(.data=farmed, .(rivermouth),
@@ -282,6 +283,14 @@ events <- unique(select(events, ID, ReportYear, NEscape))
 events2 <- ddply(.data=events, .(ID),
                  summarize,
                  totalescape = sum(NEscape))
+
+melted <- join(melted, events2, type="left")
+
+escape.press <- ddply(.data=melted, .(variable),
+                       summarize,
+                      e.press = sum(totalescape/value, na.rm=TRUE))
+####### Come back to this later. I need lat/longs for the sites that had escapes. #######
+
 ```
 
 ### Sampling effort
@@ -311,5 +320,25 @@ effort <- ddply(.data=sets, .(rivermouth),
                 effort = sum(Duration),
                 nsets = length(unique(Set.ID)))
 
+colnames(melted)[3] <- "rivermouth"
+melted$rivermouth <- as.character(melted$rivermouth)
+melted$rivermouth <- sub(melted$rivermouth, pattern="V", replacement="")
+
+melted <- join(melted, effort, type="left")
+melted$effort <- ifelse(is.na(melted$effort)==TRUE, 0, melted$effort)
+melted$nsets <- ifelse(is.na(melted$nsets)==TRUE, 0, melted$nsets)
+
+
+proportions <- join(proportions, melted, type="left")
+
+
+ggplot() + geom_point(data=proportions, aes(effort, prop))
+
+ggplot() + geom_point(data=proportions, aes(nsets, prop))
+
 ```
+
+### more models
+```{r}
+
 

@@ -47,7 +47,7 @@ prov <- readShapeSpatial("C:/Users/keyserf/Documents/R/canvec/pvp/pvp.shp", proj
 # rm(NL.low)
 
 # read in cropped shapefile: NL.low.ocean
-# NL.low.ocean <- readOGR(dsn="C:/Users/keyserf/Documents/R/canvec/NL.low.ocean.dbf", layer="NL.low.ocean")
+# NL.low.ocean <- readOGR(dsn="./canvec/NL.low.ocean.dbf", layer="NL.low.ocean")
 # plot(NL.low.ocean)
 # points(siterast, pch=16, col="red")
 
@@ -57,11 +57,13 @@ prov <- readShapeSpatial("C:/Users/keyserf/Documents/R/canvec/pvp/pvp.shp", proj
 # NLrast <- rasterize(NL.low.ocean, r, fun="first")
 
 # NLline <- readOGR("C:/Users/keyserf/Documents/R/canvec/canvec_250K_NL_Land_shp/shoreline_1_small.shp", "shoreline_1_small")
+
 ```
 
 ##### START HERE IF ENVIRONMENT IS READY #####
 ```{r}
 # site coords
+# read in sites from AQ sites NL script
 sitecoords <- unique(select(sites, ID, Lat, Long))
 x <- sitecoords$Long
 y <- sitecoords$Lat
@@ -95,7 +97,7 @@ text(rivermouths$X, rivermouths$Y, col="yellow", labels=1:12)
 
 ```
 
-# SKIP IF ENVIRONMENT LOADED! change values in raster so that land is impassable (i.e. distances would be massive). 
+# Change values in raster so that land is impassable (i.e. distances would be massive). 
 ```{r}
 # Also get rid of ocean blob
 # NLrast@data@values <- ifelse(is.na(NLrast@data@values)=="TRUE", 10000, 1)
@@ -118,7 +120,10 @@ tr3c <- geoCorrection(tr3, type="c")
 # calculate least-cost distance between siterast (site location) and testrast (escaped fish location)
 d3 <- costDistance(tr3c, fromCoords = siterast, toCoords = cbind(rivermouths$X, rivermouths$Y))
 d3 
+```
 
+### IF ENVIRONMENT LOADED: START HERE!
+```{r}
 d3 <- as.data.frame(cbind(d3, sitecoords$ID))
 colnames(d3)[13] <- "ID"
 
@@ -145,18 +150,18 @@ dist2AQ$P11 <- dist2AQ$totalfish/dist2AQ$V11
 dist2AQ$P12 <- dist2AQ$totalfish/dist2AQ$V12
 
 # sum all pressures for total propagule pressure at a river
-prop.press <- apply(as.matrix(dist2AQ[,18:29]), 2, function(x) sum(x, na.rm=TRUE))
+prop.press <- apply(as.matrix(dist2AQ[,21:32]), 2, function(x) sum(x, na.rm=TRUE))
 
 # match to river mouth coords
 riverCWD <- data.frame(lat=rivermouths[,3], long = rivermouths[,2], prop.press = prop.press)
 
 # match rivermouths to sampling sites
-plot(NLrast)
-text(escapemat[26,1], escapemat[26,2])
+#plot(NLrast)
+#text(escapemat[21:26,1], escapemat[21:26,2])
 escapelocs <- as.data.frame(escapemat)
 escapelocs$rivermouth <- c(6,6,6,10,6,5,3,6,2,3,1,10,11,9,12,3,8,7,6,6,4,5,3,3,4,9)
 
-text(riverCWD[,2], riverCWD[,1], col="yellow")
+#text(riverCWD[,2], riverCWD[,1], col="yellow")
 riverCWD$rivermouth <- c(1:12)
 
 escapelocs <- join(escapelocs, riverCWD, type="left")
@@ -183,12 +188,12 @@ plot2 <- ggplot() +
   ggtitle("Salmon rivers")+
   geom_polygon(data=prov, aes(long, lat, group=group), fill="grey")+
   annotate(geom="rect", xmin=-57, xmax=-56, ymin=46.8, ymax= 47.45, fill="grey") +
-  geom_point(data=unique(escapelocs[,4:6]), aes(long, lat, size=prop.press), fill="yellow", shape=21, colour="black") +
+  geom_point(data=unique(escapelocs[,3:6]), aes(long, lat, size=prop.press), fill="yellow", shape=21, colour="black") +
   theme_bw() +
   coord_map(xlim=c(-56.7, -54.5), ylim=c(46.82, 47.9)) +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
   #scale_size_area(name="\u03A3(totalfish/d)", breaks=seq(50, 4000, 500)) +
-  scale_size_continuous(name="Propagule\npressure=\n\u03A3(total fish/dist)", range = c(0.5,10), limits=c(100,5000), breaks=c(500, 1000, 3000, 5000))
+  scale_size_continuous(name="Propagule\npressure=\n\u03A3(total fish/dist)", range = c(0.5,10), limits=c(100,6000), breaks=c(500, 1000, 3000, 6000))
 
 gA <- ggplotGrob(plot1)
 gB <- ggplotGrob(plot2)
@@ -231,7 +236,11 @@ ggplot() +
   xlab("Propagule Pressure") +
   ylab("Proportion of escapees")+
   xlim(c(750, 3500)) +
+<<<<<<< HEAD
   annotate(geom="text", x=2750, y=0.2, label="R-squared = 0.5762\np-value = 0.153", hjust=0)
+=======
+  annotate(geom="text", x=2750, y=0.2, label="R-squared = 0.5762\np-value = 0.153", hjust=0) +
+>>>>>>> b8e4f4fe676046702f504ca7e479f0dbc897d893
 
 model1 <- lm(data=proportions, prop ~ prop.press)
 summary(model1)

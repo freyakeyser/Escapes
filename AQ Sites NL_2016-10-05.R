@@ -99,6 +99,8 @@ inventory <- ddply(.data=inventory, .(ID),
                    years = length(unique(ReportYear)))
 
 inventory <- join(inventory, standard, type="left")
+
+inventory <- join(inventory, sites, type="left")
 #### inventory$totalfish is the column I need! 
 
 

@@ -64,7 +64,7 @@ prov <- readShapeSpatial("C:/Users/keyserf/Documents/R/canvec/pvp/pvp.shp", proj
 ```{r}
 # site coords
 # read in sites from AQ sites NL script
-sitecoords <- unique(select(sites, ID, Lat, Long))
+sitecoords <- unique(subset(inventory, is.na(Lat)=="FALSE", select=c("ID","Lat", "Long")))
 x <- sitecoords$Long
 y <- sitecoords$Lat
 xy <- cbind(x, y)
@@ -107,8 +107,11 @@ text(rivermouths$X, rivermouths$Y, col="yellow", labels=1:13)
 
 # Fix some AQ site coords
 ```{r}
-siterast[2,] <- c(-56.325, 47.708)
-siterast[35,] <- c(-55.605, 47.532)
+# plot(NLrast)
+# points(x=-55.8079, y=47.5936)
+# points(x=-55.785080, y=47.578664)
+siterast[17,] <- c(56.063285, 47.780185)
+siterast[30,] <- c(-55.785080, 47.578664)
 
 ```
 
@@ -119,7 +122,7 @@ tr3 <- transition(1/NLrast, transitionFunction=mean, directions=8)
 tr3c <- geoCorrection(tr3, type="c")
 
 # calculate least-cost distance between siterast (site location) and testrast (escaped fish location)
-d3 <- costDistance(tr3c, fromCoords = siterast, toCoords = cbind(rivermouths$X, rivermouths$Y))
+d3 <- costDistance(tr3c, fromCoords = cbind(as.numeric(siterast[,1]), as.numeric(siterast[,2])), toCoords = cbind(rivermouths$X, rivermouths$Y))
 d3 
 ```
 
@@ -152,7 +155,7 @@ dist2AQ$P12 <- dist2AQ$totalfish/dist2AQ$V12
 dist2AQ$P13 <- dist2AQ$totalfish/dist2AQ$V13
 
 # sum all pressures for total propagule pressure at a river
-prop.press <- apply(as.matrix(dist2AQ[,22:34]), 2, function(x) sum(x, na.rm=TRUE))
+prop.press <- apply(as.matrix(dist2AQ[,21:33]), 2, function(x) sum(x, na.rm=TRUE))
 
 # match to river mouth coords
 riverCWD <- data.frame(lat=rivermouths[,3], long = rivermouths[,2], prop.press = prop.press)
@@ -164,7 +167,7 @@ riverCWD <- data.frame(lat=rivermouths[,3], long = rivermouths[,2], prop.press =
 plot(NLrast)
 #text(escapemat[,1], escapemat[,2])
 escapelocs <- as.data.frame(escapemat)
-escapelocs$rivermouth <- c(6,6,6,11,6,5,3,6,2,3,1,11,12,10,11,3,9,8,7,7,4,5,3,3,4,10)
+escapelocs$rivermouth <- c(6,6,6,11,6,5,3,6,2,3,1,11,12,10,13,3,9,8,7,7,4,5,3,3,4,10)
 
 #text(riverCWD[,2], riverCWD[,1], col="yellow")
 riverCWD$rivermouth <- c(1:13)
@@ -175,6 +178,9 @@ escapelocs <- join(escapelocs, riverCWD, type="left")
 
 # plot propagule pressure
 ```{r}
+inventory <- subset(inventory, totalfish > 0)
+inventory$Lat <- as.numeric(inventory$Lat)
+inventory$Long <- as.numeric(inventory$Long)
 
 prov <- fortify(NL.low.ocean)
 prov$group <- ifelse(prov$long < -56.2 & prov$lat < 47.375, 4771.1, prov$group)
@@ -183,9 +189,9 @@ plot1 <- ggplot() +
   ggtitle("Aquaculture sites")+
   geom_polygon(data=prov, aes(long, lat, group=group), fill="grey")+ 
   annotate(geom="rect", xmin=-57, xmax=-56, ymin=46.8, ymax= 47.45, fill="grey") +
-  geom_point(data=inventory[inventory$totalfish >0,], aes(Long, Lat, size=totalfish), fill="red", shape=21, colour="black") + 
+  geom_point(data=inventory, aes(Long, Lat, size=totalfish), fill="red", shape=21, colour="black") + 
   theme_bw() +
-  coord_map(xlim=c(-56.7, -54.5), ylim=c(46.82, 47.9)) +
+  coord_map(xlim=c(-56.7, -54.5), ylim=c(46.82, 48)) +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
   scale_size_continuous(name="Total fish", range = c(0.5,10), limits=c(1,4000000), breaks=c(100, 1000, 10000, 100000, 1000000, 2500000, 4000000))
 
@@ -194,10 +200,10 @@ plot2 <- ggplot() +
   geom_polygon(data=prov, aes(long, lat, group=group), fill="grey")+
   annotate(geom="rect", xmin=-57, xmax=-56, ymin=46.8, ymax= 47.45, fill="grey") +
   geom_point(data=unique(escapelocs[,3:6]), aes(long, lat, size=prop.press), fill="yellow", shape=21, colour="black") +
-  theme_bw() +  coord_map(xlim=c(-56.7, -54.5), ylim=c(46.82, 47.9)) +
+  theme_bw() +  coord_map(xlim=c(-56.7, -54.5), ylim=c(46.82, 48)) +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
   #scale_size_area(name="\u03A3(totalfish/d)", breaks=seq(50, 4000, 500)) +
-  scale_size_continuous(name="Propagule\npressure=\n\u03A3(total fish/dist)", range = c(0.5,10), limits=c(100,7000), breaks=c(500, 1000, 3000, 7000))
+  scale_size_continuous(name="Propagule\npressure=\n\u03A3(total fish/dist)", range = c(0.5,10), limits=c(100,6000), breaks=c(500, 1000, 3000, 6000))
 
 gA <- ggplotGrob(plot1)
 gB <- ggplotGrob(plot2)

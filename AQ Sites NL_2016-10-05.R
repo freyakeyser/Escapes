@@ -64,6 +64,14 @@ inventory$fishcount <- ifelse(inventory$case==1, (inventory$NStart + inventory$N
 
 events <- inventory
 
+### for only 2013 year
+inv2013 <- subset(inventory, ReportYear==2013)
+
+totfish2013 <- ddply(.data=inventory, .(ID),
+                     summarize,
+                     totalfish = sum(fishcount))
+#######################################################################
+
 ggplot() + 
   geom_point(data=inventory, aes(ReportYear, fishcount)) + 
   facet_wrap(~ID)
@@ -76,20 +84,17 @@ standard <- ddply(.data=inventory, .(ID),
 
 ### Combine with coordinate data
 
-sites <- read.csv("C:/Users/keyserf/Documents/Data/NL Stocking 2010-2013.csv")
+sites <- read.csv("C:/Users/keyserf/Documents/Data/Site coordinates_NL_all.csv")
 str(sites)
 
-### NOTE: coordinates for Site 978 in 2011 was edited to match coords in 2010 and 2012. This site was empty in 2011, 
-### so changing these coords will not affect analysis and prevents a summation problem for propagule pressure
+sites <- subset(sites, select=c("Licence...", "Latitude", "Longitude"))
+names(sites) <- c("ID", "Lat", "Long")
 
-sites$ID <- gsub(sites$ID, pattern="AQ", replacement = "")
-sites$ID <- gsub(sites$ID, pattern = "a", replacement = "")
-sites$ID <- gsub(sites$ID, pattern = "b", replacement = "")
+sites <- rbind(sites, data.frame(ID=c("1079", "1085", "1096", "1107"), 
+                                 Lat=c(47.92217, 47.66130, 47.66155, 47.73218),
+                                 Long=c(-55.95247, -55.13680, -56.51965, -56.32793)))
 
 sites$ID <- as.character(sites$ID)
-
-sites <- unique(subset(sites, select=c("ID", "Lat", "Long", "Year")))
-names(sites) <- c("ID", "Lat", "Long", "ReportYear")
 
 inventory <- join(inventory, sites, type="left")
 

@@ -64,14 +64,6 @@ inventory$fishcount <- ifelse(inventory$case==1, (inventory$NStart + inventory$N
 
 events <- inventory
 
-### for only 2013 year
-inv2013 <- subset(inventory, ReportYear==2013)
-
-totfish2013 <- ddply(.data=inventory, .(ID),
-                     summarize,
-                     totalfish = sum(fishcount))
-#######################################################################
-
 ggplot() + 
   geom_point(data=inventory, aes(ReportYear, fishcount)) + 
   facet_wrap(~ID)
@@ -95,6 +87,17 @@ sites <- rbind(sites, data.frame(ID=c("1079", "1085", "1096", "1107"),
                                  Long=c(-55.95247, -55.13680, -56.51965, -56.32793)))
 
 sites$ID <- as.character(sites$ID)
+
+### for only 2013 year
+inv2013 <- subset(inventory, ReportYear==2013)
+
+totfish2013 <- ddply(.data=inv2013, .(ID),
+                     summarize,
+                     totalfish = sum(fishcount))
+
+totfish2013 <- join(totfish2013, sites, type="left")
+#######################################################################
+
 
 inventory <- join(inventory, sites, type="left")
 

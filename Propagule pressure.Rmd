@@ -138,43 +138,51 @@ dist2AQ <- join(d3, inventory, type="left")
 
 # Calculate propagule pressure for each river. 
 ```{r}
-dist2AQ[,1:13] <- apply(dist2AQ[,1:13], 2, function(x) as.character(x))
-dist2AQ[,1:13] <- apply(dist2AQ[,1:13], 2, function(x) as.numeric(x))
+dist2AQ[,1:18] <- apply(dist2AQ[,1:18], 2, function(x) as.character(x))
+dist2AQ[,1:18] <- apply(dist2AQ[,1:18], 2, function(x) as.numeric(x))
 
 # For each AQ site, caclulate total fish/distance from river
-dist2AQ$P1 <- dist2AQ$totalfish/dist2AQ$V1
-dist2AQ$P2 <- dist2AQ$totalfish/dist2AQ$V2
-dist2AQ$P3 <- dist2AQ$totalfish/dist2AQ$V3
-dist2AQ$P4 <- dist2AQ$totalfish/dist2AQ$V4
-dist2AQ$P5 <- dist2AQ$totalfish/dist2AQ$V5
-dist2AQ$P6 <- dist2AQ$totalfish/dist2AQ$V6
-dist2AQ$P7 <- dist2AQ$totalfish/dist2AQ$V7
-dist2AQ$P8 <- dist2AQ$totalfish/dist2AQ$V8
-dist2AQ$P9 <- dist2AQ$totalfish/dist2AQ$V9
-dist2AQ$P10 <- dist2AQ$totalfish/dist2AQ$V10
-dist2AQ$P11 <- dist2AQ$totalfish/dist2AQ$V11
-dist2AQ$P12 <- dist2AQ$totalfish/dist2AQ$V12
-dist2AQ$P13 <- dist2AQ$totalfish/dist2AQ$V13
+dist2AQ$P1 <- dist2AQ$totalfish/dist2AQ$BTB
+dist2AQ$P2 <- dist2AQ$totalfish/dist2AQ$CNR
+dist2AQ$P3 <- dist2AQ$totalfish/dist2AQ$DLR
+dist2AQ$P4 <- dist2AQ$totalfish/dist2AQ$GAR
+dist2AQ$P5 <- dist2AQ$totalfish/dist2AQ$GBB
+dist2AQ$P6 <- dist2AQ$totalfish/dist2AQ$GLP
+dist2AQ$P7 <- dist2AQ$totalfish/dist2AQ$LMS
+dist2AQ$P8 <- dist2AQ$totalfish/dist2AQ$LTR
+dist2AQ$P9 <- dist2AQ$totalfish/dist2AQ$LHR
+dist2AQ$P10 <- dist2AQ$totalfish/dist2AQ$MAL
+dist2AQ$P11 <- dist2AQ$totalfish/dist2AQ$NEB
+dist2AQ$P12 <- dist2AQ$totalfish/dist2AQ$FBN
+dist2AQ$P13 <- dist2AQ$totalfish/dist2AQ$OBB
+dist2AQ$P14 <- dist2AQ$totalfish/dist2AQ$SMB
+dist2AQ$P15 <- dist2AQ$totalfish/dist2AQ$SEB
+dist2AQ$P16 <- dist2AQ$totalfish/dist2AQ$TRB
+dist2AQ$P17 <- dist2AQ$totalfish/dist2AQ$TBB
+dist2AQ$P18 <- dist2AQ$totalfish/dist2AQ$TEB
 
 # sum all pressures for total propagule pressure at a river
-prop.press <- apply(as.matrix(dist2AQ[,21:33]), 2, function(x) sum(x, na.rm=TRUE))
+prop.press <- apply(as.matrix(dist2AQ[,26:43]), 2, function(x) sum(x, na.rm=TRUE))
 
 # match to river mouth coords
-riverCWD <- data.frame(lat=rivermouths[,3], long = rivermouths[,2], prop.press = prop.press)
+riverCWD <- data.frame(code=rivers[,1], lat=rivermouths[,3], long = rivermouths[,2], prop.press = prop.press)
 
 # match rivermouths to sampling sites
 # zoomed <- crop(NLrast, extent(-55.5,-55.3, 47.6, 47.8))
 # plot(zoomed)
 
-plot(NLrast)
-#text(escapemat[,1], escapemat[,2])
-escapelocs <- as.data.frame(escapemat)
-escapelocs$rivermouth <- c(6,6,6,11,6,5,3,6,2,3,1,11,12,10,13,3,9,8,7,7,4,5,3,3,4,10)
+# plot(NLrast)
+# #text(escapemat[,1], escapemat[,2])
+# escapelocs <- escapemat
+# escapelocs$rivermouth <- c(6,6,6,11,6,5,3,6,2,3,1,11,12,10,13,3,9,8,7,7,4,5,3,3,4,10)
+# 
+# #text(riverCWD[,2], riverCWD[,1], col="yellow")
+# riverCWD$rivermouth <- c(1:13)
+# 
 
-#text(riverCWD[,2], riverCWD[,1], col="yellow")
-riverCWD$rivermouth <- c(1:13)
-
-escapelocs <- join(escapelocs, riverCWD, type="left")
+riverCWD$rivermouth <- 1:18
+rivermouths$rivermouth <- 1:18
+prop.pressALL <- join(riverCWD, rivermouths, type="left")
 
 ```
 
@@ -201,11 +209,11 @@ plot2 <- ggplot() +
   ggtitle("Salmon rivers")+
   geom_polygon(data=prov, aes(long, lat, group=group), fill="grey")+
   annotate(geom="rect", xmin=-57, xmax=-56, ymin=46.8, ymax= 47.45, fill="grey") +
-  geom_point(data=unique(escapelocs[,3:6]), aes(long, lat, size=prop.press), fill="yellow", shape=21, colour="black") +
+  geom_point(data=prop.pressALL, aes(long, lat, size=prop.press), fill="yellow", shape=21, colour="black") +
   theme_bw() +  coord_map(xlim=c(-56.7, -54.5), ylim=c(46.82, 48)) +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
   #scale_size_area(name="\u03A3(totalfish/d)", breaks=seq(50, 4000, 500)) +
-  scale_size_continuous(name="Propagule\npressure=\n\u03A3(total fish/dist)", range = c(0.5,10), limits=c(100,6000), breaks=c(500, 1000, 3000, 6000))
+  scale_size_continuous(name="Propagule\npressure=\n\u03A3(total fish/dist)", range = c(0.5,10), limits=c(100,10000), breaks=c(500, 1000, 2500, 5000, 10000))
 
 gA <- ggplotGrob(plot1)
 gB <- ggplotGrob(plot2)
@@ -436,9 +444,9 @@ riverCWD <- data.frame(code=rivers[,1], lat=rivermouths[,3], long = rivermouths[
 # zoomed <- crop(NLrast, extent(-55.7,-55.2, 47.6, 47.8))
 # plot(zoomed)
 
-plot(NLrast)
-#text(rivers[,2], rivers[,3])
-escapelocs <- as.data.frame(escapemat)
+# plot(NLrast)
+# #text(rivers[,2], rivers[,3])
+# escapelocs <- as.data.frame(escapemat)
 rivers$rivermouth <- 1:18
 
 
@@ -492,6 +500,8 @@ prop.press2013$name <- c("Bottom Brook", "Conne River", "Dollard's Brook",
                          "Mal Bay Brook", "Northeast Brook", "Northwest Brook",
                          "Old Bay Brook", "Simm's Brook", "Southeast Brook",
                          "Tailrace Brook", "Taylor Bay Brook", "Terrenceville Brook")
+
+prop.press2013 <- select(prop.press2013, code, lat, long, prop.press, rivermouth, name)
 
 write.csv(prop.press2013, file="C:/Users/keyserf/Documents/Data/2013 propagule pressures.csv")
 

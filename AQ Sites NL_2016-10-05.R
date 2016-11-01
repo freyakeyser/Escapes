@@ -17,8 +17,7 @@ require(gdistance)
 inventory <- read.csv("C:/Users/keyserf/Documents/data/NL inventory master2.csv", colClasses = "character")
 
 names(inventory) <- c("ID", "Cage", "NStart", "YC", "YCAdj", "NIntro", "NMort", "NHarvest", 
-                      "NTransfer", "CountDev", "CountDevAbs", "NEscape", "NRemain", "Trout",
-                      "ReportYear", "Bay")
+                      "NTransfer", "CountDev", "CountDevAbs", "NEscape", "NRemain", "ReportYear", "Bay")
 
 str(inventory)
 
@@ -41,7 +40,7 @@ inventory$NRemain <- as.numeric(inventory$NRemain)
 
 inventory[, 6:13][is.na(inventory[, 6:13])] <- 0
 inventory[,3][is.na(inventory[, 3])] <- 0
-
+head(inventory)
 
 ################### CALCULATE FISH YEARS ########################
 
@@ -64,11 +63,25 @@ inventory$fishcount <- ifelse(inventory$case==1, (inventory$NStart + inventory$N
 
 events <- inventory
 
+## need to clean up old data a bit. many missing ID value.
+
+old <- subset(inventory, ReportYear<2010)
+missing <- subset(old, ID=="")
+IDs <- ddply(.data=inventory, .(Bay),
+             summarize,
+             one = max(ID))
+
+### problem: some old data rows are missing IDs, and are for multiple sites. How to proceed? Average out between n locations??
+best <- subset(inventory, is.na(as.numeric(ID))==FALSE)
+
+### until i get that figured out:
+meantime <- subset(inventory, ReportYear >2009)
+
 ggplot() + 
-  geom_point(data=inventory, aes(ReportYear, fishcount)) + 
+  geom_point(data=meantime, aes(ReportYear, fishcount)) + 
   facet_wrap(~ID)
 
-standard <- ddply(.data=inventory, .(ID),
+standard <- ddply(.data=meantime, .(ID),
                   summarize,
                   totalfish = sum(fishcount),
                   totalyears = length(unique(ReportYear)))
@@ -87,6 +100,7 @@ sites <- rbind(sites, data.frame(ID=c("1079", "1085", "1096", "1107"),
                                  Long=c(-55.95247, -55.13680, -56.51965, -56.32793)))
 
 sites$ID <- as.character(sites$ID)
+sites
 
 ### for only 2013 year
 inv2013 <- subset(inventory, ReportYear==2013)

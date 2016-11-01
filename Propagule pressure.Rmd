@@ -97,6 +97,21 @@ rivermouths <- snapPointsToLines(rivermouths, NLline)
 rivermouths <- fortify(as.data.frame(rivermouths))
 text(rivermouths$X, rivermouths$Y, col="red", labels=1:18)
 
+
+
+Bsites <- read.csv("C:/Users/keyserf/Documents/Data/sites_lat_long_brendan.csv", header=TRUE)
+# plot(NLrast)
+# head(Bsites)
+# points(Bsites$V1, Bsites$V2, pch=21, bg="black")
+Bsites <- Bsites[1:18,] 
+Bsites[,1:3] <- apply(Bsites[,1:3], 2, function(x) as.character(x))
+Bsites[,2:3] <- apply(Bsites[,2:3], 2, function(x) as.numeric(x))
+  
+x <- Bsites$V1
+y <- Bsites$V2
+xy <-cbind(x, y)
+Bsiterast <- as.matrix(xy)
+
 ```
 
 # Change values in raster so that land is impassable (i.e. distances would be massive). 
@@ -108,12 +123,10 @@ text(rivermouths$X, rivermouths$Y, col="red", labels=1:18)
 
 # Fix some AQ site coords
 ```{r}
-# plot(NLrast)
-# points(x=-55.8079, y=47.5936)
-# points(x=-55.785080, y=47.578664)
-siterast[17,] <- c(-56.063285, 47.780185)
-siterast[30,] <- c(-55.785080, 47.578664)
-
+# plot(NLrast, xlim=c(-56.0, -55.5), ylim=c(47.4, 47.6))
+# points(siterast[12,1], siterast[12,2], col="blue")
+# siterast[12,] <- click()
+# make site 12 = -55.58610 and 47.51435
 ```
 
 # Transition layer, Geocorrection, calculate distance matrix, calculate Cumulative Weighted Distances
@@ -123,7 +136,7 @@ tr3 <- transition(1/NLrast, transitionFunction=mean, directions=8)
 tr3c <- geoCorrection(tr3, type="c")
 
 # calculate least-cost distance between siterast (site location) and testrast (escaped fish location)
-d3 <- costDistance(tr3c, fromCoords = cbind(as.numeric(siterast[,1]), as.numeric(siterast[,2])), toCoords = cbind(rivermouths$X, rivermouths$Y))
+d3 <- costDistance(tr3c, fromCoords = cbind(as.numeric(siterast[,1]), as.numeric(siterast[,2])), toCoords = cbind(as.numeric(Bsiterast[,1]), as.numeric(Bsiterast[,2])))
 d3 
 ```
 
@@ -322,8 +335,8 @@ summary(model3)
 # events dataframe from AQ sites script
 names(events)
 events <- unique(select(events, ID, ReportYear, NEscape))
-
-events2 <- ddply(.data=events, .(ID),
+names(events)
+events2 <- ddply(.data=events, .(ID, Bay),
                  summarize,
                  totalescape = sum(NEscape))
 
@@ -409,6 +422,7 @@ summary(model5)
 
 ### for 2013 only
 ```{r}
+colnames(d3)[1:18] <- as.list(as.character(Bsites$X))
 dist2AQ_2013 <- join(d3, totfish2013, type="left")
 
 dist2AQ_2013[,1:18] <- apply(dist2AQ_2013[,1:18], 2, function(x) as.character(x))
@@ -438,7 +452,7 @@ dist2AQ_2013$P18 <- dist2AQ_2013$totalfish/dist2AQ_2013$TEB
 prop.press <- apply(as.matrix(dist2AQ_2013[,23:40]), 2, function(x) sum(x, na.rm=TRUE))
 
 # match to river mouth coords
-riverCWD <- data.frame(code=rivers[,1], lat=rivermouths[,3], long = rivermouths[,2], prop.press = prop.press)
+riverCWD <- data.frame(code=Bsites[,1], lat=Bsites[,3], long = Bsites[,2], prop.press = prop.press)
 
 # match rivermouths to sampling sites
 # zoomed <- crop(NLrast, extent(-55.7,-55.2, 47.6, 47.8))
@@ -447,14 +461,25 @@ riverCWD <- data.frame(code=rivers[,1], lat=rivermouths[,3], long = rivermouths[
 # plot(NLrast)
 # #text(rivers[,2], rivers[,3])
 # escapelocs <- as.data.frame(escapemat)
-rivers$rivermouth <- 1:18
+# rivers$rivermouth <- 1:18
 
 
-#text(rivermouths[,2], rivermouths[,3], col="yellow")
-riverCWD$rivermouth <- 1:18
-rivermouths$rivermouth <- 1:18
-prop.press2013 <- join(riverCWD, rivermouths, type="left")
+# #text(rivermouths[,2], rivermouths[,3], col="yellow")
+# riverCWD$rivermouth <- 1:18
+# rivermouths$rivermouth <- 1:18
+# prop.press2013 <- join(riverCWD, rivermouths, type="left")
+prop.press2013 <- riverCWD
 
+prop.press2013$name <- c("Bottom Brook", "Conne River", "Dollard's Brook",
+                         "Garnish River", "Grand Bank Brook", "Grand LaPierre Brook",
+                         "Salmonier River", "Little River", "Long Harbour River",
+                         "Mal Bay Brook", "Northeast Brook", "Northwest Brook",
+                         "Old Bay Brook", "Simm's Brook", "Southeast Brook",
+                         "Tailrace Brook", "Taylor Bay Brook", "Terrenceville Brook")
+
+prop.press2013 <- select(prop.press2013, code, lat, long, prop.press, name)
+prop.press2013
+write.csv(prop.press2013, file="C:/Users/keyserf/Documents/Data/2013 propagule pressures_2016-11-01.csv")
 ```
 
 # plot propagule pressure
@@ -465,6 +490,9 @@ totfish2013$Long <- as.numeric(totfish2013$Long)
 
 prov <- fortify(NL.low.ocean)
 prov$group <- ifelse(prov$long < -56.2 & prov$lat < 47.375, 4771.1, prov$group)
+
+totfish2013 <- arrange(totfish2013, -totalfish)
+prop.press2013 <- arrange(prop.press2013, -prop.press)
 
 plot1 <- ggplot() + 
   ggtitle("Aquaculture sites")+
@@ -480,34 +508,48 @@ plot2 <- ggplot() +
   ggtitle("Salmon rivers")+
   geom_polygon(data=prov, aes(long, lat, group=group), fill="grey")+
   annotate(geom="rect", xmin=-57, xmax=-56, ymin=46.8, ymax= 47.45, fill="grey") +
-  geom_point(data=prop.press2013, aes(X, Y, size=prop.press), fill="yellow", shape=21, colour="black") +
+  geom_point(data=prop.press2013, aes(long, lat, size=prop.press), fill="yellow", shape=21, colour="black") +
+  annotate(geom="point", x=-55.8222, y=47.6223, colour="blue") +
   theme_bw() +  coord_map(xlim=c(-56.7, -54.5), ylim=c(46.82, 48)) +
+  #annotate(geom="point", x=-55.77313, y=47.50711)+
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
   #scale_size_area(name="\u03A3(totalfish/d)", breaks=seq(50, 4000, 500)) +
-  scale_size_continuous(name="Propagule\npressure=\n\u03A3(total fish/dist)", range = c(0.5,7), limits=c(50,2000), breaks=c(100, 500, 1000, 1500, 2000))
+  scale_size_continuous(name="Propagule\npressure=\n\u03A3(total fish/dist)", range = c(0.5,7), limits=c(0,550), breaks=c(50, 150, 250, 350, 450, 550))
 
 gA <- ggplotGrob(plot1)
 gB <- ggplotGrob(plot2)
 grid.newpage()
 grid.draw(cbind(gA, gB))
 
-prop.press2013$code <- rivers$code
-plot(NLrast)
-text(prop.press2013$X, prop.press2013$Y)
-prop.press2013$name <- c("Bottom Brook", "Conne River", "Dollard's Brook",
-                         "Garnish River", "Grand Bank Brook", "Grand LaPierre Brook",
-                         "Salmonier River", "Little River", "Long Harbour River",
-                         "Mal Bay Brook", "Northeast Brook", "Northwest Brook",
-                         "Old Bay Brook", "Simm's Brook", "Southeast Brook",
-                         "Tailrace Brook", "Taylor Bay Brook", "Terrenceville Brook")
 
-prop.press2013 <- select(prop.press2013, code, lat, long, prop.press, rivermouth, name)
-
-write.csv(prop.press2013, file="C:/Users/keyserf/Documents/Data/2013 propagule pressures.csv")
-
-
-plot(NLrast)
-points(prop.press2013$X, prop.press2013$Y)
-plot(NLline, add=TRUE)
-points(totfish2013$Long, totfish2013$Lat, col="red")
 ```
+
+
+
+### so we think that the escape came from ID 1072
+```{r}
+escapesite <- subset(dist2AQ_2013, ID==1072) 
+distances <- melt(escapesite)[1:18,]
+names(distances) <- c("ID", "River", "DistanceToRiver.m.")
+distances
+distances$DistanceToRiver.km. <- distances$DistanceToRiver.m./1000
+pressures <- melt(escapesite)[22:39,]
+names(pressures) <- c("ID", "River", "TotalFish..Distance")
+pressures
+escapesite <- cbind(distances[,1:4], pressures[,3])
+escapesite[,3] <- round(escapesite[,3], 0)
+escapesite[,4] <- round(escapesite[,4], 3)
+names(escapesite) <- c("ID", "River", "DistanceToRiver.m.", "DistanceToRiver.km.", "SpecificPressure")
+escapesite
+write.csv(escapesite, file="C:/Users/keyserf/Documents/Data/2013 escape site 1072_2016-11-01.csv")
+
+## trying CBC point
+dCBC <- costDistance(tr3c, fromCoords = cbind(-55.77313, 47.50711), toCoords = cbind(as.numeric(Bsiterast[,1]), as.numeric(Bsiterast[,2])))
+dCBC
+distances2 <- melt(dCBC)
+distances2 <- distances2[,2:3]
+names(distances2) <- c("RiverNumber", "DistanceToRiver.m.")
+distances2
+distances2$DistanceToRiver.km. <- distances2$DistanceToRiver.m./1000
+distances2$River <- Bsites$X
+write.csv(distances2, file="C:/Users/keyserf/Documents/Data/2013 cbc green point distances.csv")

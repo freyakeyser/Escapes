@@ -123,10 +123,20 @@ Bsiterast <- as.matrix(xy)
 
 # Fix some AQ site coords
 ```{r}
+# for 2013 only:
 # plot(NLrast, xlim=c(-56.0, -55.5), ylim=c(47.4, 47.6))
 # points(siterast[12,1], siterast[12,2], col="blue")
 # siterast[12,] <- click()
 # make site 12 = -55.58610 and 47.51435
+
+# for all years:
+# plot(NLrast)
+# points(siterast[17,1], siterast[17,2])
+# siterast[17,] <- click()
+## make site 17 = -56.06074 and 47.77717
+# points(siterast[30,1], siterast[30,2])
+# siterast[30,] <- click()
+## make site 30 = -55.78194 and 47.57588
 ```
 
 # Transition layer, Geocorrection, calculate distance matrix, calculate Cumulative Weighted Distances
@@ -144,7 +154,7 @@ d3
 ```{r}
 d3 <- as.data.frame(cbind(d3, sitecoords$ID))
 colnames(d3)[19] <- "ID"
-# colnames(d3)[1:18] <- as.list(as.character(rivers$code))
+colnames(d3)[1:18] <- as.list(as.character(rivers$code))
 
 dist2AQ <- join(d3, inventory, type="left")
 ```
@@ -154,7 +164,10 @@ dist2AQ <- join(d3, inventory, type="left")
 dist2AQ[,1:18] <- apply(dist2AQ[,1:18], 2, function(x) as.character(x))
 dist2AQ[,1:18] <- apply(dist2AQ[,1:18], 2, function(x) as.numeric(x))
 
+dist2AQ[46,]$SMB <-1000
+
 # For each AQ site, caclulate total fish/distance from river
+## original calculation
 dist2AQ$P1 <- dist2AQ$totalfish/dist2AQ$BTB
 dist2AQ$P2 <- dist2AQ$totalfish/dist2AQ$CNR
 dist2AQ$P3 <- dist2AQ$totalfish/dist2AQ$DLR
@@ -174,11 +187,33 @@ dist2AQ$P16 <- dist2AQ$totalfish/dist2AQ$TRB
 dist2AQ$P17 <- dist2AQ$totalfish/dist2AQ$TBB
 dist2AQ$P18 <- dist2AQ$totalfish/dist2AQ$TEB
 
+## via decay function
+dist2AQ$P1 <- dist2AQ$totalfish^(-0.0012*(dist2AQ$BTB/1000))
+dist2AQ$P2 <- dist2AQ$totalfish^(-0.0012*(dist2AQ$CNR/1000))
+dist2AQ$P3 <- dist2AQ$totalfish^(-0.0012*(dist2AQ$DLR/1000))
+dist2AQ$P4 <- dist2AQ$totalfish^(-0.0012*(dist2AQ$GAR/1000))
+dist2AQ$P5 <- dist2AQ$totalfish^(-0.0012*(dist2AQ$GBB/1000))
+dist2AQ$P6 <- dist2AQ$totalfish^(-0.0012*(dist2AQ$GLP/1000))
+dist2AQ$P7 <- dist2AQ$totalfish^(-0.0012*(dist2AQ$LMS/1000))
+dist2AQ$P8 <- dist2AQ$totalfish^(-0.0012*(dist2AQ$LTR/1000))
+dist2AQ$P9 <- dist2AQ$totalfish^(-0.0012*(dist2AQ$LHR/1000))
+dist2AQ$P10 <- dist2AQ$totalfish^(-0.0012*(dist2AQ$MAL/1000))
+dist2AQ$P11 <- dist2AQ$totalfish^(-0.0012*(dist2AQ$NEB/1000))
+dist2AQ$P12 <- dist2AQ$totalfish^(-0.0012*(dist2AQ$FBN/1000))
+dist2AQ$P13 <- dist2AQ$totalfish^(-0.0012*(dist2AQ$OBB/1000))
+dist2AQ$P14 <- dist2AQ$totalfish^(-0.0012*(dist2AQ$SMB/1000))
+dist2AQ$P15 <- dist2AQ$totalfish^(-0.0012*(dist2AQ$SEB/1000))
+dist2AQ$P16 <- dist2AQ$totalfish^(-0.0012*(dist2AQ$TRB/1000))
+dist2AQ$P17 <- dist2AQ$totalfish^(-0.0012*(dist2AQ$TBB/1000))
+dist2AQ$P18 <- dist2AQ$totalfish^(-0.0012*(dist2AQ$TEB/1000))
+
+dist2AQ[,26:43] <- apply(dist2AQ[,26:43], 2, function(x) replace(x, is.infinite(x), 0))
+
 # sum all pressures for total propagule pressure at a river
 prop.press <- apply(as.matrix(dist2AQ[,26:43]), 2, function(x) sum(x, na.rm=TRUE))
 
 # match to river mouth coords
-riverCWD <- data.frame(code=rivers[,1], lat=rivermouths[,3], long = rivermouths[,2], prop.press = prop.press)
+riverCWD <- data.frame(code=Bsites[,1], lat=Bsites[,3], long = Bsites[,2], prop.press = prop.press)
 
 # match rivermouths to sampling sites
 # zoomed <- crop(NLrast, extent(-55.5,-55.3, 47.6, 47.8))
@@ -193,9 +228,8 @@ riverCWD <- data.frame(code=rivers[,1], lat=rivermouths[,3], long = rivermouths[
 # riverCWD$rivermouth <- c(1:13)
 # 
 
-riverCWD$rivermouth <- 1:18
-rivermouths$rivermouth <- 1:18
-prop.pressALL <- join(riverCWD, rivermouths, type="left")
+prop.press <- riverCWD
+write.csv(prop.press, "C:/Users/keyserf/Documents/Data/Propagule Pressure_exp_all years_2016-11-02.csv")
 
 ```
 
@@ -543,6 +577,11 @@ names(escapesite) <- c("ID", "River", "DistanceToRiver.m.", "DistanceToRiver.km.
 escapesite
 write.csv(escapesite, file="C:/Users/keyserf/Documents/Data/2013 escape site 1072_2016-11-01.csv")
 
+ggplot() + geom_point(data=escapesite, aes(DistanceToRiver.km., 1)) + 
+  geom_text_repel(data=escapesite, aes(DistanceToRiver.km., 1, label=River), min.segment.length=unit(0.1, "lines"))
+require(ggrepel)
+orderedlist <- arrange(escapesite, DistanceToRiver.km.)
+
 ## trying CBC point
 dCBC <- costDistance(tr3c, fromCoords = cbind(-55.77313, 47.50711), toCoords = cbind(as.numeric(Bsiterast[,1]), as.numeric(Bsiterast[,2])))
 dCBC
@@ -553,3 +592,16 @@ distances2
 distances2$DistanceToRiver.km. <- distances2$DistanceToRiver.m./1000
 distances2$River <- Bsites$X
 write.csv(distances2, file="C:/Users/keyserf/Documents/Data/2013 cbc green point distances.csv")
+
+orderedlist2 <- arrange(distances2, DistanceToRiver.km.)
+
+orderedlist <- select(orderedlist, River, DistanceToRiver.km.)
+orderedlist2 <- select(orderedlist2, River, DistanceToRiver.km.)
+orderedlist <- cbind(orderedlist, 1:18)
+orderedlist2 <- cbind(orderedlist2, 1:18)
+orderchange <- rbind(orderedlist, orderedlist2)
+orderchange <- cbind(orderchange, c(rep("GP", 18), rep("CBC", 18)))
+names(orderchange) <- c("River", "Distance", "Order", "Site")
+ggplot() + geom_point(data=orderchange, aes(Site, Distance, colour=River))+
+  geom_line(data=orderchange, aes(Site, Distance, colour=River, group=River)) +
+  geom_text_repel(data=orderchange, aes(Site, Distance, label=River, colour=River), size=3)

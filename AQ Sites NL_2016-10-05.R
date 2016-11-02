@@ -42,6 +42,8 @@ inventory[, 6:13][is.na(inventory[, 6:13])] <- 0
 inventory[,3][is.na(inventory[, 3])] <- 0
 head(inventory)
 
+inventory <- subset(inventory, ReportYear>2009)
+
 ################### CALCULATE FISH YEARS ########################
 
 # 2 rules: 
@@ -81,7 +83,7 @@ ggplot() +
   geom_point(data=meantime, aes(ReportYear, fishcount)) + 
   facet_wrap(~ID)
 
-standard <- ddply(.data=meantime, .(ID),
+standard <- ddply(.data=inventory, .(ID),
                   summarize,
                   totalfish = sum(fishcount),
                   totalyears = length(unique(ReportYear)))
@@ -112,9 +114,6 @@ totfish2013 <- ddply(.data=inv2013, .(ID),
 totfish2013 <- join(totfish2013, sites, type="left")
 #######################################################################
 
-
-inventory <- join(inventory, sites, type="left")
-
 inventory <- ddply(.data=inventory, .(ID),
                    summarize,
                    cages = length(unique(Cage)),
@@ -124,7 +123,7 @@ inventory <- join(inventory, standard, type="left")
 
 inventory <- join(inventory, sites, type="left")
 #### inventory$totalfish is the column I need! 
-
+inventory
 
 prov <- readOGR(dsn="C:/Users/keyserf/Documents/R/canvec/NL.low.ocean.dbf", layer="NL.low.ocean")
 prov <- fortify(prov)

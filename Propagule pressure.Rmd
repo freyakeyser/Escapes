@@ -463,6 +463,7 @@ dist2AQ_2013[,1:18] <- apply(dist2AQ_2013[,1:18], 2, function(x) as.character(x)
 dist2AQ_2013[,1:18] <- apply(dist2AQ_2013[,1:18], 2, function(x) as.numeric(x))
 
 # For each AQ site, caclulate total fish/distance from river
+# original method of calculation
 dist2AQ_2013$P1 <- dist2AQ_2013$totalfish/dist2AQ_2013$BTB
 dist2AQ_2013$P2 <- dist2AQ_2013$totalfish/dist2AQ_2013$CNR
 dist2AQ_2013$P3 <- dist2AQ_2013$totalfish/dist2AQ_2013$DLR
@@ -481,6 +482,26 @@ dist2AQ_2013$P15 <- dist2AQ_2013$totalfish/dist2AQ_2013$SEB
 dist2AQ_2013$P16 <- dist2AQ_2013$totalfish/dist2AQ_2013$TRB
 dist2AQ_2013$P17 <- dist2AQ_2013$totalfish/dist2AQ_2013$TBB
 dist2AQ_2013$P18 <- dist2AQ_2013$totalfish/dist2AQ_2013$TEB
+
+## via decay function
+dist2AQ_2013$P1 <- dist2AQ_2013$totalfish^(-0.0012*(dist2AQ_2013$BTB/1000))
+dist2AQ_2013$P2 <- dist2AQ_2013$totalfish^(-0.0012*(dist2AQ_2013$CNR/1000))
+dist2AQ_2013$P3 <- dist2AQ_2013$totalfish^(-0.0012*(dist2AQ_2013$DLR/1000))
+dist2AQ_2013$P4 <- dist2AQ_2013$totalfish^(-0.0012*(dist2AQ_2013$GAR/1000))
+dist2AQ_2013$P5 <- dist2AQ_2013$totalfish^(-0.0012*(dist2AQ_2013$GBB/1000))
+dist2AQ_2013$P6 <- dist2AQ_2013$totalfish^(-0.0012*(dist2AQ_2013$GLP/1000))
+dist2AQ_2013$P7 <- dist2AQ_2013$totalfish^(-0.0012*(dist2AQ_2013$LMS/1000))
+dist2AQ_2013$P8 <- dist2AQ_2013$totalfish^(-0.0012*(dist2AQ_2013$LTR/1000))
+dist2AQ_2013$P9 <- dist2AQ_2013$totalfish^(-0.0012*(dist2AQ_2013$LHR/1000))
+dist2AQ_2013$P10 <- dist2AQ_2013$totalfish^(-0.0012*(dist2AQ_2013$MAL/1000))
+dist2AQ_2013$P11 <- dist2AQ_2013$totalfish^(-0.0012*(dist2AQ_2013$NEB/1000))
+dist2AQ_2013$P12 <- dist2AQ_2013$totalfish^(-0.0012*(dist2AQ_2013$FBN/1000))
+dist2AQ_2013$P13 <- dist2AQ_2013$totalfish^(-0.0012*(dist2AQ_2013$OBB/1000))
+dist2AQ_2013$P14 <- dist2AQ_2013$totalfish^(-0.0012*(dist2AQ_2013$SMB/1000))
+dist2AQ_2013$P15 <- dist2AQ_2013$totalfish^(-0.0012*(dist2AQ_2013$SEB/1000))
+dist2AQ_2013$P16 <- dist2AQ_2013$totalfish^(-0.0012*(dist2AQ_2013$TRB/1000))
+dist2AQ_2013$P17 <- dist2AQ_2013$totalfish^(-0.0012*(dist2AQ_2013$TBB/1000))
+dist2AQ_2013$P18 <- dist2AQ_2013$totalfish^(-0.0012*(dist2AQ_2013$TEB/1000))
 
 # sum all pressures for total propagule pressure at a river
 prop.press <- apply(as.matrix(dist2AQ_2013[,23:40]), 2, function(x) sum(x, na.rm=TRUE))
@@ -513,7 +534,7 @@ prop.press2013$name <- c("Bottom Brook", "Conne River", "Dollard's Brook",
 
 prop.press2013 <- select(prop.press2013, code, lat, long, prop.press, name)
 prop.press2013
-write.csv(prop.press2013, file="C:/Users/keyserf/Documents/Data/2013 propagule pressures_2016-11-01.csv")
+write.csv(prop.press2013, file="C:/Users/keyserf/Documents/Data/2013 propagule pressures_exp_2016-11-01.csv")
 ```
 
 # plot propagule pressure

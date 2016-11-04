@@ -19,6 +19,8 @@ require(gdistance)
 
 # Practicing with Morris et al paper data
 ```{r}
+setwd("C:/Users/keyserf/Documents/")
+
 ### read in data on farmed escapes from Morris et al paper
 
 morris <- read.csv("./Data/Morris et al 2008 data.csv")
@@ -55,6 +57,8 @@ plot4 <- ggplot() + geom_point(data=morris_cleanNS, aes(YearSimp, PropSimp)) + t
 require(gridExtra)
 
 grid.arrange(plot1, plot2, plot3, plot4, nrow=4)
+
+write.csv(morris_clean, "./Data/morris_clean.csv")
 ```
 
 
@@ -262,10 +266,6 @@ ggplot() + geom_raster(data=NLrastplot, aes(x, y, fill=as.factor(layer))) +
   ylim(47.6, 47.8)
 
 ```
-plot(NL.low.ocean)
-plot(NLrast)
-plot(NLline, add=TRUE)
-
 
 ##########################################################################################################################
 #################################### NOVA SCOTIA CAGE SITE DISTANCES TEMPLATE CODE #######################################

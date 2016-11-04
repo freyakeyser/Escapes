@@ -67,21 +67,25 @@ events <- inventory
 
 ## need to clean up old data a bit. many missing ID value.
 
-old <- subset(inventory, ReportYear<2010)
-missing <- subset(old, ID=="")
-IDs <- ddply(.data=inventory, .(Bay),
-             summarize,
-             one = max(ID))
-
-### problem: some old data rows are missing IDs, and are for multiple sites. How to proceed? Average out between n locations??
-best <- subset(inventory, is.na(as.numeric(ID))==FALSE)
+# old <- subset(inventory, ReportYear<2010)
+# missing <- subset(old, ID=="")
+# IDs <- ddply(.data=inventory, .(Bay),
+#              summarize,
+#              one = max(ID))
+# 
+# ### problem: some old data rows are missing IDs, and are for multiple sites. How to proceed? Average out between n locations??
+# best <- subset(inventory, is.na(as.numeric(ID))==FALSE)
 
 ### until i get that figured out:
-meantime <- subset(inventory, ReportYear >2009)
+inventory <- subset(inventory, ReportYear >2009)
 
 ggplot() + 
-  geom_point(data=meantime, aes(ReportYear, fishcount)) + 
+  geom_point(data=inventory, aes(ReportYear, fishcount)) + 
   facet_wrap(~ID)
+
+annual <- ddply(.data=inventory, .(ID, ReportYear),
+                summarize,
+                totalfish=sum(fishcount))
 
 standard <- ddply(.data=inventory, .(ID),
                   summarize,

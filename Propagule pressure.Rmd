@@ -112,6 +112,18 @@ y <- Bsites$V2
 xy <-cbind(x, y)
 Bsiterast <- as.matrix(xy)
 
+sampling <- read.csv("C:/Users/keyserf/Documents/Data/Salmon sampling summary 2014.csv", header=TRUE)
+sampling <- select(sampling[1:20,], Location, Latitude, Longitude)
+sampling$code <- c("BTB", "CNR", "CNR", "DLR", "GAR", "GBB", "GLP", "LMS", "LTR", "LHR", "MAL", "NET", "NEB", "FBN", "OBB", "SMB", "SEB", "TRB", "TBB", "TEB")
+sampling <- sampling[-c(2,12),]
+sampling
+
+plot(NLrast)
+points(sampling$Longitude, sampling$Latitude)
+
+#rivermouths<- SpatialPoints(click(n=18))
+rivermouths <- data.frame(rivermouths)
+rivermouths <- cbind(rivermouths, Bsites$X)
 ```
 
 # Change values in raster so that land is impassable (i.e. distances would be massive). 
@@ -146,7 +158,7 @@ tr3 <- transition(1/NLrast, transitionFunction=mean, directions=8)
 tr3c <- geoCorrection(tr3, type="c")
 
 # calculate least-cost distance between siterast (site location) and testrast (escaped fish location)
-d3 <- costDistance(tr3c, fromCoords = cbind(as.numeric(siterast[,1]), as.numeric(siterast[,2])), toCoords = cbind(as.numeric(Bsiterast[,1]), as.numeric(Bsiterast[,2])))
+d3 <- costDistance(tr3c, fromCoords = cbind(as.numeric(siterast[,1]), as.numeric(siterast[,2])), toCoords = cbind(as.numeric(rivermouths[,1]), as.numeric(rivermouths[,2])))
 d3 
 ```
 
@@ -164,7 +176,7 @@ dist2AQ <- join(d3, inventory, type="left")
 dist2AQ[,1:18] <- apply(dist2AQ[,1:18], 2, function(x) as.character(x))
 dist2AQ[,1:18] <- apply(dist2AQ[,1:18], 2, function(x) as.numeric(x))
 
-dist2AQ[46,]$SMB <-1000
+#dist2AQ[46,]$SMB <-1000
 
 # For each AQ site, caclulate total fish/distance from river
 ## original calculation
@@ -213,7 +225,7 @@ dist2AQ[,26:43] <- apply(dist2AQ[,26:43], 2, function(x) replace(x, is.infinite(
 prop.press <- apply(as.matrix(dist2AQ[,26:43]), 2, function(x) sum(x, na.rm=TRUE))
 
 # match to river mouth coords
-riverCWD <- data.frame(code=Bsites[,1], lat=Bsites[,3], long = Bsites[,2], prop.press = prop.press)
+riverCWD <- data.frame(code=Bsites[,1], lat=rivermouths[,2], long = rivermouths[,1], prop.press = prop.press)
 
 # match rivermouths to sampling sites
 # zoomed <- crop(NLrast, extent(-55.5,-55.3, 47.6, 47.8))
@@ -256,11 +268,11 @@ plot2 <- ggplot() +
   ggtitle("Salmon rivers")+
   geom_polygon(data=prov, aes(long, lat, group=group), fill="grey")+
   annotate(geom="rect", xmin=-57, xmax=-56, ymin=46.8, ymax= 47.45, fill="grey") +
-  geom_point(data=prop.pressALL, aes(long, lat, size=prop.press), fill="yellow", shape=21, colour="black") +
+  geom_point(data=prop.press, aes(long, lat, size=prop.press), fill="yellow", shape=21, colour="black") +
   theme_bw() +  coord_map(xlim=c(-56.7, -54.5), ylim=c(46.82, 48)) +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
   #scale_size_area(name="\u03A3(totalfish/d)", breaks=seq(50, 4000, 500)) +
-  scale_size_continuous(name="Propagule\npressure=\n\u03A3(total fish/dist)", range = c(0.5,10), limits=c(100,10000), breaks=c(500, 1000, 2500, 5000, 10000))
+  scale_size_continuous(name="Propagule pressure=\n\u03A3(total fish^-0.0012*dist)", range = c(0.5,8), limits=c(5,25), breaks=c(5,10,15,20,25))
 
 gA <- ggplotGrob(plot1)
 gB <- ggplotGrob(plot2)
@@ -311,7 +323,6 @@ summary(model1)
 ```
 
 # Yes but which is greater driver - distance or nfish?
-
 ```{r}
 ## calculate average distance to AQ sites
 ## calculate nfish within 20KM
@@ -454,6 +465,72 @@ summary(model5)
 
 ```
 
+### Annual propagule pressure for each river
+```{r}
+dist2AQ_annual <- join(d3, annual, type="left")
+head(dist2AQ_annual)
+
+dist2AQ_annual[,1:18] <- apply(dist2AQ_annual[,1:18], 2, function(x) as.character(x))
+dist2AQ_annual[,1:18] <- apply(dist2AQ_annual[,1:18], 2, function(x) as.numeric(x))
+
+dist2AQ_annual$P1 <- dist2AQ_annual$totalfish^(-0.0012*(dist2AQ_annual$BTB/1000))
+dist2AQ_annual$P2 <- dist2AQ_annual$totalfish^(-0.0012*(dist2AQ_annual$CNR/1000))
+dist2AQ_annual$P3 <- dist2AQ_annual$totalfish^(-0.0012*(dist2AQ_annual$DLR/1000))
+dist2AQ_annual$P4 <- dist2AQ_annual$totalfish^(-0.0012*(dist2AQ_annual$GAR/1000))
+dist2AQ_annual$P5 <- dist2AQ_annual$totalfish^(-0.0012*(dist2AQ_annual$GBB/1000))
+dist2AQ_annual$P6 <- dist2AQ_annual$totalfish^(-0.0012*(dist2AQ_annual$GLP/1000))
+dist2AQ_annual$P7 <- dist2AQ_annual$totalfish^(-0.0012*(dist2AQ_annual$LMS/1000))
+dist2AQ_annual$P8 <- dist2AQ_annual$totalfish^(-0.0012*(dist2AQ_annual$LTR/1000))
+dist2AQ_annual$P9 <- dist2AQ_annual$totalfish^(-0.0012*(dist2AQ_annual$LHR/1000))
+dist2AQ_annual$P10 <- dist2AQ_annual$totalfish^(-0.0012*(dist2AQ_annual$MAL/1000))
+dist2AQ_annual$P11 <- dist2AQ_annual$totalfish^(-0.0012*(dist2AQ_annual$NEB/1000))
+dist2AQ_annual$P12 <- dist2AQ_annual$totalfish^(-0.0012*(dist2AQ_annual$FBN/1000))
+dist2AQ_annual$P13 <- dist2AQ_annual$totalfish^(-0.0012*(dist2AQ_annual$OBB/1000))
+dist2AQ_annual$P14 <- dist2AQ_annual$totalfish^(-0.0012*(dist2AQ_annual$SMB/1000))
+dist2AQ_annual$P15 <- dist2AQ_annual$totalfish^(-0.0012*(dist2AQ_annual$SEB/1000))
+dist2AQ_annual$P16 <- dist2AQ_annual$totalfish^(-0.0012*(dist2AQ_annual$TRB/1000))
+dist2AQ_annual$P17 <- dist2AQ_annual$totalfish^(-0.0012*(dist2AQ_annual$TBB/1000))
+dist2AQ_annual$P18 <- dist2AQ_annual$totalfish^(-0.0012*(dist2AQ_annual$TEB/1000))
+
+dist2AQ_annual <- subset(dist2AQ_annual, totalfish >0)
+ppannual <- select(dist2AQ_annual, 19:39)
+
+ppannual <- melt(data=ppannual, id.vars=c("ID", "ReportYear", "totalfish"))
+
+# sum all pressures for total propagule pressure at a river
+prop.press.annual <- ddply(.data=ppannual, .(ReportYear, variable), 
+                                      summarise, 
+                                      prop.press.annual = sum(value))
+
+# match to river mouth coords
+prop.press.annual$River <- rep(Bsites$X, 6)
+
+```
+### for Morris et al. data
+```{r}
+setwd("C:/Users/keyserf/Documents")
+morris_clean <- read.csv("./Data/morris_clean.csv")
+morris_clean <- as.data.frame(sapply(morris_clean,gsub,pattern="~",replacement=""))
+morris_clean[,c(5:8)] <- apply(morris_clean[,c(5:8)], 2, function(x) as.character(x))
+morris_clean[,c(5:8)] <- apply(morris_clean[,c(5:8)], 2, function(x) as.numeric(x))
+morris_clean$TotalWild[is.na(morris_clean$TotalWild)==TRUE] <- 0
+morris_clean$TotalCombined <- morris_clean$TotalWild + morris_clean$TotalFarmed
+
+morris_river_summary <- ddply(.data=morris_clean, .(River, ProvState),
+                              summarize,
+                              total=sum(TotalCombined),
+                              farmed=sum(TotalFarmed),
+                              nyears=length(unique(Year)))
+
+morris_river_summary$totalprop <- morris_river_summary$farmed/morris_river_summary$total
+
+morris_summary_NL <- subset(morris_river_summary, ProvState=="NL")
+
+morris_clean_NL <- subset(morris_clean, ProvState=="NL")
+
+
+```
+
 ### for 2013 only
 ```{r}
 colnames(d3)[1:18] <- as.list(as.character(Bsites$X))
@@ -507,7 +584,7 @@ dist2AQ_2013$P18 <- dist2AQ_2013$totalfish^(-0.0012*(dist2AQ_2013$TEB/1000))
 prop.press <- apply(as.matrix(dist2AQ_2013[,23:40]), 2, function(x) sum(x, na.rm=TRUE))
 
 # match to river mouth coords
-riverCWD <- data.frame(code=Bsites[,1], lat=Bsites[,3], long = Bsites[,2], prop.press = prop.press)
+riverCWD <- data.frame(code=Bsites[,1], lat=rivermouths[,2], long = rivermouths[,1], prop.press = prop.press)
 
 # match rivermouths to sampling sites
 # zoomed <- crop(NLrast, extent(-55.7,-55.2, 47.6, 47.8))
@@ -534,7 +611,7 @@ prop.press2013$name <- c("Bottom Brook", "Conne River", "Dollard's Brook",
 
 prop.press2013 <- select(prop.press2013, code, lat, long, prop.press, name)
 prop.press2013
-write.csv(prop.press2013, file="C:/Users/keyserf/Documents/Data/2013 propagule pressures_exp_2016-11-01.csv")
+write.csv(prop.press2013, file="C:/Users/keyserf/Documents/Data/2013 propagule pressures_exp_sampling_2016-11-03.csv")
 ```
 
 # plot propagule pressure
@@ -564,12 +641,12 @@ plot2 <- ggplot() +
   geom_polygon(data=prov, aes(long, lat, group=group), fill="grey")+
   annotate(geom="rect", xmin=-57, xmax=-56, ymin=46.8, ymax= 47.45, fill="grey") +
   geom_point(data=prop.press2013, aes(long, lat, size=prop.press), fill="yellow", shape=21, colour="black") +
-  annotate(geom="point", x=-55.8222, y=47.6223, colour="blue") +
+  # annotate(geom="point", x=-55.8222, y=47.6223, colour="blue") +
   theme_bw() +  coord_map(xlim=c(-56.7, -54.5), ylim=c(46.82, 48)) +
   #annotate(geom="point", x=-55.77313, y=47.50711)+
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
   #scale_size_area(name="\u03A3(totalfish/d)", breaks=seq(50, 4000, 500)) +
-  scale_size_continuous(name="Propagule\npressure=\n\u03A3(total fish/dist)", range = c(0.5,7), limits=c(0,550), breaks=c(50, 150, 250, 350, 450, 550))
+  scale_size_continuous(name="Propagule\npressure=\n\u03A3(total fish/dist)", range = c(0.5,8), limits=c(4,18), breaks=c(4,6,10,14,18))
 
 gA <- ggplotGrob(plot1)
 gB <- ggplotGrob(plot2)
@@ -596,33 +673,34 @@ escapesite[,3] <- round(escapesite[,3], 0)
 escapesite[,4] <- round(escapesite[,4], 3)
 names(escapesite) <- c("ID", "River", "DistanceToRiver.m.", "DistanceToRiver.km.", "SpecificPressure")
 escapesite
-write.csv(escapesite, file="C:/Users/keyserf/Documents/Data/2013 escape site 1072_2016-11-01.csv")
+write.csv(escapesite, file="C:/Users/keyserf/Documents/Data/2013 escape site 1072_exp_sampling_2016-11-03.csv")
 
+require(ggrepel)
 ggplot() + geom_point(data=escapesite, aes(DistanceToRiver.km., 1)) + 
   geom_text_repel(data=escapesite, aes(DistanceToRiver.km., 1, label=River), min.segment.length=unit(0.1, "lines"))
-require(ggrepel)
-orderedlist <- arrange(escapesite, DistanceToRiver.km.)
 
-## trying CBC point
-dCBC <- costDistance(tr3c, fromCoords = cbind(-55.77313, 47.50711), toCoords = cbind(as.numeric(Bsiterast[,1]), as.numeric(Bsiterast[,2])))
-dCBC
-distances2 <- melt(dCBC)
-distances2 <- distances2[,2:3]
-names(distances2) <- c("RiverNumber", "DistanceToRiver.m.")
-distances2
-distances2$DistanceToRiver.km. <- distances2$DistanceToRiver.m./1000
-distances2$River <- Bsites$X
-write.csv(distances2, file="C:/Users/keyserf/Documents/Data/2013 cbc green point distances.csv")
+# orderedlist <- arrange(escapesite, DistanceToRiver.km.)
 
-orderedlist2 <- arrange(distances2, DistanceToRiver.km.)
-
-orderedlist <- select(orderedlist, River, DistanceToRiver.km.)
-orderedlist2 <- select(orderedlist2, River, DistanceToRiver.km.)
-orderedlist <- cbind(orderedlist, 1:18)
-orderedlist2 <- cbind(orderedlist2, 1:18)
-orderchange <- rbind(orderedlist, orderedlist2)
-orderchange <- cbind(orderchange, c(rep("GP", 18), rep("CBC", 18)))
-names(orderchange) <- c("River", "Distance", "Order", "Site")
-ggplot() + geom_point(data=orderchange, aes(Site, Distance, colour=River))+
-  geom_line(data=orderchange, aes(Site, Distance, colour=River, group=River)) +
-  geom_text_repel(data=orderchange, aes(Site, Distance, label=River, colour=River), size=3)
+# ## trying CBC point
+# dCBC <- costDistance(tr3c, fromCoords = cbind(-55.77313, 47.50711), toCoords = cbind(as.numeric(Bsiterast[,1]), as.numeric(Bsiterast[,2])))
+# dCBC
+# distances2 <- melt(dCBC)
+# distances2 <- distances2[,2:3]
+# names(distances2) <- c("RiverNumber", "DistanceToRiver.m.")
+# distances2
+# distances2$DistanceToRiver.km. <- distances2$DistanceToRiver.m./1000
+# distances2$River <- Bsites$X
+# write.csv(distances2, file="C:/Users/keyserf/Documents/Data/2013 CBC distances to sites.csv")
+# 
+# orderedlist2 <- arrange(distances2, DistanceToRiver.km.)
+# 
+# orderedlist <- select(orderedlist, River, DistanceToRiver.km.)
+# orderedlist2 <- select(orderedlist2, River, DistanceToRiver.km.)
+# orderedlist <- cbind(orderedlist, 1:18)
+# orderedlist2 <- cbind(orderedlist2, 1:18)
+# orderchange <- rbind(orderedlist, orderedlist2)
+# orderchange <- cbind(orderchange, c(rep("GP", 18), rep("CBC", 18)))
+# names(orderchange) <- c("River", "Distance", "Order", "Site")
+# ggplot() + geom_point(data=orderchange, aes(Site, Distance, colour=River))+
+#   geom_line(data=orderchange, aes(Site, Distance, colour=River, group=River)) +
+#   geom_text_repel(data=orderchange, aes(Site, Distance, label=River, colour=River), size=3)

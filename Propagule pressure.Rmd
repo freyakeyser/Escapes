@@ -159,6 +159,7 @@ tr3c <- geoCorrection(tr3, type="c")
 
 # calculate least-cost distance between siterast (site location) and testrast (escaped fish location)
 d3 <- costDistance(tr3c, fromCoords = cbind(as.numeric(siterast[,1]), as.numeric(siterast[,2])), toCoords = cbind(as.numeric(rivermouths[,1]), as.numeric(rivermouths[,2])))
+
 d3 
 ```
 
@@ -219,7 +220,7 @@ dist2AQ$P16 <- dist2AQ$totalfish^(-0.0012*(dist2AQ$TRB/1000))
 dist2AQ$P17 <- dist2AQ$totalfish^(-0.0012*(dist2AQ$TBB/1000))
 dist2AQ$P18 <- dist2AQ$totalfish^(-0.0012*(dist2AQ$TEB/1000))
 
-dist2AQ[,26:43] <- apply(dist2AQ[,26:43], 2, function(x) replace(x, is.infinite(x), 0))
+#dist2AQ[,26:43] <- apply(dist2AQ[,26:43], 2, function(x) replace(x, is.infinite(x), 0))
 
 # sum all pressures for total propagule pressure at a river
 prop.press <- apply(as.matrix(dist2AQ[,26:43]), 2, function(x) sum(x, na.rm=TRUE))
@@ -241,7 +242,7 @@ riverCWD <- data.frame(code=Bsites[,1], lat=rivermouths[,2], long = rivermouths[
 # 
 
 prop.press <- riverCWD
-write.csv(prop.press, "C:/Users/keyserf/Documents/Data/Propagule Pressure_exp_all years_2016-11-02.csv")
+write.csv(prop.press, "C:/Users/keyserf/Documents/Data/Propagule Pressure_lin_all years_2016-11-09.csv")
 
 ```
 
@@ -272,7 +273,8 @@ plot2 <- ggplot() +
   theme_bw() +  coord_map(xlim=c(-56.7, -54.5), ylim=c(46.82, 48)) +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
   #scale_size_area(name="\u03A3(totalfish/d)", breaks=seq(50, 4000, 500)) +
-  scale_size_continuous(name="Propagule pressure=\n\u03A3(total fish^-0.0012*dist)", range = c(0.5,8), limits=c(5,25), breaks=c(5,10,15,20,25))
+  #scale_size_continuous(name="Propagule pressure=\n\u03A3(total fish^-0.0012*dist)", range = c(0.5,8), limits=c(5,25), breaks=c(5,10,15,20,25))
+  scale_size_continuous(name="Propagule pressure=\n\u03A3(total fish/dist)", range = c(0.5,8), limits=c(5,7000))
 
 gA <- ggplotGrob(plot1)
 gB <- ggplotGrob(plot2)
@@ -280,6 +282,23 @@ grid.newpage()
 grid.draw(cbind(gA, gB))
 
 ```
+# plot against Q values
+```{r}
+qvals <- read.csv("C:/Users/keyserf/Documents/Data/Qvalues_2016-11-09.csv", header=TRUE)
+names(qvals) <- c("code", "distance", "q")
+prop.press <- join(prop.press, qvals, type="left")
+prop.press
+ggplot() + geom_point(data=prop.press, aes(prop.press, q)) +
+  geom_label_repel(data=prop.press, aes(prop.press, q, label=code)) +
+  xlim(500,1500) +
+  theme_classic() + 
+  theme(panel.background=element_rect(colour="black")) +
+  ggtitle("All years")
+
+prop.press2013
+
+```
+
 
 # NEXT: proportion of escapees (or number of escapes) vs. propagule pressure for those 3 rivers
 ```{r}
@@ -473,6 +492,25 @@ head(dist2AQ_annual)
 dist2AQ_annual[,1:18] <- apply(dist2AQ_annual[,1:18], 2, function(x) as.character(x))
 dist2AQ_annual[,1:18] <- apply(dist2AQ_annual[,1:18], 2, function(x) as.numeric(x))
 
+dist2AQ$P1 <- dist2AQ$totalfish/dist2AQ$BTB
+dist2AQ$P2 <- dist2AQ$totalfish/dist2AQ$CNR
+dist2AQ$P3 <- dist2AQ$totalfish/dist2AQ$DLR
+dist2AQ$P4 <- dist2AQ$totalfish/dist2AQ$GAR
+dist2AQ$P5 <- dist2AQ$totalfish/dist2AQ$GBB
+dist2AQ$P6 <- dist2AQ$totalfish/dist2AQ$GLP
+dist2AQ$P7 <- dist2AQ$totalfish/dist2AQ$LMS
+dist2AQ$P8 <- dist2AQ$totalfish/dist2AQ$LTR
+dist2AQ$P9 <- dist2AQ$totalfish/dist2AQ$LHR
+dist2AQ$P10 <- dist2AQ$totalfish/dist2AQ$MAL
+dist2AQ$P11 <- dist2AQ$totalfish/dist2AQ$NEB
+dist2AQ$P12 <- dist2AQ$totalfish/dist2AQ$FBN
+dist2AQ$P13 <- dist2AQ$totalfish/dist2AQ$OBB
+dist2AQ$P14 <- dist2AQ$totalfish/dist2AQ$SMB
+dist2AQ$P15 <- dist2AQ$totalfish/dist2AQ$SEB
+dist2AQ$P16 <- dist2AQ$totalfish/dist2AQ$TRB
+dist2AQ$P17 <- dist2AQ$totalfish/dist2AQ$TBB
+dist2AQ$P18 <- dist2AQ$totalfish/dist2AQ$TEB
+
 dist2AQ_annual$P1 <- dist2AQ_annual$totalfish^(-0.0012*(dist2AQ_annual$BTB/1000))
 dist2AQ_annual$P2 <- dist2AQ_annual$totalfish^(-0.0012*(dist2AQ_annual$CNR/1000))
 dist2AQ_annual$P3 <- dist2AQ_annual$totalfish^(-0.0012*(dist2AQ_annual$DLR/1000))
@@ -533,7 +571,7 @@ morris_clean_NL <- subset(morris_clean, ProvState=="NL")
 
 ### for 2013 only
 ```{r}
-colnames(d3)[1:18] <- as.list(as.character(Bsites$X))
+#colnames(d3)[1:18] <- as.list(as.character(Bsites$X))
 dist2AQ_2013 <- join(d3, totfish2013, type="left")
 
 dist2AQ_2013[,1:18] <- apply(dist2AQ_2013[,1:18], 2, function(x) as.character(x))
@@ -580,6 +618,12 @@ dist2AQ_2013$P16 <- dist2AQ_2013$totalfish^(-0.0012*(dist2AQ_2013$TRB/1000))
 dist2AQ_2013$P17 <- dist2AQ_2013$totalfish^(-0.0012*(dist2AQ_2013$TBB/1000))
 dist2AQ_2013$P18 <- dist2AQ_2013$totalfish^(-0.0012*(dist2AQ_2013$TEB/1000))
 
+# ggplot() + 
+#   geom_polygon(data=prov, aes(long, lat, group=group), fill="grey")+
+#   geom_point(data=Bsites[10,], aes(V1, V2), colour="red") + 
+#   geom_point(data=rivermouths[10,], aes(x, y), colour="blue") +
+#   coord_fixed()
+
 # sum all pressures for total propagule pressure at a river
 prop.press <- apply(as.matrix(dist2AQ_2013[,23:40]), 2, function(x) sum(x, na.rm=TRUE))
 
@@ -611,7 +655,7 @@ prop.press2013$name <- c("Bottom Brook", "Conne River", "Dollard's Brook",
 
 prop.press2013 <- select(prop.press2013, code, lat, long, prop.press, name)
 prop.press2013
-write.csv(prop.press2013, file="C:/Users/keyserf/Documents/Data/2013 propagule pressures_exp_sampling_2016-11-03.csv")
+write.csv(prop.press2013, file="C:/Users/keyserf/Documents/Data/2013 propagule pressures_sampling_lin_2016-11-09.csv")
 ```
 
 # plot propagule pressure

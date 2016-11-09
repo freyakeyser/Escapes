@@ -42,6 +42,8 @@ inventory[, 6:13][is.na(inventory[, 6:13])] <- 0
 inventory[,3][is.na(inventory[, 3])] <- 0
 head(inventory)
 
+inventory$ReportYear <- as.numeric(inventory$ReportYear)
+
 inventory <- subset(inventory, ReportYear>2009)
 
 ################### CALCULATE FISH YEARS ########################
@@ -61,7 +63,7 @@ inventory$case <- ifelse(inventory$NRemain==0 & inventory$CountDev > 0, 1,
 
 inventory$fishcount <- ifelse(inventory$case==1, (inventory$NStart + inventory$NIntro + inventory$CountDev)/2,
                               ifelse(inventory$case==2, (inventory$NStart + inventory$NIntro)/2, 
-                                     ifelse(inventory$case==3, inventory$NRemain + ((inventory$NMort + inventory$NHarvest + abs(inventory$NTransfer))/2), NA)))
+                                     ifelse(inventory$case==3, inventory$NRemain + ((abs(inventory$NMort) + abs(inventory$NHarvest) + abs(inventory$NTransfer))/2), NA)))
 
 events <- inventory
 
@@ -92,10 +94,9 @@ standard <- ddply(.data=inventory, .(ID),
                   totalfish = sum(fishcount),
                   totalyears = length(unique(ReportYear)))
 
-
 ### Combine with coordinate data
 
-sites <- read.csv("C:/Users/keyserf/Documents/Data/Site coordinates_NL_all.csv")
+sites <- read.csv("C:/Users/keyserf/Documents/Data/Site coordinates_NL_all.csv", header=TRUE)
 str(sites)
 
 sites <- subset(sites, select=c("Licence...", "Latitude", "Longitude"))
@@ -116,29 +117,29 @@ totfish2013 <- ddply(.data=inv2013, .(ID),
                      totalfish = sum(fishcount))
 
 totfish2013 <- join(totfish2013, sites, type="left")
+totfish2013
 #######################################################################
 
-inventory <- ddply(.data=inventory, .(ID),
+totfishall <- ddply(.data=inventory, .(ID),
                    summarize,
                    cages = length(unique(Cage)),
                    years = length(unique(ReportYear)))
 
-inventory <- join(inventory, standard, type="left")
+totfishall <- join(totfishall, standard, type="left")
 
-inventory <- join(inventory, sites, type="left")
-#### inventory$totalfish is the column I need! 
-inventory
+totfishall <- join(totfishall, sites, type="left")
+#### totfishall$totalfish is the column I need! 
 
 prov <- readOGR(dsn="C:/Users/keyserf/Documents/R/canvec/NL.low.ocean.dbf", layer="NL.low.ocean")
 prov <- fortify(prov)
 str(prov)
 
-inventory$totalfish <- ifelse(inventory$totalfish == 0, "NA", inventory$totalfish)
-inventory$totalfish <- as.numeric(inventory$totalfish)
+totfishall$totalfish <- ifelse(totfishall$totalfish == 0, "NA", inventory$totalfish)
+totfishall$totalfish <- as.numeric(totfishall$totalfish)
 ## Number of fish per site
 ggplot() + 
   geom_polygon(data=prov, aes(long, lat, group=group), fill="grey")+
-  geom_point(data=inventory, aes(Long, Lat, size=totalfish), fill="red", shape=21, colour="black") + 
+  geom_point(data=totfishall, aes(Long, Lat, size=totalfish), fill="red", shape=21, colour="black") + 
   theme_bw() +
   coord_map(xlim=c(-56.4, -55.0), ylim=c(47.4, 47.8)) +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +

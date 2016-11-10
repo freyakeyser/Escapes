@@ -97,8 +97,6 @@ rivermouths <- snapPointsToLines(rivermouths, NLline)
 rivermouths <- fortify(as.data.frame(rivermouths))
 text(rivermouths$X, rivermouths$Y, col="red", labels=1:18)
 
-
-
 Bsites <- read.csv("C:/Users/keyserf/Documents/Data/sites_lat_long_brendan.csv", header=TRUE)
 # plot(NLrast)
 # head(Bsites)
@@ -250,7 +248,6 @@ write.csv(prop.press_all, "C:/Users/keyserf/Documents/Data/Propagule Pressure_li
 
 ```
 
-
 # plot propagule pressure
 ```{r}
 totfishall <- subset(totfishall, totalfish > 0)
@@ -290,35 +287,6 @@ grid.newpage()
 grid.draw(cbind(gA, gB))
 
 ```
-
-# plot against Q values
-```{r}
-qvals <- read.csv("C:/Users/keyserf/Documents/Data/Qvalues_2016-11-09.csv", header=TRUE)
-names(qvals) <- c("code", "distance", "q")
-prop.press_all <- join(prop.press_all, qvals, type="left")
-prop.press_all
-ggplot() + geom_point(data=prop.press_all, aes(prop.press, q)) +
-  geom_label_repel(data=prop.press_all, aes(prop.press, q, label=code)) +
-  xlim(500,1500) +
-  theme_classic() + 
-  theme(panel.background=element_rect(colour="black")) +
-  ggtitle("All years") +
-  xlab("Propagule pressure") +
-  ylab("Q value")
-
-prop.press2013 <- join(prop.press2013, qvals, type="left")
-ggplot() + geom_point(data=prop.press2013, aes(prop.press, q)) +
-  geom_label_repel(data=prop.press2013, aes(prop.press, q, label=code)) +
-  xlim(0,300) +
-  theme_classic() + 
-  theme(panel.background=element_rect(colour="black")) +
-  ggtitle("2013")+
-  xlab("Propagule pressure") +
-  ylab("Q value")
-
-
-```
-
 
 # NEXT: proportion of escapees (or number of escapes) vs. propagule pressure for those 3 rivers
 ```{r}
@@ -590,6 +558,113 @@ morris_clean_NL <- subset(morris_clean, ProvState=="NL")
 
 ```
 
+### Total propagule pressure for ALL Newfoundland rivers
+```{r}
+
+## http://ftp.geogratis.gc.ca/pub/nrcan_rncan/vector/canvec/shp/Land/
+# NL.low <- readOGR(dsn = "C:/Users/keyserf/Documents/R/canvec/canvec_250K_NL_Hydro_shp/waterbody_2.shp", layer="waterbody_2")
+NLline_all <- readOGR("C:/Users/keyserf/Documents/R/canvec/canvec_250K_NL_Land_shp/shoreline_1.shp", "shoreline_1")
+
+#cropping shapefile to the area and details I need
+NLprov <- crop(NLlab, extent(-59.7, -52.4, 46.6, 51.8))
+writeOGR(obj=NLprov, dsn="canvec", layer="NLprov", driver="ESRI Shapefile")
+# rm(NL.low)
+# rm(NLlab)
+
+# NLline_all <- subset(NLline_all, perm_en=="Permanent" & dsc_en=="Coast")
+# writeOGR(obj=NLline_all, dsn="canvec", layer="NLline_all", driver="ESRI Shapefile")
+
+plot(NLprov)
+
+# # read in cropped shapefile: NL.low.ocean
+# NLlab <- readOGR(dsn="./canvec/NLlab.dbf", layer="NLlab")
+# plot(NLlab)
+# points(siterast, pch=16, col="red")
+
+# creating raster
+r <- raster(ncol=553, nrow=585)
+extent(r) <- extent(NLprov)
+NLprovrast <- rasterize(NLprov, r, fun="first")
+NLprovrasttest <- NLprovrast
+
+# adjust values to make lines impassable
+NLprovrasttest@data@values <- ifelse(is.na(NLprovrasttest@data@values)=="TRUE", 10000, 1)
+
+# create transition layer for raster (likelihood of presence within cell). 
+tr4 <- transition(1/NLprovrasttest, transitionFunction=mean, directions=8)
+tr4c <- geoCorrection(tr4, type="c")
+# plot(raster(tr4c))
+
+# read in sites
+qsites <- read.csv("C:/Users/keyserf/Documents/Data/Qvalues_All NL_2016-11-10.csv")
+names(qsites) <- c("code", "dist", "q", "long", "lat")
+qsites <- qsites[!is.na(qsites$lat),]
+
+# nudge AQ site record #37 into water
+plot(NLprovrasttest, xlim=c(-56.2, -55), ylim=c(47.6, 48))
+points(siterast[37,1], siterast[37,2], col="red")
+siterast[37,] <- c(-55.15866, 47.63114)
+plot(NLprovrasttest, xlim=c(-56.5, -55), ylim=c(47, 48.2))
+points(siterast[21,1], siterast[21,2], col="black")
+siterast[21,] <-c(-56.12302, 47.74039)
+siterast[34,] <- c(-56.12969, 47.70439)
+
+# calculate least-cost distance between siterast (site location) and testrast (escaped fish location)
+d4 <- costDistance(tr4c, fromCoords = cbind(as.numeric(siterast[,1]), as.numeric(siterast[,2])), toCoords = cbind(qsites$long, qsites$lat))
+
+d4 <- cbind(d4, sitecoords$ID)
+colnames(d4)[12] <- "ID"
+colnames(d4)[1:11] <- as.list(as.character(qsites$code))
+d4 <- as.data.frame(d4)
+
+dist2AQ_prov <- join(d4, totfishall, type="left")
+
+dist2AQ_prov[,1:11] <- apply(dist2AQ_prov[,1:11], 2, function(x) as.character(x))
+dist2AQ_prov[,1:11] <- apply(dist2AQ_prov[,1:11], 2, function(x) as.numeric(x))
+
+dist2AQ_prov$P1 <- dist2AQ_prov$totalfish/dist2AQ_prov$GAR
+dist2AQ_prov$P2 <- dist2AQ_prov$totalfish/dist2AQ_prov$BDN
+dist2AQ_prov$P3 <- dist2AQ_prov$totalfish/dist2AQ_prov$CNR
+dist2AQ_prov$P4 <- dist2AQ_prov$totalfish/dist2AQ_prov$LHR
+dist2AQ_prov$P5 <- dist2AQ_prov$totalfish/dist2AQ_prov$GRR
+dist2AQ_prov$P6 <- dist2AQ_prov$totalfish/dist2AQ_prov$LPR
+dist2AQ_prov$P7 <- dist2AQ_prov$totalfish/dist2AQ_prov$RKR
+dist2AQ_prov$P8 <- dist2AQ_prov$totalfish/dist2AQ_prov$NBT
+dist2AQ_prov$P9 <- dist2AQ_prov$totalfish/dist2AQ_prov$SGR
+dist2AQ_prov$P10 <- dist2AQ_prov$totalfish/dist2AQ_prov$WAB
+dist2AQ_prov$P11 <- dist2AQ_prov$totalfish/dist2AQ_prov$CMP
+
+# sum all pressures for total propagule pressure at a river
+prop.press_prov <- apply(as.matrix(dist2AQ_prov[,19:29]), 2, function(x) sum(x, na.rm=TRUE))
+
+prop.press_prov <- as.data.frame(cbind(code=as.character(qsites$code), long=qsites$long, lat=qsites$lat, prop.press=prop.press_prov))
+
+```
+
+
+# plot against Q values
+```{r}
+qsites$code <- as.character(qsites$code)
+
+prop.press_prov$code <- as.character(prop.press_prov$code)
+prop.press_prov$long <- as.numeric(as.character(prop.press_prov$long))
+prop.press_prov$lat <- as.numeric(as.character(prop.press_prov$lat))
+prop.press_prov$prop.press <- as.numeric(as.character(prop.press_prov$prop.press))
+
+qsites <- join(qsites, prop.press_prov, type="left")
+
+ggplot() + geom_point(data=qsites, aes(prop.press, q)) +
+  geom_label_repel(data=qsites, aes(prop.press, q, label=code)) +
+  theme_classic() + 
+  theme(panel.background=element_rect(colour="black")) +
+  ggtitle("2010-2015")+
+  xlab("Propagule pressure") +
+  ylab("Q value") +
+  ylim(-0.01, 0.2)
+
+
+```
+
 ### for 2013 only
 ```{r}
 #colnames(d3)[1:18] <- as.list(as.character(Bsites$X))
@@ -679,7 +754,7 @@ prop.press2013
 write.csv(prop.press2013, file="C:/Users/keyserf/Documents/Data/Propagule pressures_lin_2013_sampling_2016-11-09.csv")
 ```
 
-# plot propagule pressure
+# plot propagule pressure 2013
 ```{r}
 totfish2013 <- subset(totfish2013, totalfish > 0)
 totfish2013$Lat <- as.numeric(totfish2013$Lat)
@@ -722,7 +797,6 @@ grid.draw(cbind(gA, gB))
 
 
 ```
-
 
 
 ### so we think that the escape came from ID 1072
@@ -771,3 +845,4 @@ ggplot() + geom_point(data=escapesite, aes(DistanceToRiver.km., 1)) +
 # ggplot() + geom_point(data=orderchange, aes(Site, Distance, colour=River))+
 #   geom_line(data=orderchange, aes(Site, Distance, colour=River, group=River)) +
 #   geom_text_repel(data=orderchange, aes(Site, Distance, label=River, colour=River), size=3)
+```

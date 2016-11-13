@@ -15,6 +15,7 @@ require(raster)
 require(rgeos)
 require(PBSmapping)
 require(gdistance)
+require(ggrepel)
 ```
 
 # Practicing with Morris et al paper data
@@ -26,39 +27,209 @@ setwd("C:/Users/keyserf/Documents/")
 morris <- read.csv("./Data/Morris et al 2008 data.csv")
 str(morris)
 
-### convert formatting and get rid of "bad" rows
+# ### convert formatting and get rid of "bad" rows
+# 
+# morris$Year <- as.character(morris$Year)
+# morris$YearSimp <- as.numeric(morris$Year)
+# 
+# morris$PropFarmed <- as.character(morris$PropFarmed)
+# morris$PropSimp <- as.numeric(morris$PropFarmed)
+# 
+# morris$clean <- ifelse(is.na(morris$YearSimp) == "TRUE" | is.na(morris$PropSimp)=="TRUE", "BAD", "GOOD")
+# 
+# morris_clean <- subset(morris, clean=="GOOD")
+# 
+# ### subset by province
+# morris_cleanME <- subset(morris_clean, ProvState=="ME")
+# morris_cleanNB <- subset(morris_clean, ProvState=="NB")
+# morris_cleanNL <- subset(morris_clean, ProvState=="NL")
+# morris_cleanNS <- subset(morris_clean, ProvState=="NS")
+# 
+# ### plot by province
+# plot1 <- ggplot() + geom_point(data=morris_cleanME, aes(YearSimp, PropSimp)) + theme_bw() +
+#   facet_grid(~River)
+# plot2 <- ggplot() + geom_point(data=morris_cleanNB, aes(YearSimp, PropSimp)) + theme_bw() +
+#   facet_grid(~River)
+# plot3 <- ggplot() + geom_point(data=morris_cleanNL, aes(YearSimp, PropSimp)) + theme_bw() +
+#   facet_grid(~River)
+# plot4 <- ggplot() + geom_point(data=morris_cleanNS, aes(YearSimp, PropSimp)) + theme_bw() +
+#   facet_grid(~River)
 
-morris$Year <- as.character(morris$Year)
-morris$YearSimp <- as.numeric(morris$Year)
+# require(gridExtra)
+# 
+# grid.arrange(plot1, plot2, plot3, plot4, nrow=4)
+# 
+# write.csv(morris_clean, "./Data/morris_clean.csv")
+# 
+# morris_clean <- read.csv("C:/Users/keyserf/Documents/Data/morris_clean.csv", header=TRUE)
 
-morris$PropFarmed <- as.character(morris$PropFarmed)
-morris$PropSimp <- as.numeric(morris$PropFarmed)
+### plot NS escapes
+## http://ftp.geogratis.gc.ca/pub/nrcan_rncan/vector/canvec/shp/Land/
+# NS.low <- readOGR(dsn = "C:/Users/keyserf/Documents/R/canvec/canvec_250K_NS_Hydro_shp/waterbody_2.shp", layer="waterbody_2")
+NS.low <- crop(NS.low, extent(-66.25, -59.5, 43.4, 47.5))
+NSprov <- fortify(NS.low)
+rm(NS.low)
 
-morris$clean <- ifelse(is.na(morris$YearSimp) == "TRUE" | is.na(morris$PropSimp)=="TRUE", "BAD", "GOOD")
+## http://ftp.geogratis.gc.ca/pub/nrcan_rncan/vector/canvec/shp/Land/
+# NB.low <- readOGR(dsn = "C:/Users/keyserf/Documents/R/canvec/canvec_250K_NB_Hydro_shp/waterbody_2.shp", layer="waterbody_2")
+NBprov <- fortify(NB.low)
+rm(NB.low)
 
-morris_clean <- subset(morris, clean=="GOOD")
+## http://ftp.geogratis.gc.ca/pub/nrcan_rncan/vector/canvec/shp/Land/
+# PE.low <- readOGR(dsn = "C:/Users/keyserf/Documents/R/canvec/canvec_250K_PE_Hydro_shp/waterbody_2.shp", layer="waterbody_2")
+PEprov <- fortify(PE.low)
+rm(PE.low)
 
-### subset by province
-morris_cleanME <- subset(morris_clean, ProvState=="ME")
-morris_cleanNB <- subset(morris_clean, ProvState=="NB")
-morris_cleanNL <- subset(morris_clean, ProvState=="NL")
-morris_cleanNS <- subset(morris_clean, ProvState=="NS")
+## http://www.maine.gov/megis/catalog/
+# ME.low <- readOGR(dsn = "C:/Users/keyserf/Documents/R/canvec/bathym100s/bathym100.shp", layer="bathym100")
+# MEst <- fortify(ME.low)
+# summary(MEst$long)
+# MEst$long <- -MEst$long/10000
+# MEst$lat <- MEst$lat/100000
 
-### plot by province
-plot1 <- ggplot() + geom_point(data=morris_cleanME, aes(YearSimp, PropSimp)) + theme_bw() +
-  facet_grid(~River)
-plot2 <- ggplot() + geom_point(data=morris_cleanNB, aes(YearSimp, PropSimp)) + theme_bw() +
-  facet_grid(~River)
-plot3 <- ggplot() + geom_point(data=morris_cleanNL, aes(YearSimp, PropSimp)) + theme_bw() +
-  facet_grid(~River)
-plot4 <- ggplot() + geom_point(data=morris_cleanNS, aes(YearSimp, PropSimp)) + theme_bw() +
-  facet_grid(~River)
+nsrivers <- as.data.frame(unique(morris_clean$River[morris_clean$Prov=="NS"]))
+names(nsrivers) <- c("river")
+coords_clean <- rbind(c(44.778122, -65.439294), 
+               c(46.094226, -60.857244),
+               c(45.109829, -64.275097),
+               c(45.610836, -60.626756),
+               c(44.310002, -64.390153),
+               c(44.047893, -64.709702),
+               c(46.082903, -60.909614),
+               c(44.939173, -65.055891),
+               c(46.299002, -60.615435),
+               c(44.052819, -66.169571),
+               c(45.298904, -63.479638),
+               c(45.953641, -61.102664))
+nsrivers <- cbind(nsrivers, coords_clean)
 
-require(gridExtra)
+nsrivers_other <- unique(subset(morris, ProvState=="NS", select="River"))
+names(nsrivers_other) <- "river"
+nsrivers_other <- anti_join(nsrivers_other, nsrivers)
+nsrivers_other
+coords_rough <- rbind(c(43.842299, -65.991485),
+                      c(44.729245, -63.662550),
+                      c(46.218702, -60.610511),
+                      c(45.050054, -61.892250),
+                      c(45.865024, -60.802479),
+                      c(45.409762, -64.098723),
+                      c(46.368190, -60.525074),
+                      c(44.611538, -65.676093),
+                      c(46.428359, -61.095991),
+                      c(45.003232, -62.087995),
+                      c(44.220810, -66.143551),
+                      c(45.399889, -64.326540),
+                      c(45.966662, -61.115833))
+nsrivers_other <- cbind(nsrivers_other, coords_rough)
+                      
+nsrivers_all <- rbind(nsrivers, nsrivers_other)
+names(nsrivers_all) <- c("River", "lat", "long")
 
-grid.arrange(plot1, plot2, plot3, plot4, nrow=4)
+nsmorris <- subset(morris, ProvState=="NS")
+nsmorris <- join(nsmorris, nsrivers_all, type="left")
 
-write.csv(morris_clean, "./Data/morris_clean.csv")
+unique(nsmorris$TotalFarmed)
+
+nsmorris_true <- subset(nsmorris, !TotalFarmed =="0", select=c("River", "lat", "long", "TotalFarmed"))
+nsmorris_true <- subset(nsmorris_true, !TotalFarmed =="N/A")
+nsmorris_true <- unique(nsmorris_true[,1:3])
+
+## NB
+nbrivers <- as.data.frame(unique(morris$River[morris$ProvState=="NB"]))
+names(nbrivers) <- c("river")
+coords_clean <- rbind(c(45.545066, -66.011293), 
+               c(45.422197, -65.402976),
+               c(45.262844, -65.781699),
+               c(45.179130, -66.987045),
+               c(45.131204, -67.068731),
+               c(45.199799, -67.261215),
+               c(45.118038, -66.876022),
+               c(47.074048, -65.399438),
+               c(45.570888, -65.774480),
+               c(45.957255, -66.618207),
+               c(45.502517, -66.072903),
+               c(45.167935, -67.194878),
+               c(45.610963, -64.957627),
+               c(45.206954, -67.147044))
+nbrivers <- cbind(nbrivers, coords_clean)
+
+names(nbrivers) <- c("River", "lat", "long")
+
+nbmorris <- subset(morris, ProvState=="NB")
+nbmorris <- join(nbmorris, nbrivers, type="left")
+
+unique(nbmorris$TotalFarmed)
+
+nbmorris_true <- subset(nbmorris, !TotalFarmed =="0", select=c("River", "lat", "long", "TotalFarmed"))
+nbmorris_true <- subset(nbmorris_true, !TotalFarmed =="N/A")
+nbmorris_true <- unique(nbmorris_true[,1:3])
+
+CAshp <- readOGR(dsn = "C:/Users/keyserf/Documents/R/canvec/canvec_1M_CA_Land_shp/shoreline_1.shp", layer="shoreline_1")
+CA.low <- crop(CAshp, extent(-67.7, -59.5, 43.2, 48.1))
+CA.map <- fortify(CA.low, region="id")
+rm(NS.low)
+
+CA.low@data$id <- rownames(CA.low@data)
+CA.low.points <- fortify(CA.low, region="id")
+CA.df = join(CA.low.points, CA.low@data, by="id")
+
+NSmorrismap <- ggplot() + 
+  #ggtitle("Maritimes salmon rivers")+
+  geom_path(data=CA.df, aes(long, lat, group=group),colour="black") +
+  #geom_polygon(data=NBprov, aes(long, lat, group=group), fill="grey") +
+  #geom_polygon(data=PEprov, aes(long, lat, group=group), fill="grey") +
+  #annotate(geom="rect", xmin=-67, xmax=-66.25, ymin=43.4, ymax= 44, fill="grey") +
+  #annotate(geom="rect", xmin=-64, xmax=-59.5, ymin=43.4, ymax= 44, fill="grey") +
+  #annotate(geom="rect", xmin=-61, xmax=-59.5, ymin=44, ymax= 45, fill="grey") +
+  geom_point(data=nsrivers_all, aes(long, lat), shape=21, fill="blue", colour="black", size=5) +
+  geom_point(data=nsmorris_true, aes(long, lat), size=5, fill="red", shape=21, colour="black") +
+  #geom_label_repel(data=nsrivers_all, aes(long, lat, label=River), size=3, point.padding = unit(0.5,"lines"), min.segment.length = unit(0.1, "lines"))+
+  geom_point(data=nbrivers, aes(long, lat), shape=21, fill="blue", colour="black", size=5) +
+  geom_point(data=nbmorris_true, aes(long, lat), size=5, fill="red", shape=21, colour="black") +
+  #geom_label_repel(data=nbrivers, aes(long, lat, label=River), size=3, point.padding = unit(0.5,"lines"), min.segment.length = unit(0.1, "lines"))+
+  coord_map(xlim=c(-67.7, -59.5), ylim=c(43.2, 48.1)) +
+  theme_classic() +
+  theme(panel.background = element_blank(), panel.border=element_rect(colour="black", fill=NA)) 
+
+
+## escapes in newfoundland
+
+## NB
+nlrivers <- as.data.frame(unique(morris$River[morris$ProvState=="NL"]))
+names(nlrivers) <- c("river")
+coords_clean <- rbind(c(47.870898, -55.751851), 
+               c(47.75613, -55.84686))
+nlrivers <- cbind(nlrivers, coords_clean)
+
+names(nlrivers) <- c("River", "lat", "long")
+
+nlmorris <- subset(morris, ProvState=="NL")
+nlmorris <- join(nlmorris, nlrivers, type="left")
+
+unique(nlmorris$TotalFarmed)
+
+nlmorris_true <- subset(nlmorris, !TotalFarmed =="0", select=c("River", "lat", "long", "TotalFarmed"))
+nlmorris_true <- subset(nlmorris_true, !TotalFarmed =="N/A")
+nlmorris_true <- unique(nlmorris_true[,1:3])
+
+CA.NL <- crop(CAshp, extent(-60, -52, 46.5, 52))
+CA.NL@data$id <- rownames(CA.NL@data)
+CA.NL.points <- fortify(CA.NL, region="id")
+CA.NL.df = join(CA.NL.points, CA.NL@data, by="id")
+
+NLmorrismap <- ggplot() + 
+  #ggtitle("Maritimes salmon rivers")+
+  geom_path(data=CA.NL, aes(long, lat, group=group), colour="black") +
+  geom_point(data=nlrivers, aes(long, lat), shape=21, fill="blue", colour="black", size=5) +
+  geom_point(data=nlmorris_true, aes(long, lat), size=5, fill="red", shape=21, colour="black") +
+  #geom_label_repel(data=nbrivers, aes(long, lat, label=River), size=3, point.padding = unit(0.5,"lines"), min.segment.length = unit(0.1, "lines"))+
+  coord_map(xlim=c(-60, -52), ylim=c(46.5, 52)) +
+  theme_classic() +
+  theme(panel.background = element_blank(), panel.border=element_rect(colour="black", fill=NA)) 
+
+
+grid.arrange(NSmorrismap, NLmorrismap, ncol=2)
+
 ```
 
 

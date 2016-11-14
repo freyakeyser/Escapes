@@ -866,3 +866,258 @@ ggplot() + geom_point(data=escapesite, aes(DistanceToRiver.km., 1)) +
 #   geom_line(data=orderchange, aes(Site, Distance, colour=River, group=River)) +
 #   geom_text_repel(data=orderchange, aes(Site, Distance, label=River, colour=River), size=3)
 ```
+
+### Nova scotia propagule pressures
+## shapefile prep
+```{r}
+# Use size instead of total fish proxy
+
+# read in cropped shapefile: NL.low.ocean
+# NS.low <- readOGR(dsn = "C:/Users/keyserf/Documents/R/canvec/canvec_250K_NS_Hydro_shp/waterbody_2.shp", layer="waterbody_2")
+NS.low <- crop(NS.low, extent(-66.4, -59.5, 43.4, 47.5))
+plot(NS.low)
+
+# creating raster
+r <- raster(ncol=534, nrow=415)
+extent(r) <- extent(NS.low)
+NSrast <- rasterize(NS.low, r, fun="first")
+
+# site coords
+# read in sites from AQ file
+NSsitecoords <- read.csv("C:/Users/keyserf/Documents/Data/NS Salmon Sites.csv", header=TRUE)
+names(NSsitecoords)
+x <- NSsitecoords$Longitude
+y <- NSsitecoords$Latitude
+xy <- cbind(x, y)
+NSsiterast <- as.matrix(xy)
+plot(NSrast)
+points(NSsiterast[,1], NSsiterast[,2], col="red")
+
+# # escaped fish location from Escapes_2016-10-07 morris df
+# nsrivers_all
+
+# convert rasterized values
+NSrast@data@values <- ifelse(is.na(NSrast@data@values)=="TRUE", 10000, 1)
+NSrast@data@values <- ifelse(coordinates(NSrast)[,1] > -64.5 & coordinates(NSrast)[,2] < 44, 1, NSrast@data@values)
+NSrast@data@values <- ifelse(coordinates(NSrast)[,1] > -61 & coordinates(NSrast)[,2] < 45, 1, NSrast@data@values)
+NSrast@data@values <- ifelse(coordinates(NSrast)[,2] >47.2, 1, NSrast@data@values)
+```
+
+# Fix some river coords
+```{r}
+# make nictaux = to annapolis
+nsrivers_all[8,3] <- nsrivers_all[1,3]
+nsrivers_all[8,2] <- nsrivers_all[1,2]
+
+# for all years:
+# plot(NSrast, xlim=c(-61, -60), ylim=c(46, 47))
+# points(nsrivers_all[9,3], nsrivers_all[9,2], col="red")
+nsrivers_all[9,2:3] <- c(46.26345, -60.59543)
+plot(NSrast, xlim=c(-62.5, -62), ylim=c(44.75, 45.25))
+# points(nsrivers_all[22,3], nsrivers_all[22,2], col="red")
+nsrivers_all[22,2:3] <- c(44.97533, -62.08651)
+
+```
+
+# Transition layer, Geocorrection, calculate distance matrix, calculate Cumulative Weighted Distances
+```{r}
+# create transition layer for raster (likelihood of presence within cell). 
+tr5 <- transition(1/NSrast, transitionFunction=mean, directions=8)
+tr5c <- geoCorrection(tr5, type="c")
+
+# calculate least-cost distance between siterast (site location) and testrast (escaped fish location)
+d5 <- costDistance(tr5c, fromCoords = cbind(as.numeric(NSsiterast[,1]), as.numeric(NSsiterast[,2])), toCoords = cbind(as.numeric(nsrivers_all[,3]), as.numeric(nsrivers_all[,2])))
+
+d5 
+```
+
+### IF ENVIRONMENT LOADED: START HERE!
+```{r}
+colnames(NSsitecoords)[1] <- "ID"
+d5 <- as.data.frame(cbind(d5, NSsitecoords$ID))
+colnames(d5)[26] <- "ID"
+
+dist2AQ_NS <- join(d5, NSsitecoords, type="left")
+```
+
+# Calculate propagule pressure for each river. 
+```{r}
+dist2AQ_NS[,1:25] <- apply(dist2AQ_NS[,1:25], 2, function(x) as.character(x))
+dist2AQ_NS[,1:25] <- apply(dist2AQ_NS[,1:25], 2, function(x) as.numeric(x))
+
+# For each AQ site, caclulate total fish/distance from river
+## original calculation
+dist2AQ_NS$P1 <- dist2AQ_NS$Site.Size..HA./dist2AQ_NS$V1
+dist2AQ_NS$P2 <- dist2AQ_NS$Site.Size..HA./dist2AQ_NS$V2
+dist2AQ_NS$P3 <- dist2AQ_NS$Site.Size..HA./dist2AQ_NS$V3
+dist2AQ_NS$P4 <- dist2AQ_NS$Site.Size..HA./dist2AQ_NS$V4
+dist2AQ_NS$P5 <- dist2AQ_NS$Site.Size..HA./dist2AQ_NS$V5
+dist2AQ_NS$P6 <- dist2AQ_NS$Site.Size..HA./dist2AQ_NS$V6
+dist2AQ_NS$P7 <- dist2AQ_NS$Site.Size..HA./dist2AQ_NS$V7
+dist2AQ_NS$P8 <- dist2AQ_NS$Site.Size..HA./dist2AQ_NS$V8
+dist2AQ_NS$P9 <- dist2AQ_NS$Site.Size..HA./dist2AQ_NS$V9
+dist2AQ_NS$P10 <- dist2AQ_NS$Site.Size..HA./dist2AQ_NS$V10
+dist2AQ_NS$P11 <- dist2AQ_NS$Site.Size..HA./dist2AQ_NS$V11
+dist2AQ_NS$P12 <- dist2AQ_NS$Site.Size..HA./dist2AQ_NS$V12
+dist2AQ_NS$P13 <- dist2AQ_NS$Site.Size..HA./dist2AQ_NS$V13
+dist2AQ_NS$P14 <- dist2AQ_NS$Site.Size..HA./dist2AQ_NS$V14
+dist2AQ_NS$P15 <- dist2AQ_NS$Site.Size..HA./dist2AQ_NS$V15
+dist2AQ_NS$P16 <- dist2AQ_NS$Site.Size..HA./dist2AQ_NS$V16
+dist2AQ_NS$P17 <- dist2AQ_NS$Site.Size..HA./dist2AQ_NS$V17
+dist2AQ_NS$P18 <- dist2AQ_NS$Site.Size..HA./dist2AQ_NS$V18
+dist2AQ_NS$P19 <- dist2AQ_NS$Site.Size..HA./dist2AQ_NS$V19
+dist2AQ_NS$P20 <- dist2AQ_NS$Site.Size..HA./dist2AQ_NS$V20
+dist2AQ_NS$P21 <- dist2AQ_NS$Site.Size..HA./dist2AQ_NS$V21
+dist2AQ_NS$P22 <- dist2AQ_NS$Site.Size..HA./dist2AQ_NS$V22
+dist2AQ_NS$P23 <- dist2AQ_NS$Site.Size..HA./dist2AQ_NS$V23
+dist2AQ_NS$P24 <- dist2AQ_NS$Site.Size..HA./dist2AQ_NS$V24
+dist2AQ_NS$P25 <- dist2AQ_NS$Site.Size..HA./dist2AQ_NS$V25
+
+
+# sum all pressures for total propagule pressure at a river
+prop.press_NS <- apply(as.matrix(dist2AQ_NS[,35:59]), 2, function(x) sum(x, na.rm=TRUE))
+
+# match to river mouth coords
+riverCWD <- data.frame(code=nsrivers_all[,1], lat=nsrivers_all[,2], long = nsrivers_all[,3], prop.press = prop.press_NS)
+
+prop.press_NS <- riverCWD
+write.csv(prop.press_NS, "C:/Users/keyserf/Documents/Data/Propagule Pressure NS_lin_all years_2016-11-13.csv")
+#comp <- read.csv("C:/Users/keyserf/Documents/Data/Propagule Pressure NS_lin_all years_2016-11-13.csv")
+#prop.press_NS
+
+
+## or if sizes are negligble
+dist2AQ_NS$D1 <- 1/dist2AQ_NS$V1
+dist2AQ_NS$D2 <- 1/dist2AQ_NS$V2
+dist2AQ_NS$D3 <- 1/dist2AQ_NS$V3
+dist2AQ_NS$D4 <- 1/dist2AQ_NS$V4
+dist2AQ_NS$D5 <- 1/dist2AQ_NS$V5
+dist2AQ_NS$D6 <- 1/dist2AQ_NS$V6
+dist2AQ_NS$D7 <- 1/dist2AQ_NS$V7
+dist2AQ_NS$D8 <- 1/dist2AQ_NS$V8
+dist2AQ_NS$D9 <- 1/dist2AQ_NS$V9
+dist2AQ_NS$D10 <- 1/dist2AQ_NS$V10
+dist2AQ_NS$D11 <- 1/dist2AQ_NS$V11
+dist2AQ_NS$D12 <- 1/dist2AQ_NS$V12
+dist2AQ_NS$D13 <- 1/dist2AQ_NS$V13
+dist2AQ_NS$D14 <- 1/dist2AQ_NS$V14
+dist2AQ_NS$D15 <- 1/dist2AQ_NS$V15
+dist2AQ_NS$D16 <- 1/dist2AQ_NS$V16
+dist2AQ_NS$D17 <- 1/dist2AQ_NS$V17
+dist2AQ_NS$D18 <- 1/dist2AQ_NS$V18
+dist2AQ_NS$D19 <- 1/dist2AQ_NS$V19
+dist2AQ_NS$D20 <- 1/dist2AQ_NS$V20
+dist2AQ_NS$D21 <- 1/dist2AQ_NS$V21
+dist2AQ_NS$D22 <- 1/dist2AQ_NS$V22
+dist2AQ_NS$D23 <- 1/dist2AQ_NS$V23
+dist2AQ_NS$D24 <- 1/dist2AQ_NS$V24
+dist2AQ_NS$D25 <- 1/dist2AQ_NS$V25
+
+
+# sum all pressures for total propagule pressure at a river
+prop.press_NS_2 <- apply(as.matrix(dist2AQ_NS[,60:84]), 2, function(x) sum(x, na.rm=TRUE))
+
+# match to river mouth coords
+riverCWD2 <- data.frame(code=nsrivers_all[,1], lat=nsrivers_all[,2], long = nsrivers_all[,3], prop.press = prop.press_NS_2)
+
+prop.press_NS_2 <- riverCWD2
+
+```
+
+# plot propagule pressure
+```{r}
+NSprov <- fortify(NS.low)
+
+NSsitecoords <- arrange(NSsitecoords, -Site.Size..HA.)
+prop.press_NS <- arrange(prop.press_NS, -prop.press)
+
+plot(NSrast, xlim=c(-67, -62), ylim=c(44, 48))
+coverpoints <- click(n=10)
+cover <- data.frame(coverpoints)
+cover
+
+plot3 <- ggplot() + 
+  ggtitle("Aquaculture sites")+
+  geom_polygon(data=NSprov, aes(long, lat, group=group), fill="grey")+ 
+  annotate(geom="rect", xmin=-66.4, xmax=-66, ymin=45, ymax= 47, fill="grey") +
+  geom_polygon(data=cover, aes(x, y), fill="grey") +
+  annotate(geom="rect", xmin=-64, xmax=-59.5, ymin=43.25, ymax=44, fill="grey") +
+  annotate(geom="rect", xmin=-60, xmax=-59.5, ymin=44, ymax=45, fill="grey") +
+  annotate(geom="rect", xmin=-66.75, xmax=-59.5, ymin=43.25, ymax=43.4, fill="grey") +
+  annotate(geom="rect", xmin=-66.75, xmax=-66.4, ymin=43.25, ymax=47.25, fill="grey") +
+  annotate(geom="rect", xmin=-66.75, xmax=-61, ymin=47, ymax=47.25, fill="grey") +
+  annotate(geom="rect", xmin=-63, xmax=-61.9, ymin=46, ymax=47.25, fill="grey") +
+  geom_point(data=NSsitecoords, aes(Longitude, Latitude, size=Site.Size..HA.), fill="red", shape=21, colour="black") + 
+  theme_bw() +
+  coord_map(xlim=c(-66.75, -59.5), ylim=c(43.25, 47.25)) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
+  scale_size_continuous(name="Site size (ha)", range = c(0.5,10), limits=c(0,45), breaks=c(1, 5, 10, 15, 25, 35, 45))
+
+plot4 <- ggplot() + 
+  ggtitle("Salmon rivers")+
+  geom_polygon(data=NSprov, aes(long, lat, group=group), fill="grey")+ 
+  annotate(geom="rect", xmin=-66.4, xmax=-66, ymin=45, ymax= 47, fill="grey") +
+  geom_polygon(data=cover, aes(x, y), fill="grey") +
+  annotate(geom="rect", xmin=-64, xmax=-59.5, ymin=43.25, ymax=44, fill="grey") +
+  annotate(geom="rect", xmin=-60, xmax=-59.5, ymin=44, ymax=45, fill="grey") +
+  annotate(geom="rect", xmin=-66.75, xmax=-59.5, ymin=43.25, ymax=43.4, fill="grey") +
+  annotate(geom="rect", xmin=-66.75, xmax=-66.4, ymin=43.25, ymax=47.25, fill="grey") +
+  annotate(geom="rect", xmin=-66.75, xmax=-61, ymin=47, ymax=47.25, fill="grey") +
+  annotate(geom="rect", xmin=-63, xmax=-61.9, ymin=46, ymax=47.25, fill="grey") +
+  geom_point(data=prop.press_NS, aes(long, lat, size=prop.press), fill="yellow", shape=21, colour="black") + 
+  theme_bw() +
+  coord_map(xlim=c(-66.75, -59.5), ylim=c(43.25, 47.25)) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
+  scale_size_continuous(name="Propagule\npressure=\n\u03A3(ha/dist)", range = c(0.5,10), limits=c(0,0.009), breaks=c(0.001, 0.003, 0.005, 0.007, 0.009))
+  
+  
+
+gA <- ggplotGrob(plot3)
+gB <- ggplotGrob(plot4)
+grid.newpage()
+grid.draw(cbind(gA, gB))
+
+```
+
+## NS morris escapes vs. propagule pressure
+```{r}
+nsclean <- subset(morris_clean, ProvState=="NS")
+
+nsclean_summ <- ddply(.data=nsclean, .(River),
+                      summarize,
+                      totalF = sum(as.numeric(as.character(TotalFarmed)), na.rm=TRUE),
+                      totalC = sum(as.numeric(as.character(TotalCombined)), na.rm=TRUE))
+
+nsclean_summ$prop <- nsclean_summ$totalF/nsclean_summ$totalC
+nsclean_summ[c(4,10), 4] <- 0
+
+names(prop.press_NS) <- c("River", "lat", "long", "prop.press")
+
+nsescaperel <- join(nsclean_summ, prop.press_NS, type="left")
+
+nsescaperel$cnty <- c("Bay of Fundy", "Cape Breton", "Bay of Fundy", "Cape Breton", "South Shore", "South Shore", "Cape Breton", "Bay of Fundy", "Cape Breton", "Yarmouth", "Bay of Fundy", "Cape Breton")
+
+ggplot() + 
+  geom_smooth(data=nsescaperel, aes(prop.press, prop), method="lm") + 
+  geom_point(data=nsescaperel, aes(prop.press, prop, colour=cnty), size=3) + 
+  theme_classic() + 
+  theme(panel.border=element_rect(colour="black", fill=NA)) +
+  xlab("\nPropagule pressure = \u03A3(ha/dist)") + 
+  ylab("Likelihood of detecting escapees\n") +
+  scale_colour_discrete(name=NULL)
+
+## or vs. distance?
+names(prop.press_NS_2) <- c("River", "lat", "long", "prop.press")
+
+nsescaperel_2 <- join(nsclean_summ, prop.press_NS_2, type="left")
+
+nsescaperel_2$cnty <- c("Bay of Fundy", "Cape Breton", "Bay of Fundy", "Cape Breton", "South Shore", "South Shore", "Cape Breton", "Bay of Fundy", "Cape Breton", "Yarmouth", "Bay of Fundy", "Cape Breton")
+
+ggplot() + 
+  geom_smooth(data=nsescaperel_2, aes(prop.press, prop), method="lm") + 
+  geom_point(data=nsescaperel_2, aes(prop.press, prop, colour=cnty), size=3) + 
+  theme_classic() + 
+  theme(panel.border=element_rect(colour="black", fill=NA)) +
+  xlab("\nPropagule pressure = \u03A3(1/dist)") + 
+  ylab("Likelihood of detecting escapees\n") +
+  scale_colour_discrete(name=NULL)

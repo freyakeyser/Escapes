@@ -14,10 +14,10 @@ require(gdistance)
 
 ##### Calculate standardized measure of fish for each site
 
-inventory <- read.csv("C:/Users/keyserf/Documents/data/NL inventory master2.csv", colClasses = "character")
+inventory <- read.csv("C:/Users/keyserf/Documents/data/NL inventory master2_fixed.csv", colClasses = "character")
 
 names(inventory) <- c("ID", "Cage", "NStart", "YC", "YCAdj", "NIntro", "NMort", "NHarvest", 
-                      "NTransfer", "CountDev", "CountDevAbs", "NEscape", "NRemain", "ReportYear", "Bay")
+                      "NTransfer", "CountDev", "CountDevAbs", "NEscape", "NRemain", "ReportYear", "Bay", "Coord1", "Coord2")
 
 str(inventory)
 
@@ -38,13 +38,15 @@ inventory$CountDevAbs <- as.numeric(inventory$CountDevAbs)
 inventory$NEscape <- as.numeric(inventory$NEscape)
 inventory$NRemain <- as.numeric(inventory$NRemain)
 
-inventory[, 6:13][is.na(inventory[, 6:13])] <- 0
-inventory[,3][is.na(inventory[, 3])] <- 0
-head(inventory)
+inventory_clean <- subset(inventory, !ID=="")
 
-inventory$ReportYear <- as.numeric(inventory$ReportYear)
+inventory_clean[, 6:13][is.na(inventory_clean[, 6:13])] <- 0
+inventory_clean[,3][is.na(inventory_clean[, 3])] <- 0
+inventory_clean[, 6:13] <- abs(inventory_clean[, 6:13])
 
-inventory <- subset(inventory, ReportYear>2009)
+inventory_clean$ReportYear <- as.numeric(inventory_clean$ReportYear)
+
+#inventory <- subset(inventory, ReportYear>2009)
 
 ################### CALCULATE FISH YEARS ########################
 
@@ -57,39 +59,43 @@ inventory <- subset(inventory, ReportYear>2009)
 #   2) if NRemain = 0 and CountDev <= 0   --->    (NStart + NIntro)/2
 #   3) if NRemain > 0                     --->    NRemain + (NMort + NTransfer + NHarvest)/2
 
-inventory$case <- ifelse(inventory$NRemain==0 & inventory$CountDev > 0, 1, 
-                         ifelse(inventory$NRemain==0 & (inventory$CountDev < 0 | inventory$CountDev == 0), 2,
-                                ifelse(inventory$NRemain>0 , 3, NA)))
+inventory_clean$case <- ifelse(inventory_clean$NRemain==0 & inventory_clean$CountDev > 0, 1, 
+                         ifelse(inventory_clean$NRemain==0 & (inventory_clean$CountDev < 0 | inventory_clean$CountDev == 0), 2,
+                                ifelse(inventory_clean$NRemain>0 , 3, NA)))
 
-inventory$fishcount <- ifelse(inventory$case==1, (inventory$NStart + inventory$NIntro + inventory$CountDev)/2,
-                              ifelse(inventory$case==2, (inventory$NStart + inventory$NIntro)/2, 
-                                     ifelse(inventory$case==3, inventory$NRemain + ((abs(inventory$NMort) + abs(inventory$NHarvest) + abs(inventory$NTransfer))/2), NA)))
+inventory_clean$fishcount <- ifelse(inventory_clean$case==1, (inventory_clean$NStart + inventory_clean$NIntro + inventory_clean$CountDev)/2,
+                              ifelse(inventory_clean$case==2, (inventory_clean$NStart + inventory_clean$NIntro)/2, 
+                                     ifelse(inventory_clean$case==3, inventory_clean$NRemain + 
+                                              ((abs(inventory_clean$NMort) + abs(inventory_clean$NHarvest) + abs(inventory_clean$NTransfer))/2), NA)))
 
-events <- inventory
+# events <- inventory
 
 ## need to clean up old data a bit. many missing ID value.
 
 # old <- subset(inventory, ReportYear<2010)
+# old_clean <- subset(old, !ID=="")
+# 
 # missing <- subset(old, ID=="")
 # IDs <- ddply(.data=inventory, .(Bay),
 #              summarize,
 #              one = max(ID))
 # 
 # ### problem: some old data rows are missing IDs, and are for multiple sites. How to proceed? Average out between n locations??
+### Fixed a lot in Excel. Moving ahead by exclusing all pooled data.
 # best <- subset(inventory, is.na(as.numeric(ID))==FALSE)
 
 ### until i get that figured out:
 inventory <- subset(inventory, ReportYear >2009)
 
-ggplot() + 
-  geom_point(data=inventory, aes(ReportYear, fishcount)) + 
-  facet_wrap(~ID)
+# ggplot() + 
+#   geom_point(data=inventory, aes(ReportYear, fishcount)) + 
+#   facet_wrap(~ID)
 
-annual <- ddply(.data=inventory, .(ID, ReportYear),
-                summarize,
-                totalfish=sum(fishcount))
+# annual <- ddply(.data=inventory, .(ID, ReportYear),
+#                 summarize,
+#                 totalfish=sum(fishcount))
 
-standard <- ddply(.data=inventory, .(ID),
+standard <- ddply(.data=inventory_clean, .(ID),
                   summarize,
                   totalfish = sum(fishcount),
                   totalyears = length(unique(ReportYear)))
@@ -120,7 +126,7 @@ totfish2013 <- join(totfish2013, sites, type="left")
 totfish2013
 #######################################################################
 
-totfishall <- ddply(.data=inventory, .(ID),
+totfishall <- ddply(.data=inventory_clean, .(ID),
                    summarize,
                    cages = length(unique(Cage)),
                    years = length(unique(ReportYear)))
@@ -130,6 +136,25 @@ totfishall <- join(totfishall, standard, type="left")
 totfishall <- join(totfishall, sites, type="left")
 #### totfishall$totalfish is the column I need! 
 
+empty <- subset(totfishall, is.na(Lat)==TRUE)
+
+full <- subset(inventory_clean, !Coord1=="")
+
+comp <- join(empty, full, type="left")
+comp$Lat <- ifelse(is.na(comp$Lat) == TRUE | comp$Lat == "", comp$Coord1, NA)
+comp$Long <- ifelse(is.na(comp$Long) == TRUE | comp$Long == "", comp$Coord2, NA)
+
+comp <- unique(select(comp, ID, Lat, Long))
+comp$Lat <- as.numeric(comp$Lat)
+comp$Long <- as.numeric(comp$Long)
+
+totfishall <- join(totfishall, comp, type="left", by="ID")
+totfishall[,6] <- ifelse(is.na(totfishall[,6]) == TRUE, totfishall[,8], totfishall[,6])
+totfishall[,7] <- ifelse(is.na(totfishall[,7]) == TRUE, totfishall[,9], totfishall[,7])
+
+totfishall <- totfishall[!is.na(totfishall$Lat)==TRUE, 1:7]
+
+#########################
 prov <- readOGR(dsn="C:/Users/keyserf/Documents/R/canvec/NL.low.ocean.dbf", layer="NL.low.ocean")
 prov <- fortify(prov)
 str(prov)

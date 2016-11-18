@@ -136,6 +136,15 @@ totfishall <- join(totfishall, standard, type="left")
 totfishall <- join(totfishall, sites, type="left")
 #### totfishall$totalfish is the column I need! 
 
+### just 2002 - 2012
+totfish0212 <- ddply(.data=inventory_clean[inventory_clean$ReportYear %in% c(2002, 2003, 2004, 2005, 2006, 2007, 
+                                                                             2008, 2009, 2010, 2011, 2012),], .(ID),
+                     summarize,
+                     totalfish = sum(fishcount))
+
+totfish0212 <- join(totfish0212, sites, type="left")
+#####
+
 empty <- subset(totfishall, is.na(Lat)==TRUE)
 
 full <- subset(inventory_clean, !Coord1=="")
@@ -153,6 +162,12 @@ totfishall[,6] <- ifelse(is.na(totfishall[,6]) == TRUE, totfishall[,8], totfisha
 totfishall[,7] <- ifelse(is.na(totfishall[,7]) == TRUE, totfishall[,9], totfishall[,7])
 
 totfishall <- totfishall[!is.na(totfishall$Lat)==TRUE, 1:7]
+
+totfish0212 <- join(totfish0212, comp, type="left", by="ID")
+totfish0212[,3] <- ifelse(is.na(totfish0212[,3]) == TRUE, totfish0212[,5], totfish0212[,3])
+totfish0212[,4] <- ifelse(is.na(totfish0212[,4]) == TRUE, totfish0212[,6], totfish0212[,4])
+
+totfish0212 <- totfish0212[!is.na(totfish0212$Lat)==TRUE, 1:4]
 
 #########################
 prov <- readOGR(dsn="C:/Users/keyserf/Documents/R/canvec/NL.low.ocean.dbf", layer="NL.low.ocean")

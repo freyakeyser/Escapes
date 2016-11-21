@@ -22,8 +22,9 @@ names(inventory) <- c("ID", "Cage", "NStart", "YC", "YCAdj", "NIntro", "NMort", 
 str(inventory)
 
 clean <- function(i) { 
-  gsub(i, pattern=",", replacement="")
-  gsub(i, pattern=" ", replacement="")
+  temp=gsub(pattern=",", replacement="",x=i)
+  temp=gsub(pattern=" ", replacement="",x=temp)
+  return(temp)
 }
 
 inventory[] <- sapply(inventory, clean)
@@ -117,7 +118,7 @@ sites$ID <- as.character(sites$ID)
 sites
 
 ### for only 2013 year
-inv2013 <- subset(inventory, ReportYear==2013)
+inv2013 <- subset(inventory_clean, ReportYear==2013)
 
 totfish2013 <- ddply(.data=inv2013, .(ID),
                      summarize,

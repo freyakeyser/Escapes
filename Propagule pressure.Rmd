@@ -137,7 +137,7 @@ Bsites <- read.csv("C:/Users/keyserf/Documents/Data/sites_lat_long_brendan.csv",
 # rivermouths <- cbind(rivermouths, Bsites$X)
 
 # write.csv(rivermouths, "C:/Users/keyserf/Documents/Data/NL river mouth coords_2016-11-18.csv")
-rivermouths <- read.csv("C:/Users/keyserf/Documents/Data/NL river mouth coords_2016-11-18.csv", header=TRUE)
+rivermouths <- read.csv("C:/Users/keyserf/Documents/Data/Rivers/NL river mouth coords_2016-11-18.csv", header=TRUE)
 ```
 
 # Newfoundland - Fix some AQ site coords
@@ -145,7 +145,7 @@ rivermouths <- read.csv("C:/Users/keyserf/Documents/Data/NL river mouth coords_2
 # for 2013 only:
 # plot(NLrast, xlim=c(-56.0, -55.5), ylim=c(47.4, 47.6))
 # points(siterast[12,1], siterast[12,2], col="blue")
-# siterast[12,] <- click()
+# siterast[12,] <- c(-55.58610, 47.51435)
 # make site 12 = -55.58610 and 47.51435
 
 # for 2010-2015 years:
@@ -175,7 +175,7 @@ siterast[48,] <- c(-55.77543, 47.59184)
 # Newfoundland - calculate distance matrix
 ```{r}
 # calculate least-cost distance between siterast (site location) and testrast (escaped fish location)
-d3 <- costDistance(tr3c, fromCoords = cbind(as.numeric(siterast[,1]), as.numeric(siterast[,2])), toCoords = cbind(as.numeric(rivermouths[,1]), as.numeric(rivermouths[,2])))
+d3 <- costDistance(tr3c, fromCoords = cbind(as.numeric(siterast[,1]), as.numeric(siterast[,2])), toCoords = cbind(as.numeric(rivermouths[,2]), as.numeric(rivermouths[,3])))
 
 d3 
 ```
@@ -243,9 +243,9 @@ dist2AQ$P18 <- dist2AQ$totalfish/dist2AQ$TEB
 prop.press_all <- apply(as.matrix(dist2AQ[,26:43]), 2, function(x) sum(x, na.rm=TRUE))
 
 # match to river mouth coords
-prop.press_all <- data.frame(code=Bsites[,1], lat=rivermouths[,2], long = rivermouths[,1], prop.press = prop.press_all)
+prop.press_all <- data.frame(code=Bsites[,1], lat=rivermouths[,3], long = rivermouths[,2], prop.press = prop.press_all)
 
-write.csv(prop.press_all, "C:/Users/keyserf/Documents/Data/Propagule Pressure_lin_all years_2016-11-09.csv")
+write.csv(prop.press_all, "C:/Users/keyserf/Documents/Data/Propagule Pressure_lin_all years_2016-11-21.csv")
 
 ```
 
@@ -269,7 +269,7 @@ plot1 <- ggplot() +
   theme_bw() +
   coord_map(xlim=c(-56.7, -54.5), ylim=c(46.82, 48)) +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
-  scale_size_continuous(name="Total fish", range = c(0.5,10), limits=c(1,4000000), breaks=c(100, 1000, 10000, 100000, 1000000, 2500000, 4000000))
+  scale_size_continuous(name="Total fish", range = c(0.5,10), limits=c(1,5250000), breaks=c(100, 1000, 10000, 100000, 1000000, 2500000, 5250000))
 
 plot2 <- ggplot() + 
   ggtitle("Salmon rivers")+
@@ -280,7 +280,7 @@ plot2 <- ggplot() +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
   #scale_size_area(name="\u03A3(totalfish/d)", breaks=seq(50, 4000, 500)) +
   #scale_size_continuous(name="Propagule pressure=\n\u03A3(total fish^-0.0012*dist)", range = c(0.5,8), limits=c(5,25), breaks=c(5,10,15,20,25))
-  scale_size_continuous(name="Propagule pressure=\n\u03A3(total fish/dist)", range = c(0.5,8), limits=c(100,10000), breaks=c(500, 1000, 3000, 5000, 7000, 10000))
+  scale_size_continuous(name="Propagule pressure=\n\u03A3(total fish/dist)", range = c(0.5,8), limits=c(100,15500), breaks=c(500, 1000, 5000, 10000, 15500))
 
 gA <- ggplotGrob(plot1)
 gB <- ggplotGrob(plot2)
@@ -634,10 +634,10 @@ tr4c <- geoCorrection(tr4, type="c")
 # plot(raster(tr4c))
 
 # read in sites
-qsites <- read.csv("C:/Users/keyserf/Documents/Data/Qvalues_All NL_2016-11-10.csv")
+qsites <- read.csv("C:/Users/keyserf/Documents/Data/Rivers/Qvalues_All NL_2016-11-10.csv")
 qsites <- qsites[,1:3]
 
-qsitecoords <- read.csv("C:/Users/keyserf/Documents/Data/Moore_Salmon_Coords.csv")
+qsitecoords <- read.csv("C:/Users/keyserf/Documents/Data/Rivers/Moore_Salmon_Coords.csv")
 
 qsites <- join(qsites, qsitecoords, type="left")
 
@@ -803,7 +803,7 @@ dist2AQ_2013$P18 <- dist2AQ_2013$totalfish/dist2AQ_2013$TEB
 prop.press2013 <- apply(as.matrix(dist2AQ_2013[,23:40]), 2, function(x) sum(x, na.rm=TRUE))
 
 # match to river mouth coords
-prop.press2013 <- data.frame(code=rivermouths[,3], lat=rivermouths[,2], long = rivermouths[,1], prop.press = prop.press2013)
+prop.press2013 <- data.frame(code=rivermouths[,4], lat=rivermouths[,3], long = rivermouths[,2], prop.press = prop.press2013)
 
 prop.press2013$name <- c("Bottom Brook", "Conne River", "Dollard's Brook",
                          "Garnish River", "Grand Bank Brook", "Grand LaPierre Brook",
@@ -814,7 +814,7 @@ prop.press2013$name <- c("Bottom Brook", "Conne River", "Dollard's Brook",
 
 prop.press2013 <- select(prop.press2013, code, lat, long, prop.press, name)
 prop.press2013
-write.csv(prop.press2013, file="C:/Users/keyserf/Documents/Data/Propagule pressures_lin_2013_sampling_2016-11-09.csv")
+write.csv(prop.press2013, file="C:/Users/keyserf/Documents/Data/R Output/Propagule pressures_lin_2013_sampling_2016-11-21.csv")
 ```
 
 # Newfoundland - plot propagule pressure 2013

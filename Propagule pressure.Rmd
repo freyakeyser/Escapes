@@ -17,22 +17,21 @@ require(PBSmapping)
 require(gdistance)
 require(grid)
 require(gridExtra)
+require(ggrepel)
 ```
 
 ##########################################################################################################################
 ######################### SOUTHERN NEWFOUNDLAND CAGE SITE DISTANCES TEMPLATE CODE ########################################
 ##########################################################################################################################
 
-## for low-res generic mapping
+## Newfoundland - for low-res generic mapping
 ```{r}
 ## http://ftp.geogratis.gc.ca/pub/nrcan_rncan/vector/atlas/75m_prod/geog/shape/
 prov <- readShapeSpatial("C:/Users/keyserf/Documents/R/canvec/pvp/pvp.shp", proj4string=CRS("+proj=longlat +ellps=GRS80 +no_defs"))
 #prov <- fortify(model=prov)
 ```
 
-## Calculate distances between points with boundaries, need fine scale data for raster
-## SKIP DOWN IF ENVIRONMENT IS LOADED
-### read in shapefiles, create raster file
+### Newfoundland - read in shapefiles, create raster file
 ```{r}
 ## http://ftp.geogratis.gc.ca/pub/nrcan_rncan/vector/canvec/shp/Hydro/
 # NL <- readOGR(dsn = "./R/canvec/canvec_50K_NL_Hydro_shp/waterbody_2_1.shp", layer="waterbody_2_1")
@@ -71,7 +70,7 @@ tr3c <- geoCorrection(tr3, type="c")
 
 ```
 
-## Newfoundland AQ site coordinates and river mouths
+## Newfoundland - AQ site coordinates and river mouths
 ```{r}
 # site coords
 # read in sites from AQ sites NL script
@@ -291,7 +290,7 @@ grid.draw(cbind(gA, gB))
 ```
 
 
-
+##########################################################################################################################
 
 
 ### Newfoundland - comparing escapees and escape events with propagule pressure
@@ -477,7 +476,7 @@ summary(model5)
 ```
 
 
-
+##########################################################################################################################
 
 
 ### Newfoundland - Annual propagule pressure for each river
@@ -542,7 +541,7 @@ prop.press.annual$River <- rep(Bsites$X, 6)
 ```
 
 
-
+##########################################################################################################################
 
 
 
@@ -572,10 +571,7 @@ morris_clean_NL <- subset(morris_clean, ProvState=="NL")
 ```
 
 
-
-
-
-
+##########################################################################################################################
 
 ### for 2002-2012
 ## Newfoundland 2002-2012 - AQ sites
@@ -745,10 +741,7 @@ ggplot() +
 ```
 
 
-
-
-
-
+##########################################################################################################################
 
 ### for 2013 only (Brendan's paper)
 ## Newfoundland 2013 - join distance matrix with 2013 inventory data
@@ -918,8 +911,18 @@ ggplot() + geom_point(data=escapesite, aes(DistanceToRiver.km., 1)) +
 ```
 
 
+##########################################################################################################################
+
+
+
+##########################################################################################################################
+############################### NOVA SCOTIA CAGE SITE DISTANCES TEMPLATE CODE ############################################
+##########################################################################################################################
+
+
+
 ### Nova scotia propagule pressures
-## shapefile prep
+## Nova Scotia - shapefile prep
 ```{r}
 # Use size instead of total fish proxy
 
@@ -954,7 +957,7 @@ NSrast@data@values <- ifelse(coordinates(NSrast)[,1] > -61 & coordinates(NSrast)
 NSrast@data@values <- ifelse(coordinates(NSrast)[,2] >47.2, 1, NSrast@data@values)
 ```
 
-# Fix some river coords
+# Nova Scotia - Fix some river coords
 ```{r}
 # make nictaux = to annapolis
 nsrivers_all[8,3] <- nsrivers_all[1,3]
@@ -970,7 +973,7 @@ nsrivers_all[22,2:3] <- c(44.97533, -62.08651)
 
 ```
 
-# Transition layer, Geocorrection, calculate distance matrix, calculate Cumulative Weighted Distances
+# Nova Scotia - Transition layer, Geocorrection, calculate distance matrix
 ```{r}
 # for q-values
 NSQ <- read.csv("C:/Users/keyserf/Documents/Data/NS Q values.csv", header=TRUE) 
@@ -1007,7 +1010,7 @@ d6
 
 ```
 
-### IF ENVIRONMENT LOADED: START HERE!
+# Nova Scotia - Merge with inventory data
 ```{r}
 colnames(NSsitecoords)[1] <- "ID"
 d6 <- as.data.frame(cbind(d6, NSsitecoords$ID))
@@ -1016,7 +1019,7 @@ colnames(d6)[11] <- "ID"
 dist2AQ_NS <- join(d6, NSsitecoords, type="left")
 ```
 
-# Calculate propagule pressure for each river. 
+# Nova Scotia - Calculate propagule pressure for each river. 
 ```{r}
 dist2AQ_NS[,1:10] <- apply(dist2AQ_NS[,1:10], 2, function(x) as.character(x))
 dist2AQ_NS[,1:10] <- apply(dist2AQ_NS[,1:10], 2, function(x) as.numeric(x))
@@ -1085,7 +1088,7 @@ prop.press_NS_2 <- riverCWD2
 
 ```
 
-# plot propagule pressure
+# Nova Scotia - plot propagule pressure
 ```{r}
 NSprov <- fortify(NS.low)
 
@@ -1140,7 +1143,7 @@ grid.draw(cbind(gA, gB))
 
 ```
 
-## NS q-values vs. propagule pressure
+## Nova Scotia - q-values vs. propagule pressure
 ```{r}
 ggplot() + 
   geom_smooth(data=prop.press_NS, aes(prop.press, Q), method="lm", se=TRUE) +
@@ -1153,9 +1156,9 @@ ggplot() +
 
 ggplot() + geom_text(data=prop.press_NS, aes(long, lat, label=code))
 
-``
+```
 
-## NS morris escapes vs. propagule pressure
+## Nova Scotia - morris escapes vs. propagule pressure
 ```{r}
 nsclean <- subset(morris_clean, ProvState=="NS")
 

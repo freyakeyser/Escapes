@@ -689,15 +689,112 @@ points(coastdist.join[,6], coastdist.join[,5], pch=16, col="yellow")
 ```
 
 ########################################################################################################
-################### Import escapes data
+################### Escapes data
 
 ### read in angling locations
 ```{r}
-locs <- readOGR("./Data/Angling Locations 2016.kml", "Angling Locations 2016")
+bradsites <- readOGR("./Data/Angling Locations 2016.kml", "Angling Locations 2016")
 plot(NLrast)
 points(locs)
 points(escapes$Longitude..E., escapes$Latitude..N., pch=16, col="red")
 
 
-escapes <- read.csv("C:/Users/keyserf/Documents/Data/Gillnetting2015 - Master Copy.csv")
+bradescapes <- read.csv("C:/Users/keyserf/Documents/Data/Escape events and reports/Gillnetting2015 - Master Copy.csv")
+
+
+## mapping unknown sites from Geoff Perry
+
+df <- read.csv("C:/Users/keyserf/Desktop/locs.csv")
+df <- unique(df)
+df <- arrange(df, Location)
+df$num <- c(1:34)
+
+#use prov2 shapefile from Propagule pressure.Rmd
+map <- ggplot() + 
+  geom_polygon(data=prov2, aes(long, lat, group=group), fill="grey")+
+  annotate(geom="rect", xmin=-59.7, xmax=-56, ymin=46.6, ymax= 47.45, fill="grey") +
+  annotate(geom="rect", xmin=-54, xmax=-52.6, ymin=50, ymax= 51.8, fill="grey") +
+  annotate(geom="rect", xmin=-56, xmax=-55.5, ymin=46.6, ymax= 46.8, fill="grey") +
+  geom_point(data=df, aes(Long, Lat)) +
+  geom_label_repel(data=df, aes(Long, Lat, label=num), size=3, point.padding = unit(0.1,"lines"), min.segment.length = unit(0.1, "lines"),) +
+  coord_map(xlim=c(-58, -54), ylim=c(46.8, 48.5)) +
+  theme_classic() +
+  theme(panel.background = element_blank(), panel.border=element_rect(colour="black", fill=NA))
+
+labels <- ggplot() + geom_text(data=df, aes(1, Location, label=num)) + theme_classic() + ylab(NULL) + xlab(NULL) + theme(axis.text.x = element_blank(), axis.ticks = element_blank(), axis.line = element_blank())
+
+grid.arrange(map, arrangeGrob(labels), ncol=2, widths=c(1, 0.2))
+
+## Read in Geoff's escape reports db
+
+geoescapes <- read.csv("C:/Users/keyserf/Documents/Data/Escape events and reports/NL Escapee database.csv")
+
+str(geoescapes)
+
+head(geoescapes)
+geoescapes$Year <- as.numeric(as.character(geoescapes$Year))
+geoescapes$Number <- as.character(geoescapes$Number)
+
+clean <- function(i) { 
+  temp=gsub(pattern=",", replacement="",x=i)
+  temp=gsub(pattern=" ", replacement="",x=temp)
+  temp=gsub(pattern="'", replacement="",x=temp)
+  return(temp)
+}
+
+geoescapes[]<- sapply(geoescapes, clean)
+geoescapes$Number.adj <- as.numeric(as.character(geoescapes$Number))
+geoescapes$Size.adj <- as.numeric(as.character(geoescapes$Size))
+geoescapes$Size.bin <- ifelse(geoescapes$Size.adj > 1000 | geoescapes$Size %in% c("mkts", "near-mkt"), "large", ifelse(geoescapes$Size.adj < 1001, "small", NA))
+str(geoescapes)
+geoescapes$ID <- as.character(geoescapes$ID)
+colnames(geoescapes)[11] <- "Longitude"
+colnames(geoescapes)[12] <- "Latitude"
+geoescapes$Year <- as.numeric(geoescapes$Year)
+
+
+geoescapes <- join(geoescapes, sitecoords, type="left")
+
+geoescapes$Long <- ifelse(is.na(geoescapes$Long)==TRUE, geoescapes$Longitude, geoescapes$Long)
+geoescapes$Lat <- ifelse(is.na(geoescapes$Lat)==TRUE, geoescapes$Latitude, geoescapes$Lat)
+
+ggplot() + geom_point(data=geoescapes, aes(Year, Number, colour=Farm))
+
+
+ggplot() + 
+  geom_polygon(data=prov2, aes(long, lat, group=group), fill="grey")+
+  annotate(geom="rect", xmin=-59.7, xmax=-56, ymin=46.6, ymax= 47.45, fill="grey") +
+  annotate(geom="rect", xmin=-54, xmax=-52.6, ymin=50, ymax= 51.8, fill="grey") +
+  annotate(geom="rect", xmin=-56, xmax=-55.5, ymin=46.6, ymax= 46.8, fill="grey") +
+  geom_point(data=geoescapes, aes(Long, Lat, size=Number)) +
+  coord_map(xlim=c(-58, -54), ylim=c(46.8, 48.5)) +
+  theme_classic() +
+  theme(panel.background = element_blank(), panel.border=element_rect(colour="black", fill=NA)) +
+  facet_wrap(~Size.bin)
+
+
+ggplot() + 
+  geom_polygon(data=prov2, aes(long, lat, group=group), fill="grey")+
+  annotate(geom="rect", xmin=-59.7, xmax=-56, ymin=46.6, ymax= 47.45, fill="grey") +
+  annotate(geom="rect", xmin=-54, xmax=-52.6, ymin=50, ymax= 51.8, fill="grey") +
+  annotate(geom="rect", xmin=-56, xmax=-55.5, ymin=46.6, ymax= 46.8, fill="grey") +
+  geom_point(data=geoescapes, aes(Long, Lat)) +
+  coord_map(xlim=c(-58, -54), ylim=c(46.8, 48.5)) +
+  theme_classic() +
+  theme(panel.background = element_blank(), panel.border=element_rect(colour="black", fill=NA))
+
+geoescapes$Other.Observations <- as.character(geoescapes$Other.Observations)
+geoescapes$Other.Observations[geoescapes$Other.Observations==""] <- NA
+observ <- subset(geoescapes, is.na(Other.Observations)==FALSE)
+
+options(scipen=999)
+
+ggplot() + 
+  geom_point(data=geoescapes, aes(Year, Number.adj, colour=as.factor(Location))) +
+  theme_classic() +
+  theme(panel.background = element_blank(), panel.border=element_rect(colour="black", fill=NA)) + 
+  ylab("Number of fish") +
+  scale_x_continuous(breaks=seq(1980, 2015, by=5))
+
+str(geoescapes)
 ```

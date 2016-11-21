@@ -91,9 +91,10 @@ inventory <- subset(inventory, ReportYear >2009)
 #   geom_point(data=inventory, aes(ReportYear, fishcount)) + 
 #   facet_wrap(~ID)
 
-# annual <- ddply(.data=inventory, .(ID, ReportYear),
-#                 summarize,
-#                 totalfish=sum(fishcount))
+annual <- ddply(.data=inventory_clean, .(ID, ReportYear),
+                summarize,
+                totalfish=sum(fishcount))
+
 
 standard <- ddply(.data=inventory_clean, .(ID),
                   summarize,
@@ -162,6 +163,13 @@ totfishall[,6] <- ifelse(is.na(totfishall[,6]) == TRUE, totfishall[,8], totfisha
 totfishall[,7] <- ifelse(is.na(totfishall[,7]) == TRUE, totfishall[,9], totfishall[,7])
 
 totfishall <- totfishall[!is.na(totfishall$Lat)==TRUE, 1:7]
+
+
+sites <- unique(select(totfishall, ID, Lat, Long))
+
+annualinventory <- join(annual, sites, type="left")
+write.csv(annualinventory, "C:/Users/keyserf/Documents/Data/NL annual inventory and coords_summary_2016-11-18.csv")
+
 
 totfish0212 <- join(totfish0212, comp, type="left", by="ID")
 totfish0212[,3] <- ifelse(is.na(totfish0212[,3]) == TRUE, totfish0212[,5], totfish0212[,3])

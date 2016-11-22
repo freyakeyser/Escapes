@@ -173,6 +173,8 @@ CA.low@data$id <- rownames(CA.low@data)
 CA.low.points <- fortify(CA.low, region="id")
 CA.df = join(CA.low.points, CA.low@data, by="id")
 
+
+
 NSmorrismap <- ggplot() + 
   #ggtitle("Maritimes salmon rivers")+
   geom_path(data=CA.df, aes(long, lat, group=group),colour="black") +

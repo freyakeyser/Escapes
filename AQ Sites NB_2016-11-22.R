@@ -99,7 +99,11 @@ NB.BOF.sites$ID <- as.character(NB.BOF.sites$ID)
 
 NB.BOF.sites <- arrange(NB.BOF.sites, ID)
 
-write.csv(NB.BOF.sites, "C:/Users/keyserf/Documents/Data/R output/NB sites 2016-11-22.csv")
+#write.csv(NB.BOF.sites, "C:/Users/keyserf/Documents/Data/R output/NB sites 2016-11-22.csv")
+
+NB.BOF.sites <- read.csv("C:/Users/keyserf/Documents/Data/R output/NB sites 2016-11-22.csv")
+NB.BOF.sites
+
 
 ggplot() + geom_polygon(data=NBprov, aes(long, lat, group=group)) +
   geom_point(data=NB.BOF.sites, aes(x, y, colour=Area)) +
@@ -115,6 +119,9 @@ GOM <- fortify(GOM)
 # CANE <- fortify(CANE)
 
 GOMclip <- gDifference(GOM, NB.low)
+
+writeOGR(obj = GOMclip, dsn = "C:/Users/keyserf/Documents/R/canvec/", layer="GOMclip", driver="ESRI Shapefile")
+
 GOMclip <- fortify(GOMclip)
 
 require(ggspatial)
@@ -131,3 +138,22 @@ ggplot() +
 plot(NB.BOF)
 
 ```
+
+### Now read in and clean-up stocking data
+```{r}
+
+NB_licence <- read.csv("C:/Users/keyserf/Documents/Data/Inventory data/NB 1998-2016 licensing_salar.csv")
+head(NB_licence)
+
+str(NB_licence)
+
+NB_licence <- select(NB_licence, Company, Species, Number, Site.ID, Issue.Date)
+
+NB_licence$Issue.Date <- dmy(NB_licence$Issue.Date)
+NB_licence$Year <- year(NB_licence$Issue.Date)
+
+head(NB_licence)
+
+```
+
+

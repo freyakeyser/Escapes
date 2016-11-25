@@ -164,11 +164,9 @@ nbmorris_true <- subset(nbmorris, !TotalFarmed =="0", select=c("River", "lat", "
 nbmorris_true <- subset(nbmorris_true, !TotalFarmed =="N/A")
 nbmorris_true <- unique(nbmorris_true[,1:3])
 
-CAshp <- readOGR(dsn = "C:/Users/keyserf/Documents/R/canvec/canvec_1M_CA_Land_shp/shoreline_1.shp", layer="shoreline_1")
-# CA.low <- crop(CAshp, extent(-67.7, -59.5, 43.2, 48.1))
-# CA.map <- fortify(CA.low, region="id")
-# rm(NS.low)
-# 
+# CAshp <- readOGR(dsn = "C:/Users/keyserf/Documents/R/canvec/canvec_1M_CA_Land_shp/shoreline_1.shp", layer="shoreline_1")
+# CA.low <- readOGR(dsn = "C:/Users/keyserf/Documents/R/Escapes/canvec/CA.low.shp", layer="CA.low")
+ 
 # CA.low@data$id <- rownames(CA.low@data)
 # CA.low.points <- fortify(CA.low, region="id")
 # CA.df = join(CA.low.points, CA.low@data, by="id")
@@ -224,11 +222,15 @@ nlmorris_true <- subset(nlmorris_true, !TotalFarmed =="N/A")
 nlmorris_true <- unique(nlmorris_true[,1:3])
 
 CA.NL <- crop(CAshp, extent(-60, -52, 46.5, 52))
+#writeOGR(obj = CA.NL, dsn = "C:/Users/keyserf/Documents/R/canvec/CA.NL.shp", layer="CA.NL", driver="ESRI Shapefile")
 CA.NL@data$id <- rownames(CA.NL@data)
 CA.NL.points <- fortify(CA.NL, region="id")
 CA.NL.df = join(CA.NL.points, CA.NL@data, by="id")
 
-NL.low <- crop(NL.low, extent(-59.92, -52.3, 46.52, 51.78))
+# NL.low <- readOGR(dsn = "C:/Users/keyserf/Documents/R/canvec/canvec_250K_NL_Hydro_shp/waterbody_2.shp", layer="waterbody_2")
+# NL.low <- crop(NL.low, extent(-59.92, -52.3, 46.52, 51.78))
+# writeOGR(obj=NL.low, dsn="C:/Users/keyserf/Documents/R/canvec/NL.low.shp", layer="NL.low", driver="ESRI Shapefile")
+NL.low <- readOGR(dsn = "C:/Users/keyserf/Documents/R/canvec/NL.low.shp", layer="NL.low")
 
 NLmorrismap <- ggplot() + 
   #ggtitle("Maritimes salmon rivers")+
@@ -728,10 +730,20 @@ bradescapes <- read.csv("C:/Users/keyserf/Documents/Data/Escape events and repor
 
 ## mapping unknown sites from Geoff Perry
 
-df <- read.csv("C:/Users/keyserf/Desktop/locs.csv")
+df <- read.csv("C:/Users/keyserf/Documents/Data/Inventory data/locs.csv")
 df <- unique(df)
 df <- arrange(df, Location)
 df$num <- c(1:34)
+
+BDESP <- crop(NLprov, extent(-56.6, -55.48, 47.45, 47.9))
+
+plot(BDESP)
+
+geoff <- click(n=7)
+
+geoff <- as.data.frame(geoff)
+geoff$name <- c("Snook", "MOW", "Burnt", "Jersey", "Shoal", "May", "Margery") 
+
 
 #use prov2 shapefile from Propagule pressure.Rmd
 map <- ggplot() + 
@@ -751,7 +763,7 @@ grid.arrange(map, arrangeGrob(labels), ncol=2, widths=c(1, 0.2))
 
 ## Read in Geoff's escape reports db
 
-geoescapes <- read.csv("C:/Users/keyserf/Documents/Data/Escape events and reports/NL Escapee database.csv")
+geoescapes <- read.csv("C:/Users/keyserf/Documents/Data/Escape events and reports/NL Escapee database.csv", na.strings=c(""))
 
 str(geoescapes)
 
@@ -776,21 +788,22 @@ colnames(geoescapes)[11] <- "Longitude"
 colnames(geoescapes)[12] <- "Latitude"
 geoescapes$Year <- as.numeric(geoescapes$Year)
 
-
 geoescapes <- join(geoescapes, sitecoords, type="left")
 
 geoescapes$Long <- ifelse(is.na(geoescapes$Long)==TRUE, geoescapes$Longitude, geoescapes$Long)
 geoescapes$Lat <- ifelse(is.na(geoescapes$Lat)==TRUE, geoescapes$Latitude, geoescapes$Lat)
 
-ggplot() + geom_point(data=geoescapes, aes(Year, Number, colour=Farm))
+geoescapes$Long <- as.numeric(geoescapes$Long)
+geoescapes$Lat <- as.numeric(geoescapes$Lat)
 
+ggplot() + geom_point(data=geoescapes, aes(Year, Number.adj, colour=Farm))
 
 ggplot() + 
   geom_polygon(data=prov2, aes(long, lat, group=group), fill="grey")+
   annotate(geom="rect", xmin=-59.7, xmax=-56, ymin=46.6, ymax= 47.45, fill="grey") +
   annotate(geom="rect", xmin=-54, xmax=-52.6, ymin=50, ymax= 51.8, fill="grey") +
   annotate(geom="rect", xmin=-56, xmax=-55.5, ymin=46.6, ymax= 46.8, fill="grey") +
-  geom_point(data=geoescapes, aes(Long, Lat, size=Number)) +
+  geom_point(data=geoescapes, aes(Long, Lat, size=Number.adj)) +
   coord_map(xlim=c(-58, -54), ylim=c(46.8, 48.5)) +
   theme_classic() +
   theme(panel.background = element_blank(), panel.border=element_rect(colour="black", fill=NA)) +
@@ -820,5 +833,62 @@ ggplot() +
   ylab("Number of fish") +
   scale_x_continuous(breaks=seq(1980, 2015, by=5))
 
-str(geoescapes)
+geoescapes_2 <- select(geoescapes, Year, Location, Lat, Long, Number.adj, Size.adj, Size.bin, Other.Observations)
+
+geoescapes_2$Year <- as.numeric(as.character(geoescapes$Year))
+geoescapes_2$Size.bin <- as.factor(as.character(geoescapes$Size.bin))
+geoescapes_2$Location <- as.factor(geoescapes_2$Location)
+
+avg.escape.per.year <- ddply(.data=geoescapes_2, .(Location),
+      summarize,
+      totalescape = sum(Number.adj),
+      nyears = max(Year, na.rm=TRUE)-min(Year,na.rm=TRUE)+1,
+      average=sum(Number.adj)/(max(Year,na.rm=TRUE)-min(Year,na.rm=TRUE)+1))
+
+avg.escape.size <- ddply(.data=geoescapes_2[is.na(geoescapes_2$Number.adj)==FALSE,], .(Location),
+      summarize,
+      totalescape = sum(Number.adj),
+      nyears = length(unique(Year)),
+      average=sum(Number.adj)/length(unique(Year)))
+
+summary(geoescapes_2$Number.adj)
+
+mean(geoescapes_2$Number.adj, na.rm=TRUE)
+
+geoescapes_2$escapesize <- ifelse(is.na(geoescapes_2$Number.adj)=="TRUE", "21913", geoescapes_2$Number.adj)
+
+geoescapes_2$escapesize <- as.numeric(geoescapes_2$escapesize)
+
+geoescapes_2$escapesizetype <- is.na(geoescapes_2$Number.adj)
+
+ggplot() + geom_point(data=geoescapes_2[geoescapes_2$escapesize>0,], aes(Year, escapesize, colour=Location, shape=escapesizetype)) +
+  scale_shape_manual(values=c(1,4), labels=c("Real", "Estimate"), name="Calculation method") +
+  theme_classic() + 
+  theme(panel.border=element_rect(colour="black", fill=NA))
+
+ggplot() + geom_point(data=geoescapes_2, aes(Year, escapesize, shape=escapesizetype)) +
+  scale_shape_manual(values=c(1,4), labels=c("Real", "Estimate"), name="Calculation method") +
+  theme_classic() + 
+  theme(panel.border=element_rect(colour="black", fill=NA)) +
+  facet_wrap(~Location)
+
+escapes0212 <- subset(geoescapes_2, Year > 2001 & Year < 2013)
+
+escape_summ <- ddply(.data=escapes0212, .(Location, Lat, Long),
+                     summarize,
+                    totalescape = sum(escapesize))
+
+escape_summ_2 <- ddply(.data=geoescapes_2, .(Location, Lat, Long),
+                     summarize,
+                    totalescape = sum(escapesize))
+
+max(geoescapes_2$Year, na.rm=TRUE)
+min(geoescapes_2$Year, na.rm=TRUE)
+summary(geoescapes_2$Year)
+hist(geoescapes_2$Year)
+
+# escape_summ_2$Location <- as.factor(escape_summ_2$Location)
+# escape_summ_2 <- escape_summ_2[1:27,]
+#### USE ESCAPE_SUMM_2 TO CALCULATE ESCAPE PRESSURE IN PROPAGULE PRESSURE.RMD
+
 ```

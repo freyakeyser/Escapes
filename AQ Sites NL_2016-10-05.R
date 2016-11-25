@@ -82,7 +82,7 @@ inventory_clean$fishcount <- ifelse(inventory_clean$case==1, (inventory_clean$NS
 #              one = max(ID))
 # 
 # ### problem: some old data rows are missing IDs, and are for multiple sites. How to proceed? Average out between n locations??
-### Fixed a lot in Excel. Moving ahead by exclusing all pooled data.
+### Fixed a lot in Excel. Moving ahead by excluding all pooled data.
 # best <- subset(inventory, is.na(as.numeric(ID))==FALSE)
 
 ### until i get that figured out:

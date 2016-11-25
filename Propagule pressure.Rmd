@@ -606,8 +606,9 @@ siterast[43,] <- c(-55.77543, 47.59184)
 # NL.low <- readOGR(dsn = "C:/Users/keyserf/Documents/R/canvec/canvec_250K_NL_Hydro_shp/waterbody_2.shp", layer="waterbody_2")
 
 #cropping shapefile to the area and details I need
-NLprov <- crop(NLlab, extent(-59.7, -52.4, 46.6, 51.8))
+NLprov <- crop(NL.low, extent(-59.7, -52.4, 46.6, 51.8))
 writeOGR(obj=NLprov, dsn="canvec", layer="NLprov", driver="ESRI Shapefile")
+NLprov <- readOGR(dsn="C:/Users/keyserf/Documents/R/Escapes/canvec/NLprov.shp", layer="NLprov")
 # rm(NL.low)
 # rm(NLlab)
 
@@ -913,6 +914,164 @@ ggplot() + geom_point(data=escapesite, aes(DistanceToRiver.km., 1)) +
 
 ##########################################################################################################################
 
+
+### ESCAPE PRESSURE - Newfoundland all years
+## Newfoundland - AQ site coordinates and river mouths
+```{r}
+# AQ escape site coords
+# read in sites from AQ sites NL script
+x <- escape_summ_2$Long
+y <- escape_summ_2$Lat
+xy <- cbind(x, y)
+siterast <- as.matrix(xy)
+
+# For Brendan's river sites:
+# Bsites <- read.csv("C:/Users/keyserf/Documents/Data/sites_lat_long_brendan.csv", header=TRUE)
+
+# For precise PARR project sampling locations in rivers:
+# rivermouths <- read.csv("C:/Users/keyserf/Documents/Data/Rivers/NL river mouth coords_2016-11-18.csv", header=TRUE)
+
+# For Q value analysis:
+str(qsites)
+```
+
+# Newfoundland - Fix some AQ site coords
+```{r}
+# for escape data:
+plot(NLrast)
+# plot(NLrast, xlim=c(-56.25, -55.75), ylim=c(47.6, 48))
+points(siterast[,1], siterast[,2], col="red")
+lines(NLline)
+siterast <- SpatialPoints(siterast)
+siterast <- snapPointsToLines(siterast, NLline)
+siterast <- as.matrix(siterast@coords)
+
+siterast[14,] <- c(-56.0654, 47.77681)
+
+```
+
+# Newfoundland Escapes - calculate distance matrix
+```{r}
+# calculate least-cost distance between siterast (site location) and testrast (escaped fish location)
+# d6 <- costDistance(tr4c, fromCoords = cbind(as.numeric(siterast[,1]), as.numeric(siterast[,2])), toCoords = cbind(as.numeric(qsites[,5]), as.numeric(qsites[,6])))
+
+d6 <- costDistance(tr3c, fromCoords = cbind(as.numeric(siterast[,1]), as.numeric(siterast[,2])), toCoords = cbind(as.numeric(rivermouths[,2]), as.numeric(rivermouths[,3])))
+
+d6 
+```
+
+### Newfoundland Escapes - merge with site coords and inventory data
+```{r}
+d6 <- as.data.frame(cbind(d6, escape_summ_2$Location))
+colnames(d6)[19] <- "Location"
+colnames(d6)[1:18] <- as.list(as.character(rivermouths$code))
+
+dist2Escape <- join(d6, escape_summ_2, type="left")
+```
+
+# Newfoundland Escapes - Calculate propagule pressure for each river. 
+```{r}
+dist2Escape[,1:18] <- apply(dist2Escape[,1:18], 2, function(x) as.character(x))
+dist2Escape[,1:18] <- apply(dist2Escape[,1:18], 2, function(x) as.numeric(x))
+
+# For each AQ site, caclulate totalescape/distance from river
+## original calculation
+# dist2Escape$P1 <- dist2Escape$totalescape/dist2Escape$GAR
+# dist2Escape$P2 <- dist2Escape$totalescape/dist2Escape$BDN
+# dist2Escape$P3 <- dist2Escape$totalescape/dist2Escape$CNR
+# dist2Escape$P4 <- dist2Escape$totalescape/dist2Escape$LHR
+# dist2Escape$P5 <- dist2Escape$totalescape/dist2Escape$GRR
+# dist2Escape$P6 <- dist2Escape$totalescape/dist2Escape$LPR
+# dist2Escape$P7 <- dist2Escape$totalescape/dist2Escape$NPR
+# dist2Escape$P8 <- dist2Escape$totalescape/dist2Escape$RKR
+# dist2Escape$P9 <- dist2Escape$totalescape/dist2Escape$LSR
+# dist2Escape$P10 <- dist2Escape$totalescape/dist2Escape$NBT
+# dist2Escape$P11 <- dist2Escape$totalescape/dist2Escape$BSB
+# dist2Escape$P12 <- dist2Escape$totalescape/dist2Escape$STP
+# dist2Escape$P13 <- dist2Escape$totalescape/dist2Escape$SGR
+# dist2Escape$P14 <- dist2Escape$totalescape/dist2Escape$WAB
+# dist2Escape$P15 <- dist2Escape$totalescape/dist2Escape$CMP
+
+# for non-qvalue analysis
+dist2Escape$P1 <- dist2Escape$totalescape/dist2Escape$BTB
+dist2Escape$P2 <- dist2Escape$totalescape/dist2Escape$CNR
+dist2Escape$P3 <- dist2Escape$totalescape/dist2Escape$DLR
+dist2Escape$P4 <- dist2Escape$totalescape/dist2Escape$GAR
+dist2Escape$P5 <- dist2Escape$totalescape/dist2Escape$GBB
+dist2Escape$P6 <- dist2Escape$totalescape/dist2Escape$GLP
+dist2Escape$P7 <- dist2Escape$totalescape/dist2Escape$LMS
+dist2Escape$P8 <- dist2Escape$totalescape/dist2Escape$LTR
+dist2Escape$P9 <- dist2Escape$totalescape/dist2Escape$LHR
+dist2Escape$P10 <- dist2Escape$totalescape/dist2Escape$MAL
+dist2Escape$P11 <- dist2Escape$totalescape/dist2Escape$NEB
+dist2Escape$P12 <- dist2Escape$totalescape/dist2Escape$FBN
+dist2Escape$P13 <- dist2Escape$totalescape/dist2Escape$OBB
+dist2Escape$P14 <- dist2Escape$totalescape/dist2Escape$SMB
+dist2Escape$P15 <- dist2Escape$totalescape/dist2Escape$SEB
+dist2Escape$P16 <- dist2Escape$totalescape/dist2Escape$TRB
+dist2Escape$P17 <- dist2Escape$totalescape/dist2Escape$TBB
+dist2Escape$P18 <- dist2Escape$totalescape/dist2Escape$TEB
+
+
+# sum all pressures for total propagule pressure at a river
+esc.press_all <- apply(as.matrix(dist2Escape[,24:41]), 2, function(x) sum(x, na.rm=TRUE))
+
+# match to river mouth coords
+esc.press_all  <- data.frame(code=rivermouths[,4], lat=rivermouths[,3], long = rivermouths[,2], esc.press = esc.press_all)
+
+write.csv(esc.press_all, "C:/Users/keyserf/Documents/Data/Escape Pressure_lin_all rivers_2002-2012_2016-11-25.csv")
+
+```
+
+# Newfoundland Escapes - plot propagule pressure
+```{r}
+escape_summ_2 <- subset(escape_summ_2, totalescape > 0)
+escape_summ_2$Lat <- as.numeric(escape_summ_2$Lat)
+escape_summ_2$Long <- as.numeric(escape_summ_2$Long)
+
+# prov <- fortify(NL.low.ocean)
+# prov$group <- ifelse(prov$long < -56.2 & prov$lat < 47.375, 4771.1, prov$group)
+
+escape_summ_2 <- arrange(escape_summ_2, -totalescape)
+esc.press_all <- arrange(esc.press_all, -esc.press)
+
+plot1 <- ggplot() + 
+  ggtitle("Escape locations")+
+  geom_polygon(data=prov, aes(long, lat, group=group), fill="grey")+ 
+  annotate(geom="rect", xmin=-57, xmax=-56, ymin=46.8, ymax= 47.45, fill="grey") +
+  geom_point(data=escape_summ_2, aes(Long, Lat, size=totalescape), fill="red", shape=21, colour="black") + 
+  theme_bw() +
+  coord_map(xlim=c(-56.7, -54.5), ylim=c(46.82, 48)) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
+  scale_size_continuous(name="Total escape", range = c(0.5,10), limits=c(1,160000))
+
+plot2 <- ggplot() + 
+  ggtitle("Salmon rivers")+
+  geom_polygon(data=prov, aes(long, lat, group=group), fill="grey")+
+  annotate(geom="rect", xmin=-57, xmax=-56, ymin=46.8, ymax= 47.45, fill="grey") +
+  geom_point(data=esc.press_all, aes(long, lat, size=esc.press), fill="yellow", shape=21, colour="black") +
+  theme_bw() +  coord_map(xlim=c(-56.7, -54.5), ylim=c(46.82, 48)) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
+  scale_size_continuous(name="Escape pressure=\n\u03A3(total escapes/dist)", range = c(0.5,8), limits=c(1,170))
+
+gA <- ggplotGrob(plot1)
+gB <- ggplotGrob(plot2)
+grid.newpage()
+grid.draw(cbind(gA, gB))
+
+qsite_esc <- join(qsites, esc.press_all, type="left")
+
+ggplot() + geom_smooth(data=qsite_esc, aes(esc.press, Q), method="lm", se=TRUE) +
+  geom_point(data=qsite_esc, aes(esc.press, Q)) +
+  geom_label_repel(data=qsite_esc, aes(esc.press, Q, label=Code)) +
+  theme_classic() + 
+  theme(panel.background=element_rect(colour="black")) +
+  ggtitle("NL 2002-2012")+
+  xlab("Escape pressure") +
+  ylab("Q value") 
+
+
+```
 
 
 ##########################################################################################################################

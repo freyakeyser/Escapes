@@ -1,0 +1,1043 @@
+# Read in packages
+```
+require(ggplot2)
+require(plyr)
+require(lubridate)
+require(dplyr)
+require(sp)
+require(maptools)
+require(ggmap)
+require(ggplot2)
+require(reshape2)
+require(rgdal)
+require(raster)
+require(rgeos)
+require(PBSmapping)
+require(gdistance)
+require(grid)
+require(gridExtra)
+require(ggrepel)
+require(scales)
+```
+
+########################################################################################################
+################################# Newfoundland escapes data ############################################
+########################################################################################################
+
+### # Newfoundland - Read in Geoff's escape locations and AQ site locations
+```{r}
+## mapping unknown sites from Geoff Perry
+
+# escapelocs <- read.csv("C:/Users/keyserf/Documents/Data/Inventory data/locs.csv")
+# escapelocs <- unique(escapelocs)
+# escapelocs <- arrange(escapelocs, Location)
+# escapelocs$num <- c(1:34)
+
+#write.csv(escapelocs, "C:/Users/keyserf/Documents/Data/Escape events and reports/NL escape locations.csv")
+
+escapelocs <- read.csv("C:/Users/keyserf/Documents/Data/Escape events and reports/NL escape locations.csv")
+
+annual <- read.csv("C:/Users/keyserf/Documents/Data/Inventory data/NL annual inventory and coords_summary_2016-11-29.csv")
+sitecoords <- unique(subset(annual, is.na(Lat)=="FALSE", select=c("ID","Lat", "Long")))
+```
+
+## Newfoundland - Read in Geoff's escape reports db and tidy up
+```{r}
+geoescapes <- read.csv("C:/Users/keyserf/Documents/Data/Escape events and reports/NL Escapee database.csv", na.strings=c(""))
+
+str(geoescapes)
+
+head(geoescapes)
+geoescapes$Year <- as.numeric(as.character(geoescapes$Year))
+geoescapes$Number <- as.character(geoescapes$Number)
+
+clean <- function(i) { 
+  temp=gsub(pattern=",", replacement="",x=i)
+  temp=gsub(pattern=" ", replacement="",x=temp)
+  temp=gsub(pattern="'", replacement="",x=temp)
+  return(temp)
+}
+
+geoescapes[]<- sapply(geoescapes, clean)
+geoescapes$Number.adj <- as.numeric(as.character(geoescapes$Number))
+geoescapes$Size.adj <- as.numeric(as.character(geoescapes$Size))
+geoescapes$Size.bin <- ifelse(geoescapes$Size.adj > 1000 | geoescapes$Size %in% c("mkts", "near-mkt"), "large", ifelse(geoescapes$Size.adj < 1001, "small", NA))
+str(geoescapes)
+geoescapes$ID <- as.character(geoescapes$ID)
+colnames(geoescapes)[11] <- "Longitude"
+colnames(geoescapes)[12] <- "Latitude"
+geoescapes$Year <- as.numeric(geoescapes$Year)
+```
+
+### Newfoundland - Join escapes with coordinates
+```{r}
+geoescapes <- join(geoescapes, sitecoords, type="left")
+
+geoescapes$Long <- ifelse(is.na(geoescapes$Long)==TRUE, geoescapes$Longitude, geoescapes$Long)
+geoescapes$Lat <- ifelse(is.na(geoescapes$Lat)==TRUE, geoescapes$Latitude, geoescapes$Lat)
+
+geoescapes$Long <- as.numeric(geoescapes$Long)
+geoescapes$Lat <- as.numeric(geoescapes$Lat)
+
+ggplot() + geom_point(data=geoescapes, aes(Year, Number.adj, colour=Farm))
+
+# ggplot() + 
+#   geom_polygon(data=prov2, aes(long, lat, group=group), fill="grey")+
+#   annotate(geom="rect", xmin=-59.7, xmax=-56, ymin=46.6, ymax= 47.45, fill="grey") +
+#   annotate(geom="rect", xmin=-54, xmax=-52.6, ymin=50, ymax= 51.8, fill="grey") +
+#   annotate(geom="rect", xmin=-56, xmax=-55.5, ymin=46.6, ymax= 46.8, fill="grey") +
+#   geom_point(data=geoescapes, aes(Long, Lat, size=Number.adj)) +
+#   coord_map(xlim=c(-58, -54), ylim=c(46.8, 48.5)) +
+#   theme_classic() +
+#   theme(panel.background = element_blank(), panel.border=element_rect(colour="black", fill=NA)) +
+#   facet_wrap(~Size.bin)
+# 
+# ggplot() + 
+#   geom_polygon(data=prov2, aes(long, lat, group=group), fill="grey")+
+#   annotate(geom="rect", xmin=-59.7, xmax=-56, ymin=46.6, ymax= 47.45, fill="grey") +
+#   annotate(geom="rect", xmin=-54, xmax=-52.6, ymin=50, ymax= 51.8, fill="grey") +
+#   annotate(geom="rect", xmin=-56, xmax=-55.5, ymin=46.6, ymax= 46.8, fill="grey") +
+#   geom_point(data=geoescapes, aes(Long, Lat)) +
+#   coord_map(xlim=c(-58, -54), ylim=c(46.8, 48.5)) +
+#   theme_classic() +
+#   theme(panel.background = element_blank(), panel.border=element_rect(colour="black", fill=NA))
+```
+
+### Newfoundland - Deal with unknown escapes. If escape size is unknown, assume that it is equal to average escape size.
+```{r}
+geoescapes$Other.Observations <- as.character(geoescapes$Other.Observations)
+geoescapes$Other.Observations[geoescapes$Other.Observations==""] <- NA
+observ <- subset(geoescapes, is.na(Other.Observations)==FALSE)
+
+options(scipen=999)
+
+# ggplot() + 
+#   geom_point(data=geoescapes, aes(Year, Number.adj, colour=as.factor(Location))) +
+#   theme_classic() +
+#   theme(panel.background = element_blank(), panel.border=element_rect(colour="black", fill=NA)) + 
+#   ylab("Number of fish") +
+#   scale_x_continuous(breaks=seq(1980, 2015, by=5))
+
+geoescapes_2 <- dplyr::select(geoescapes, Year, Location, Lat, Long, Number.adj, Size.adj, Size.bin, Other.Observations)
+
+geoescapes_2$Year <- as.numeric(as.character(geoescapes$Year))
+geoescapes_2$Size.bin <- as.factor(as.character(geoescapes$Size.bin))
+geoescapes_2$Location <- as.factor(geoescapes_2$Location)
+
+avg.escape.per.year <- ddply(.data=geoescapes_2, .(Location),
+      summarize,
+      totalescape = sum(Number.adj),
+      nyears = max(Year, na.rm=TRUE)-min(Year,na.rm=TRUE)+1,
+      average=sum(Number.adj)/(max(Year,na.rm=TRUE)-min(Year,na.rm=TRUE)+1))
+
+avg.escape.size <- ddply(.data=geoescapes_2[is.na(geoescapes_2$Number.adj)==FALSE,], .(Location),
+      summarize,
+      totalescape = sum(Number.adj),
+      nyears = length(unique(Year)),
+      average=sum(Number.adj)/length(unique(Year)))
+
+summary(geoescapes_2$Number.adj)
+
+mean(geoescapes_2$Number.adj, na.rm=TRUE)
+
+# If escape size is unknown, assume that it is equal to average escape size
+geoescapes_2$escapesize <- ifelse(is.na(geoescapes_2$Number.adj)=="TRUE", "21913", geoescapes_2$Number.adj)
+
+geoescapes_2$escapesize <- as.numeric(geoescapes_2$escapesize)
+
+geoescapes_2$escapesizetype <- is.na(geoescapes_2$Number.adj)
+
+# ggplot() + geom_point(data=geoescapes_2[geoescapes_2$escapesize>0,], aes(Year, escapesize, colour=Location, shape=escapesizetype)) +
+#   scale_shape_manual(values=c(1,4), labels=c("Real", "Estimate"), name="Calculation method") +
+#   theme_classic() + 
+#   theme(panel.border=element_rect(colour="black", fill=NA))
+# 
+# ggplot() + geom_point(data=geoescapes_2, aes(Year, escapesize, shape=escapesizetype)) +
+#   scale_shape_manual(values=c(1,4), labels=c("Real", "Estimate"), name="Calculation method") +
+#   theme_classic() + 
+#   theme(panel.border=element_rect(colour="black", fill=NA)) +
+#   facet_wrap(~Location)
+```
+
+### Newfoundland - Escape summary tables
+```{r}
+escapes0212 <- subset(geoescapes_2, Year > 2001 & Year < 2013)
+
+escape_summ <- ddply(.data=escapes0212, .(Location, Lat, Long),
+                     summarize,
+                    totalescape = sum(escapesize))
+
+### ALL YEARS
+escape_summ_2 <- ddply(.data=geoescapes_2, .(Location, Lat, Long),
+                     summarize,
+                    totalescape = sum(escapesize))
+
+escape_summ_2$Location <- as.factor(escape_summ_2$Location)
+escape_summ_2 <- escape_summ_2[1:27,]
+#### USE ESCAPE_SUMM_2 TO CALCULATE ESCAPE PRESSURE IN PROPAGULE PRESSURE.RMD
+
+```
+
+
+### ESCAPE PRESSURE: Newfoundland - AQ site coordinates and river mouths
+```{r}
+# read in cropped shapefile: NL.low.ocean
+NL.low.ocean <- readOGR(dsn="C:/Users/keyserf/Documents/R/Escapes/canvec/NL.low.ocean.dbf", layer="NL.low.ocean")
+# plot(NL.low.ocean)
+# points(siterast, pch=16, col="red")
+
+# # creating raster
+r <- raster(ncol=1125, nrow=560)
+extent(r) <- extent(NL.low.ocean)
+NLrast <- rasterize(NL.low.ocean, r, fun="first")
+
+# Also get rid of ocean blob
+NLrast@data@values <- ifelse(is.na(NLrast@data@values)=="TRUE", 10000, 1)
+NLrast@data@values <- ifelse(coordinates(NLrast)[,1] < -56 & coordinates(NLrast)[,2] < 47.4, 1, NLrast@data@values)
+
+# create transition layer for raster (likelihood of presence within cell). 
+tr3 <- transition(1/NLrast, transitionFunction=mean, directions=8)
+tr3c <- geoCorrection(tr3, type="c")
+
+
+
+# # for q value analysis
+# # creating raster
+# r <- raster(ncol=553, nrow=585) #(1 grid square ~ 1 km2)
+# extent(r) <- extent(NLprov)
+# NLprovrast <- rasterize(NLprov, r, fun="first")
+# 
+# # adjust values to make lines impassable
+# NLprovrast@data@values <- ifelse(is.na(NLprovrast@data@values)=="TRUE", 10000, 1)
+# 
+# # create transition layer for raster (likelihood of presence within cell). 
+# tr3q <- transition(1/NLprovrast, transitionFunction=mean, directions=8)
+# tr3cq <- geoCorrection(tr3q, type="c")
+
+
+# AQ escape site coords
+x <- escape_summ_2$Long
+y <- escape_summ_2$Lat
+xy <- cbind(x, y)
+siterast <- as.matrix(xy)
+
+
+# Q values AQ escape site coords
+x <- escape_summ$Long
+y <- escape_summ$Lat
+xy <- cbind(x, y)
+siterast <- as.matrix(xy)
+
+# For Brendan's river sites:
+# Bsites <- read.csv("C:/Users/keyserf/Documents/Data/sites_lat_long_brendan.csv", header=TRUE)
+
+# For precise PARR project sampling locations in rivers:
+# rivermouths <- read.csv("C:/Users/keyserf/Documents/Data/Rivers/NL river mouth coords_2016-11-18.csv", header=TRUE)
+
+# For Q value analysis:
+str(qsites)
+```
+
+# ESCAPE PRESSURE: Newfoundland - Fix some AQ site coords
+```{r}
+# for escape data:
+# plot(NLrast)
+# plot(NLrast, xlim=c(-56.25, -55.75), ylim=c(47.6, 48))
+# text(siterast[,1], siterast[,2], col="red")
+
+NLline <- readOGR("C:/Users/keyserf/Documents/R/canvec/canvec_250K_NL_Land_shp/shoreline_1_small.shp", "shoreline_1_small")
+# siterast <- SpatialPoints(siterast)
+# siterast <- snapPointsToLines(siterast, NLline)
+# siterast <- as.matrix(siterast@coords)
+
+siterast[14,] <- c(-56.0654, 47.77681)
+
+# for q values
+# plot(NLprovrast, xlim=c(-56.5, -55.5), ylim=c(47.5, 48.3))
+# text(siterast[,1], siterast[,2])
+# siterast[12,] <- c(-55.78495, 47.57846)
+
+```
+
+# ESCAPE PRESSURE: Newfoundland - Q values coords
+```{r}
+# read in sites
+qsites <- read.csv("C:/Users/keyserf/Documents/Data/Rivers/Qvalues_All NL_2016-11-10.csv")
+qsites <- qsites[,1:3]
+
+qsitecoords <- read.csv("C:/Users/keyserf/Documents/Data/Rivers/Moore_Salmon_Coords.csv")
+
+qsites <- join(qsites, qsitecoords, type="left")
+
+qsites[qsites$Code=="LHR",]$Long <- -54.94830
+qsites[qsites$Code=="LHR",]$Lat <- 47.77960 
+
+qsites[qsites$Code=="BSB",]$Long <- -53.282374
+qsites[qsites$Code=="BSB",]$Lat <- 46.756687
+```
+
+# ESCAPE PRESSURE: Newfoundland - calculate distance matrix
+```{r}
+# calculate least-cost distance between siterast (site location) and testrast (escaped fish location)
+# d6 <- costDistance(tr4c, fromCoords = cbind(as.numeric(siterast[,1]), as.numeric(siterast[,2])), toCoords = cbind(as.numeric(qsites[,5]), as.numeric(qsites[,6])))
+
+d6 <- costDistance(tr3c, fromCoords = cbind(as.numeric(siterast[,1]), as.numeric(siterast[,2])), toCoords = cbind(as.numeric(rivermouths[,2]), as.numeric(rivermouths[,3])))
+
+d6 
+
+## q values
+# d6q <- costDistance(tr3cq, fromCoords = cbind(as.numeric(siterast[,1]), as.numeric(siterast[,2])), toCoords = cbind(as.numeric(qsites[,5]), as.numeric(qsites[,6])))
+# 
+# d6q
+```
+
+### ESCAPE PRESSURE: Newfoundland - merge with site coords and inventory data
+```{r}
+d6 <- as.data.frame(cbind(d6, escape_summ_2$Location))
+colnames(d6)[19] <- "Location"
+colnames(d6)[1:18] <- as.list(as.character(rivermouths$code))
+dist2Escape <- join(d6, escape_summ_2, type="left")
+
+#q values
+d6q <- as.data.frame(cbind(d6q, escape_summ$Location))
+colnames(d6q)[16] <- "Location"
+colnames(d6q)[1:15] <- as.list(as.character(qsites$Code))
+dist2Escape <- join(d6q, escape_summ, type="left")
+```
+
+# ESCAPE PRESSURE: Newfoundland - Calculate propagule pressure for each river. 
+```{r}
+dist2Escape[,1:18] <- apply(dist2Escape[,1:18], 2, function(x) as.character(x))
+dist2Escape[,1:18] <- apply(dist2Escape[,1:18], 2, function(x) as.numeric(x))
+
+# For each AQ site, caclulate totalescape/distance from river
+## original calculation
+# dist2Escape$P1 <- dist2Escape$totalescape/dist2Escape$GAR
+# dist2Escape$P2 <- dist2Escape$totalescape/dist2Escape$BDN
+# dist2Escape$P3 <- dist2Escape$totalescape/dist2Escape$CNR
+# dist2Escape$P4 <- dist2Escape$totalescape/dist2Escape$LHR
+# dist2Escape$P5 <- dist2Escape$totalescape/dist2Escape$GRR
+# dist2Escape$P6 <- dist2Escape$totalescape/dist2Escape$LPR
+# dist2Escape$P7 <- dist2Escape$totalescape/dist2Escape$NPR
+# dist2Escape$P8 <- dist2Escape$totalescape/dist2Escape$RKR
+# dist2Escape$P9 <- dist2Escape$totalescape/dist2Escape$LSR
+# dist2Escape$P10 <- dist2Escape$totalescape/dist2Escape$NBT
+# dist2Escape$P11 <- dist2Escape$totalescape/dist2Escape$BSB
+# dist2Escape$P12 <- dist2Escape$totalescape/dist2Escape$STP
+# dist2Escape$P13 <- dist2Escape$totalescape/dist2Escape$SGR
+# dist2Escape$P14 <- dist2Escape$totalescape/dist2Escape$WAB
+# dist2Escape$P15 <- dist2Escape$totalescape/dist2Escape$CMP
+
+# for non-qvalue analysis
+dist2Escape$P1 <- dist2Escape$totalescape/dist2Escape$BTB
+dist2Escape$P2 <- dist2Escape$totalescape/dist2Escape$CNR
+dist2Escape$P3 <- dist2Escape$totalescape/dist2Escape$DLR
+dist2Escape$P4 <- dist2Escape$totalescape/dist2Escape$GAR
+dist2Escape$P5 <- dist2Escape$totalescape/dist2Escape$GBB
+dist2Escape$P6 <- dist2Escape$totalescape/dist2Escape$GLP
+dist2Escape$P7 <- dist2Escape$totalescape/dist2Escape$LMS
+dist2Escape$P8 <- dist2Escape$totalescape/dist2Escape$LTR
+dist2Escape$P9 <- dist2Escape$totalescape/dist2Escape$LHR
+dist2Escape$P10 <- dist2Escape$totalescape/dist2Escape$MAL
+dist2Escape$P11 <- dist2Escape$totalescape/dist2Escape$NEB
+dist2Escape$P12 <- dist2Escape$totalescape/dist2Escape$FBN
+dist2Escape$P13 <- dist2Escape$totalescape/dist2Escape$OBB
+dist2Escape$P14 <- dist2Escape$totalescape/dist2Escape$SMB
+dist2Escape$P15 <- dist2Escape$totalescape/dist2Escape$SEB
+dist2Escape$P16 <- dist2Escape$totalescape/dist2Escape$TRB
+dist2Escape$P17 <- dist2Escape$totalescape/dist2Escape$TBB
+dist2Escape$P18 <- dist2Escape$totalescape/dist2Escape$TEB
+
+
+# sum all pressures for total propagule pressure at a river
+esc.press_all <- apply(as.matrix(dist2Escape[,24:41]), 2, function(x) sum(x, na.rm=TRUE))
+
+# match to river mouth coords
+esc.press_all  <- data.frame(code=rivermouths[,4], lat=rivermouths[,3], long = rivermouths[,2], esc.press = esc.press_all)
+
+write.csv(esc.press_all, "C:/Users/keyserf/Documents/Data/Escape Pressure_lin_all rivers_all years_2016-12-05.csv")
+
+
+### q values
+dist2Escape[,1:15] <- apply(dist2Escape[,1:15], 2, function(x) as.character(x))
+dist2Escape[,1:15] <- apply(dist2Escape[,1:15], 2, function(x) as.numeric(x))
+
+# q values
+dist2Escape$P1 <- dist2Escape$totalescape/dist2Escape$GAR
+dist2Escape$P2 <- dist2Escape$totalescape/dist2Escape$BDN
+dist2Escape$P3 <- dist2Escape$totalescape/dist2Escape$CNR
+dist2Escape$P4 <- dist2Escape$totalescape/dist2Escape$LHR
+dist2Escape$P5 <- dist2Escape$totalescape/dist2Escape$GRR
+dist2Escape$P6 <- dist2Escape$totalescape/dist2Escape$LPR
+dist2Escape$P7 <- dist2Escape$totalescape/dist2Escape$NPR
+dist2Escape$P8 <- dist2Escape$totalescape/dist2Escape$RKR
+dist2Escape$P9 <- dist2Escape$totalescape/dist2Escape$LSR
+dist2Escape$P10 <- dist2Escape$totalescape/dist2Escape$NBT
+dist2Escape$P11 <- dist2Escape$totalescape/dist2Escape$BSB
+dist2Escape$P12 <- dist2Escape$totalescape/dist2Escape$STP
+dist2Escape$P13 <- dist2Escape$totalescape/dist2Escape$SGR
+dist2Escape$P14 <- dist2Escape$totalescape/dist2Escape$WAB
+dist2Escape$P15 <- dist2Escape$totalescape/dist2Escape$CMP
+
+# sum all pressures for total propagule pressure at a river
+esc.press_q <- apply(as.matrix(dist2Escape[,20:34]), 2, function(x) sum(x, na.rm=TRUE))
+
+# match to river mouth coords
+esc.press_q  <- data.frame(code=qsites$Code, lat=qsites[,6], long = qsites[,5], esc.press = esc.press_q, q=qsites$Q)
+
+write.csv(esc.press_q, "C:/Users/keyserf/Documents/Data/Escape Pressure_NL_Q values_2002-2012_2016-12-05.csv")
+
+
+```
+
+# ESCAPE PRESSURE: Newfoundland - plot escape pressure
+```{r}
+escape_summ_2 <- subset(escape_summ_2, totalescape > 0)
+escape_summ_2$Lat <- as.numeric(escape_summ_2$Lat)
+escape_summ_2$Long <- as.numeric(escape_summ_2$Long)
+
+# prov <- fortify(NL.low.ocean)
+# prov$group <- ifelse(prov$long < -56.2 & prov$lat < 47.375, 4771.1, prov$group)
+
+escape_summ_2 <- arrange(escape_summ_2, -totalescape)
+esc.press_all <- arrange(esc.press_all, -esc.press)
+
+plot1 <- ggplot() + 
+  ggtitle("Escape locations")+
+  geom_polygon(data=prov, aes(long, lat, group=group), fill="grey")+ 
+  annotate(geom="rect", xmin=-57, xmax=-56, ymin=46.8, ymax= 47.45, fill="grey") +
+  geom_point(data=escape_summ_2, aes(Long, Lat, size=totalescape), fill="red", shape=21, colour="black") + 
+  theme_bw() +
+  coord_map(xlim=c(-56.7, -54.5), ylim=c(46.82, 48)) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
+  scale_size_continuous(name="Total escape", range = c(0.5,10), limits=c(1,160000))
+
+plot2 <- ggplot() + 
+  ggtitle("Salmon rivers")+
+  geom_polygon(data=prov, aes(long, lat, group=group), fill="grey")+
+  annotate(geom="rect", xmin=-57, xmax=-56, ymin=46.8, ymax= 47.45, fill="grey") +
+  geom_point(data=esc.press_all, aes(long, lat, size=esc.press), fill="yellow", shape=21, colour="black") +
+  theme_bw() +  coord_map(xlim=c(-56.7, -54.5), ylim=c(46.82, 48)) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
+  scale_size_continuous(name="Escape pressure=\n\u03A3(total escapes/dist)", range = c(0.5,8), limits=c(1,180))
+
+gA <- ggplotGrob(plot1)
+gB <- ggplotGrob(plot2)
+grid.newpage()
+grid.draw(cbind(gA, gB))
+
+
+
+ggplot() + geom_smooth(data=esc.press_q, aes(esc.press, q), method="lm", se=TRUE) +
+  geom_point(data=esc.press_q, aes(esc.press, q)) +
+  geom_label_repel(data=esc.press_q, aes(esc.press, q, label=code)) +
+  theme_classic() + 
+  theme(panel.background=element_rect(colour="black")) +
+  ggtitle("NL 2002-2012")+
+  xlab("Escape pressure") +
+  ylab("Q value") 
+
+
+```
+
+# MORRIS RECORDS: Newfoundland
+```{r}
+morris <- read.csv("C:/Users/keyserf/Documents/Data/Escape events and reports/Morris et al 2008 data.csv", header=TRUE)
+
+nlrivers <- as.data.frame(unique(morris$River[morris$ProvState=="NL"]))
+names(nlrivers) <- c("river")
+coords_clean <- rbind(c(47.870898, -55.751851), 
+               c(47.75613, -55.84686))
+nlrivers <- cbind(nlrivers, coords_clean)
+
+names(nlrivers) <- c("River", "lat", "long")
+
+nlmorris <- subset(morris, ProvState=="NL")
+nlmorris <- join(nlmorris, nlrivers, type="left")
+
+unique(nlmorris$TotalFarmed)
+
+nlmorris_true <- subset(nlmorris, !TotalFarmed =="0", select=c("River", "lat", "long", "TotalFarmed"))
+nlmorris_true <- subset(nlmorris_true, !TotalFarmed =="N/A")
+nlmorris_true <- unique(nlmorris_true[,1:3])
+
+NLmorrismap <- ggplot() + 
+  geom_spatial(data=NL.low, aes(fill=ctry_en)) + ### canvec spatialpolygonsdataframe
+  scale_fill_manual(values=c("grey"), guide=FALSE) + ### fills geom_spatial with grey
+  #geom_path(data=CA.NL, aes(long, lat, group=group),colour="black") + ### black outline
+  annotate(geom="rect", xmin=-60, xmax=-56.5, ymin=46.5, ymax= 47.25, fill="grey") + ### hides stupid white spaces
+  annotate(geom="rect", xmin=-60, xmax=-56.1, ymin=46.5, ymax= 47.4, fill="grey") +
+  annotate(geom="rect", xmin=-60, xmax=-59.42, ymin=46.5, ymax= 50.21, fill="grey")+
+  annotate(geom="rect", xmin=-56.1, xmax=-55.9, ymin=46.5, ymax= 46.83, fill="grey") +
+  annotate(geom="rect", xmin=-54, xmax=-52.2, ymin=50, ymax= 51.8, fill="grey") +
+  coord_map(xlim=c(-59.9, -52.3), ylim=c(46.52, 51.79)) + ### sets boundaries
+  theme_classic() + ### favourite theme settings plus makes sure land is white
+  theme(panel.background = element_blank(), panel.border=element_rect(colour="black", fill=NA)) +
+  geom_point(data=nlrivers, aes(long, lat), shape=21, fill="blue", colour="black", size=5) +
+  geom_point(data=nlmorris_true, aes(long, lat), size=5, fill="red", shape=21, colour="black")
+
+NLmorrismap + annotate(geom="rect", xmin=-60, xmax=-59.42, ymin=46.5, ymax= 50.21, fill="pink")
+
+# require(gridExtra)
+# grid.arrange(NSmorrismap, NLmorrismap, ncol=2)
+```
+
+# BRADBURY SAMPLING: Newfoundland
+```{r}
+bradesc2015 <- read.csv("C:/Users/keyserf/Documents/Data/Escape events and reports/Gillnetting2015 - Master Copy.csv")
+bradsets2015 <- read.csv("C:/Users/keyserf/Documents/Data/Escape events and reports/Gillnetting2015 - Set Details.csv")
+
+bradsets2015$Set.Time..UTC. <- dmy_hms(paste(bradsets2015$Date, bradsets2015$Set.Time..UTC.))
+bradsets2015$Retrieval.Time..UTC. <- dmy_hms(paste(bradsets2015$Date, bradsets2015$Retrieval.Time..UTC.))
+bradsets2015$duration <- bradsets2015$Retrieval.Time..UTC. - bradsets2015$Set.Time..UTC.
+
+colnames(bradsets2015)[2] <- "River"
+
+bradsets2015 <- dplyr::select(bradsets2015, Set.ID, River, Gear.Type, duration)
+
+bradesc2015$River <- gsub("Du", "du", bradesc2015$River)
+
+bradesc2015 <- subset(bradesc2015, Life.Stage=="Farmed")
+
+bradesc2015 <- join(bradesc2015, bradsets2015, type="left")
+
+bradesc2015$River <- as.factor(bradesc2015$River)
+
+effort <- ddply(.data=bradsets2015, .(Gear.Type, River),
+                summarize,
+                time = sum(duration))
+
+
+catch <- ddply(.data=bradesc2015, .(Gear.Type, River),
+               summarize,
+               catch=length(unique(Sample.ID)),
+               lat = mean(Latitude..N.),
+               long= mean(Longitude..E.))
+
+CPUE <- join(catch, effort, type="left")
+
+CPUE$adj.catch <- CPUE$catch/as.numeric(CPUE$time)
+
+
+### Compare against propagule pressure
+prop.press_NL <- read.csv("C:/Users/keyserf/Documents/Data/R output/Propagule Pressure_NL_all years_2016-12-01.csv")
+plot(NLrast, xlim=c(-56, -55), ylim=c(47.5, 48))
+text(CPUE$long, CPUE$lat)
+CPUE$code <- as.factor(c("FBN", "SMB", "FBN", "FBN"))
+
+test <- join(CPUE[,c(1,2,3,6,7,8)], prop.press_NL, type="left")
+
+ggplot() + geom_point(data=test, aes(prop.press, adj.catch))
+
+```
+
+########################################################################################################
+################################# New Brunswick escapes data ############################################
+########################################################################################################
+
+### New Brunswick - Read in Geoff's escape reports db and tidy up
+```{r}
+NBescapes <- read.csv("C:/Users/keyserf/Documents/Data/Escape events and reports/NB Escapes.csv", na.strings=c("", "Unknown*"))
+NBescapes <- subset(NBescapes, is.na(Lat)==FALSE)
+
+NBescapes$Year <- as.numeric(as.character(NBescapes$Year))
+NBescapes$Number <- as.character(NBescapes$Number)
+
+clean <- function(i) { 
+  temp=gsub(pattern=",", replacement="",x=i)
+  temp=gsub(pattern=" ", replacement="",x=temp)
+  temp=gsub(pattern="'", replacement="",x=temp)
+  return(temp)
+}
+
+NBescapes[]<- sapply(NBescapes, clean)
+
+```
+
+### New Brunswick - Deal with unknown escapes. If escape size is unknown, assume that it is equal to average escape size.
+```{r}
+NBescapes$Long <- as.numeric(NBescapes$Long)
+NBescapes$Lat <- as.numeric(NBescapes$Lat)
+NBescapes$Number <- as.numeric(NBescapes$Number)
+
+ggplot() + geom_point(data=NBescapes, aes(Year, Number))
+
+NBescapes$Other.Observations <- as.factor(is.na(NBescapes$Number))
+
+observ <- subset(NBescapes, Other.Observations=="TRUE")
+
+options(scipen=999)
+
+mean(NBescapes$Number, na.rm=TRUE)
+
+# If escape size is unknown, assume that it is equal to average escape size
+NBescapes$escapesize <- ifelse(is.na(NBescapes$Number)=="TRUE", "48055", NBescapes$Number)
+
+NBescapes$escapesize <- as.numeric(NBescapes$escapesize)
+
+ggplot() + geom_point(data=NBescapes[NBescapes$escapesize>0,], aes(Year, escapesize, shape=Other.Observations)) +
+  scale_shape_manual(values=c(1,4), labels=c("Real", "Estimate"), name="Calculation method") +
+  theme_classic() +
+  theme(panel.border=element_rect(colour="black", fill=NA))
+
+```
+
+### New Brunswick - Escape summary tables
+```{r}
+### ALL YEARS
+escape_summ_2 <- ddply(.data=NBescapes, .(ID, Lat, Long),
+                     summarize,
+                    totalescape = sum(escapesize))
+
+escape_summ_2$ID <- as.character(escape_summ_2$ID)
+#### USE ESCAPE_SUMM_2 TO CALCULATE ESCAPE PRESSURE BELOW
+
+plot(raster(tr4c))
+text(NBescapes$Long, NBescapes$Lat, col="red")
+
+
+# for q values
+NBescapes2 <- subset(NBescapes, Year < 2013)
+
+escape_summ <- ddply(.data=NBescapes2, .(ID, Lat, Long),
+                     summarize,
+                     totalescape = sum(escapesize))
+```
+
+
+### ESCAPE PRESSURE: New Brunswick - AQ site coordinates and river mouths
+### New Brunswick - read in shapefiles, create raster file
+```{r}
+## http://ftp.geogratis.gc.ca/pub/nrcan_rncan/vector/canvec/shp/Hydro/
+# NB.low <- readOGR(dsn = "C:/Users/keyserf/Documents/R/canvec/canvec_250K_NB_Hydro_shp/waterbody_2.shp", layer="waterbody_2")
+# GOM <- readOGR(dsn = "C:/Users/keyserf/Documents/R/canvec/PhysioRegions_WGS84.shp", layer="PhysioRegions_WGS84")
+# GOMclip <- gDifference(GOM, NB.low)
+# GOMclip <- SpatialPolygonsDataFrame(GOMclip, data=as.data.frame(x=1))
+
+# NB.BOF <- crop(GOM, extent(-67.3, -64.5, 44.5, 47.08))
+# NB.BOF2 <- crop(NB.low, extent(-67.3, -64.5, 44.5, 47.1)) ### This makes stripes through grand manan??
+
+NB <- getData("GADM", country="CAN", level=2)
+NB.BOF <- crop(NB, extent(-67.3, -64.5, 44.5, 47.1))
+NB.prov <-crop(NB, extent(-67.85, -63.7, 44.5, 48.1))
+
+# creating raster
+r <- raster(ncol=2270, nrow=2820)
+extent(r) <- extent(NB.BOF)
+NBrast <- rasterize(NB.BOF, r, fun="first")
+
+# Change values in raster so that land is impassable (i.e. distances would be massive).
+NBrast@data@values <- ifelse(is.na(NBrast@data@values)=="FALSE", 10000, 1)
+
+# if shoreline needed:
+# NBline <- readOGR("C:/Users/keyserf/Documents/R/canvec/canvec_250K_NB_Land_shp/shoreline_1.shp", "shoreline_1")
+
+# create transition layer for raster (likelihood of presence within cell). 
+NBrast <- crop(NBrast, extent(-67.3, -64.5, 44.5, 46))
+tr4 <- transition(1/NBrast, transitionFunction=mean, directions=8)
+tr4c <- geoCorrection(tr4, type="c")
+
+plot(raster(tr4c))
+
+
+# for q values
+# creating raster
+r <- raster(ncol=972, nrow=1188) # 1 grid cell = 3km2
+extent(r) <- extent(NB.prov)
+NBprovrast <- rasterize(NB.prov, r, fun="first")
+
+# Change values in raster so that land is impassable (i.e. distances would be massive).
+NBprovrast@data@values <- ifelse(is.na(NBprovrast@data@values)=="FALSE", 10000, 1)
+
+# create transition layer for raster (likelihood of presence within cell). 
+tr4q <- transition(1/NBprovrast, transitionFunction=mean, directions=8)
+tr4cq <- geoCorrection(tr4q, type="c")
+
+plot(raster(tr4cq))
+
+
+# AQ escape site coords
+x <- escape_summ_2$Long
+y <- escape_summ_2$Lat
+xy <- cbind(x, y)
+siterast <- as.matrix(xy)
+
+# q values
+x <- escape_summ$Long
+y <- escape_summ$Lat
+xy <- cbind(x, y)
+siterast <- as.matrix(xy)
+
+
+
+## New Brunswick river mouths
+morris <- read.csv("C:/Users/keyserf/Documents/Data/Escape events and reports/Morris et al 2008 data.csv", header=TRUE)
+
+nbrivers <- as.data.frame(unique(morris$River[morris$ProvState=="NB"]))
+names(nbrivers) <- c("river")
+coords_clean <- rbind(c(45.545066, -66.011293), 
+               c(45.422197, -65.402976),
+               c(45.262844, -65.781699),
+               c(45.179130, -66.987045),
+               c(45.131204, -67.068731),
+               c(45.199799, -67.261215),
+               c(45.118038, -66.876022),
+               c(47.074048, -65.399438),
+               c(45.570888, -65.774480),
+               c(45.957255, -66.618207),
+               c(45.502517, -66.072903),
+               c(45.167935, -67.194878),
+               c(45.610963, -64.957627),
+               c(45.206954, -67.147044))
+nbrivers <- cbind(nbrivers, coords_clean)
+
+names(nbrivers) <- c("River", "lat", "long")
+
+plot(NBrast)
+plot(NB.low, add=TRUE)
+points(nbrivers[,3], nbrivers[,2], col="red")
+nbrivers[,2:3] <- rbind(c(45.25795, -66.04133),
+                    c(45.40349, -65.40872),
+                    c(45.25354, -65.79461),
+                    c(45.14328, -66.97758),
+                    c(45.11682, -67.02819),
+                    c(45.18298, -67.27490),
+                    c(45.12123, -66.91432),
+                    c(NA, NA),
+                    c(45.25795, -66.04765),
+                    c(45.24913, -66.04765),
+                    c(45.24913, -66.04765),
+                    c(45.16092, -67.19266),
+                    c(45.58872, -64.93427),
+                    c(45.17416, -67.15471))
+
+nbrivers2 <- subset(nbrivers, is.na(lat)=="FALSE")
+nbrivers2$code <- c("BIB", "BSR", "BKR", "BOC", "CHS", "DNS", "MDR", "MTB", "NSH", "SJR", "SCR", "USR", "WAR")
+
+
+
+# for q-values
+
+NBQ <- read.csv("C:/Users/keyserf/Documents/Data/Rivers/NS Q values.csv", header=TRUE) 
+head(NBQ)
+
+names(NBQ) <- c("Code", "Q", "Distance")
+
+qsitecoords <- read.csv("C:/Users/keyserf/Documents/Data/Rivers/Moore_Salmon_Coords.csv")
+
+NBQ <- join(NBQ, qsitecoords, type="left")
+NBQ <- NBQ[!is.na(NBQ$Lat)==TRUE,]
+NBQ <- subset(NBQ, Site %in% c("Big Salmon", "Jacquet", "Miramichi", "Nashwaak", "Tobique"))
+
+NBQ[1, 5:6] <- c(-65.40428, 45.41445)
+# NBQ[2, 5:6] <- c(-66.02681, 47.93944)
+# NBQ[3, 5:6] <- c(-65.34352, 47.08349)
+NBQ[4, 5:6] <- c(-66.03602, 45.24463)
+NBQ[5, 5:6] <- c(-66.03602, 45.24463)
+
+# plot(NB.prov, xlim=c(-66, -67), ylim=c(47.5, 48.5))
+# plot(NB.low, add=TRUE)
+# text(NBQ[,5], NBQ[,6], col="red")
+# click()
+
+# remove Gulf sites because no NB aquaculture on that side, and unreliable to combine NS and NB inventory data. 
+NBQ <- NBQ[c(1,4:5),]
+
+```
+
+# ESCAPE PRESSURE: New Brunswick - Fix some AQ site coords
+```{r}
+# # for escape data:
+# # plot(NLrast)
+# # plot(NLrast, xlim=c(-56.25, -55.75), ylim=c(47.6, 48))
+# # text(siterast[,1], siterast[,2], col="red")
+# 
+# NLline <- readOGR("C:/Users/keyserf/Documents/R/canvec/canvec_250K_NL_Land_shp/shoreline_1_small.shp", "shoreline_1_small")
+# # siterast <- SpatialPoints(siterast)
+# # siterast <- snapPointsToLines(siterast, NLline)
+# # siterast <- as.matrix(siterast@coords)
+# 
+# siterast[14,] <- c(-56.0654, 47.77681)
+
+```
+
+# ESCAPE PRESSURE: New Brunswick - calculate distance matrix
+```{r}
+d7 <- costDistance(tr4c, fromCoords = cbind(as.numeric(siterast[,1]), as.numeric(siterast[,2])), toCoords = cbind(as.numeric(nbrivers2[,3]), as.numeric(nbrivers2[,2])))
+
+d7 
+
+# for Q value analysis
+# d7q <- costDistance(tr4cq, fromCoords = cbind(as.numeric(siterast[,1]), as.numeric(siterast[,2])), toCoords = cbind(as.numeric(NBQ[,5]), as.numeric(NBQ[,6])))
+
+# d7q
+
+```
+
+### ESCAPE PRESSURE: New Brunswick - merge with site coords and inventory data
+```{r}
+d7 <- as.data.frame(cbind(d7, escape_summ_2$ID))
+colnames(d7)[14] <- "ID"
+colnames(d7)[1:13] <- as.list(as.character(nbrivers2$code))
+
+dist2Escape_NB <- join(d7, escape_summ_2, type="left")
+
+
+# for q values
+
+d7q <- as.data.frame(cbind(d7q, escape_summ$ID))
+colnames(d7q)[4] <- "ID"
+colnames(d7q)[1:3] <- as.list(as.character(NBQ$Code))
+
+dist2Escape_NB <- join(d7q, escape_summ, type="left")
+```
+
+# ESCAPE PRESSURE: New Brunswick - Calculate propagule pressure for each river. 
+```{r}
+dist2Escape_NB[,1:13] <- apply(dist2Escape_NB[,1:13], 2, function(x) as.character(x))
+dist2Escape_NB[,1:13] <- apply(dist2Escape_NB[,1:13], 2, function(x) as.numeric(x))
+
+# For each AQ site, caclulate total fish/distance from river
+## original calculation
+dist2Escape_NB$P1 <- dist2Escape_NB$totalescape/dist2Escape_NB$BIB
+dist2Escape_NB$P2 <- dist2Escape_NB$totalescape/dist2Escape_NB$BSR
+dist2Escape_NB$P3 <- dist2Escape_NB$totalescape/dist2Escape_NB$BKR
+dist2Escape_NB$P4 <- dist2Escape_NB$totalescape/dist2Escape_NB$BOC
+dist2Escape_NB$P5 <- dist2Escape_NB$totalescape/dist2Escape_NB$CHS
+dist2Escape_NB$P6 <- dist2Escape_NB$totalescape/dist2Escape_NB$DNS
+dist2Escape_NB$P7 <- dist2Escape_NB$totalescape/dist2Escape_NB$MDR
+dist2Escape_NB$P8 <- dist2Escape_NB$totalescape/dist2Escape_NB$MTB
+dist2Escape_NB$P9 <- dist2Escape_NB$totalescape/dist2Escape_NB$NSH
+dist2Escape_NB$P10 <- dist2Escape_NB$totalescape/dist2Escape_NB$SJR
+dist2Escape_NB$P11 <- dist2Escape_NB$totalescape/dist2Escape_NB$SCR
+dist2Escape_NB$P12 <- dist2Escape_NB$totalescape/dist2Escape_NB$USR
+dist2Escape_NB$P13 <- dist2Escape_NB$totalescape/dist2Escape_NB$WAR
+
+
+# sum all pressures for total propagule pressure at a river
+esc.press_all_NB <- apply(as.matrix(dist2Escape_NB[,18:30]), 2, function(x) sum(x, na.rm=TRUE))
+
+# match to river mouth coords
+esc.press_all_NB  <- data.frame(code=nbrivers2[,4], lat=nbrivers2[,2], long = nbrivers2[,3], esc.press = esc.press_all_NB)
+
+write.csv(esc.press_all_NB, "C:/Users/keyserf/Documents/Data/Escape Pressure_NB_all rivers_all years_2016-12-06.csv")
+
+
+
+# for q values
+
+dist2Escape_NB[,1:3] <- apply(dist2Escape_NB[,1:3], 2, function(x) as.character(x))
+dist2Escape_NB[,1:3] <- apply(dist2Escape_NB[,1:3], 2, function(x) as.numeric(x))
+
+# For each AQ site, caclulate total fish/distance from river
+## original calculation
+dist2Escape_NB$P1 <- dist2Escape_NB$totalescape/dist2Escape_NB$BSR
+dist2Escape_NB$P2 <- dist2Escape_NB$totalescape/dist2Escape_NB$NSH
+dist2Escape_NB$P3 <- dist2Escape_NB$totalescape/dist2Escape_NB$TOB
+
+
+# sum all pressures for total propagule pressure at a river
+esc.press_NB_q <- apply(as.matrix(dist2Escape_NB[,8:10]), 2, function(x) sum(x, na.rm=TRUE))
+
+# match to river mouth coords
+esc.press_NB_q  <- data.frame(code=NBQ$Code, lat=NBQ$Lat, long = NBQ$Long, esc.press = esc.press_NB_q, q=NBQ$Q)
+
+write.csv(esc.press_NB_q, "C:/Users/keyserf/Documents/Data/Escape Pressure_NB_q values_2016-12-07.csv")
+
+```
+
+# ESCAPE PRESSURE: New Brunswick - plot escape pressure
+```{r}
+escape_summ_2 <- subset(escape_summ_2, totalescape > 0)
+escape_summ_2$Lat <- as.numeric(escape_summ_2$Lat)
+escape_summ_2$Long <- as.numeric(escape_summ_2$Long)
+
+# prov <- fortify(NL.low.ocean)
+# prov$group <- ifelse(prov$long < -56.2 & prov$lat < 47.375, 4771.1, prov$group)
+
+escape_summ_2 <- arrange(escape_summ_2, -totalescape)
+esc.press_all_NB <- arrange(esc.press_all_NB, -esc.press)
+
+plot1 <- ggplot() + 
+  ggtitle("Escape locations") +
+  geom_spatial(data=NB.low, aes(fill=ctry_en), show.legend = FALSE) + ### canvec spatialpolygonsdataframe
+  #geom_spatial(data=PE.low, aes(fill=ctry_en)) + ### canvec spatialpolygonsdataframe
+  #geom_spatial(data=NS.low, aes(fill=ctry_en)) + ### canvec spatialpolygonsdataframe
+  scale_fill_manual(values=c("grey"), guide=FALSE) + ### fills geom_spatials with grey
+  geom_polygon(data=GOMclip, aes(long, lat, group=group), fill="grey") + ### Gulf of Maine shapefile to get Grand Manan & Maine
+  #geom_path(data=CA.df, aes(long, lat, group=group),colour="black") + ### plots black outline on provinces
+  annotate(geom="rect", xmin=-60, xmax=-59.5, ymin=47.5, ymax= 48, fill="grey") + ### these annotates hide white space!
+  annotate(geom="rect", xmin=-64, xmax=-59.5, ymin=43.2, ymax= 44, fill="grey") +
+  annotate(geom="rect", xmin=-61, xmax=-59.5, ymin=44, ymax= 45, fill="grey") +
+  coord_map(xlim=c(-67.3, -64.3), ylim=c(44.5, 46)) + ### sets boundaries
+  theme_bw() + ### my favourite theme settings here and below (makes land white)
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
+  geom_point(data=escape_summ_2, aes(Long, Lat, size=totalescape), fill="red", shape=21, colour="black") + 
+  scale_size_continuous(name="Total escape", range = c(0.5,10), limits=c(1,140000))
+
+plot2 <- ggplot() + 
+  ggtitle("Salmon rivers") +
+  geom_spatial(data=NB.low, aes(fill=ctry_en), show.legend = FALSE) + ### canvec spatialpolygonsdataframe
+  #geom_spatial(data=PE.low, aes(fill=ctry_en)) + ### canvec spatialpolygonsdataframe
+  #geom_spatial(data=NS.low, aes(fill=ctry_en)) + ### canvec spatialpolygonsdataframe
+  scale_fill_manual(values=c("grey"), guide=FALSE) + ### fills geom_spatials with grey
+  geom_polygon(data=GOMclip, aes(long, lat, group=group), fill="grey") + ### Gulf of Maine shapefile to get Grand Manan & Maine
+  #geom_path(data=CA.df, aes(long, lat, group=group),colour="black") + ### plots black outline on provinces
+  annotate(geom="rect", xmin=-60, xmax=-59.5, ymin=47.5, ymax= 48, fill="grey") + ### these annotates hide white space!
+  annotate(geom="rect", xmin=-64, xmax=-59.5, ymin=43.2, ymax= 44, fill="grey") +
+  annotate(geom="rect", xmin=-61, xmax=-59.5, ymin=44, ymax= 45, fill="grey") +
+  coord_map(xlim=c(-67.3, -64.3), ylim=c(44.5, 46)) + ### sets boundaries
+  theme_bw() + ### my favourite theme settings here and below (makes land white)
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
+  geom_point(data=esc.press_all_NB, aes(long, lat, size=esc.press), fill="yellow", shape=21, colour="black") +
+  scale_size_continuous(name="Escape pressure=\n\u03A3(total escapes/dist)", range = c(0.5,8), limits=c(1,8))
+
+gA <- ggplotGrob(plot1)
+gB <- ggplotGrob(plot2)
+grid.newpage()
+grid.draw(cbind(gA, gB))
+
+
+## Qsite comparison
+
+ggplot() + geom_smooth(data=esc.press_NB_q, aes(esc.press, q), method="lm", se=TRUE) +
+  geom_point(data=esc.press_NB_q, aes(esc.press, q)) +
+  geom_label_repel(data=esc.press_NB_q, aes(esc.press, q, label=code)) +
+  theme_classic() + 
+  theme(panel.background=element_rect(colour="black")) +
+  ggtitle("NB 2010-2012")+
+  xlab("Escape pressure") +
+  ylab("Q value") 
+
+
+```
+
+# MORRIS RECORDS: New Brunswick and Nova Scotia
+```{r}
+### read in data on farmed escapes from Morris et al paper
+
+morris <- read.csv("C:/Users/keyserf/Documents/Data/Escape events and reports/Morris et al 2008 data.csv", header=TRUE)
+
+
+## NS
+nsrivers <- as.data.frame(unique(morris_clean$River[morris_clean$Prov=="NS"]))
+names(nsrivers) <- c("river")
+coords_clean <- rbind(c(44.778122, -65.439294), 
+               c(46.094226, -60.857244),
+               c(45.109829, -64.275097),
+               c(45.610836, -60.626756),
+               c(44.310002, -64.390153),
+               c(44.047893, -64.709702),
+               c(46.082903, -60.909614),
+               c(44.939173, -65.055891),
+               c(46.299002, -60.615435),
+               c(44.052819, -66.169571),
+               c(45.298904, -63.479638),
+               c(45.953641, -61.102664))
+nsrivers <- cbind(nsrivers, coords_clean)
+
+nsrivers_other <- unique(subset(morris, ProvState=="NS", select="River"))
+names(nsrivers_other) <- "river"
+nsrivers_other <- anti_join(nsrivers_other, nsrivers)
+nsrivers_other
+coords_rough <- rbind(c(43.842299, -65.991485),
+                      c(44.729245, -63.662550),
+                      c(46.218702, -60.610511),
+                      c(45.050054, -61.892250),
+                      c(45.865024, -60.802479),
+                      c(45.409762, -64.098723),
+                      c(46.368190, -60.525074),
+                      c(44.611538, -65.676093),
+                      c(46.428359, -61.095991),
+                      c(45.003232, -62.087995),
+                      c(44.220810, -66.143551),
+                      c(45.399889, -64.326540),
+                      c(45.966662, -61.115833))
+nsrivers_other <- cbind(nsrivers_other, coords_rough)
+                      
+nsrivers_all <- rbind(nsrivers, nsrivers_other)
+names(nsrivers_all) <- c("River", "lat", "long")
+
+nsmorris <- subset(morris, ProvState=="NS")
+nsmorris <- join(nsmorris, nsrivers_all, type="left")
+
+unique(nsmorris$TotalFarmed)
+
+nsmorris_true <- subset(nsmorris, !TotalFarmed =="0", select=c("River", "lat", "long", "TotalFarmed"))
+nsmorris_true <- subset(nsmorris_true, !TotalFarmed =="N/A")
+nsmorris_true <- unique(nsmorris_true[,1:3])
+
+
+## NB
+nbrivers <- as.data.frame(unique(morris$River[morris$ProvState=="NB"]))
+names(nbrivers) <- c("river")
+coords_clean <- rbind(c(45.545066, -66.011293), 
+               c(45.422197, -65.402976),
+               c(45.262844, -65.781699),
+               c(45.179130, -66.987045),
+               c(45.131204, -67.068731),
+               c(45.199799, -67.261215),
+               c(45.118038, -66.876022),
+               c(47.074048, -65.399438),
+               c(45.570888, -65.774480),
+               c(45.957255, -66.618207),
+               c(45.502517, -66.072903),
+               c(45.167935, -67.194878),
+               c(45.610963, -64.957627),
+               c(45.206954, -67.147044))
+nbrivers <- cbind(nbrivers, coords_clean)
+
+names(nbrivers) <- c("River", "lat", "long")
+
+plot(NBrast)
+plot(NB.low, add=TRUE)
+points(nbrivers[,3], nbrivers[,2], col="red")
+nbrivers[,2:3] <- rbind(c(45.25795, -66.04133),
+                    c(45.40349, -65.40872),
+                    c(45.25354, -65.79461),
+                    c(45.14328, -66.97758),
+                    c(45.11682, -67.02819),
+                    c(45.18298, -67.27490),
+                    c(45.12123, -66.91432),
+                    c(NA, NA),
+                    c(45.25795, -66.04765),
+                    c(45.24913, -66.04765),
+                    c(45.24913, -66.04765),
+                    c(45.16092, -67.19266),
+                    c(45.58872, -64.93427),
+                    c(45.17416, -67.15471))
+
+nbrivers2 <- subset(nbrivers, is.na(lat)=="FALSE")
+nbrivers2$code <- c("BIB", "BSR", "BKR", "BOC", "CHS", "DNS", "MDR", "MTB", "NSH", "SJR", "SCR", "USR", "WAR")
+
+nbmorris <- subset(morris, ProvState=="NB")
+nbmorris <- join(nbmorris, nbrivers, type="left")
+
+unique(nbmorris$TotalFarmed)
+
+nbmorris_true <- subset(nbmorris, !TotalFarmed =="0", select=c("River", "lat", "long", "TotalFarmed"))
+nbmorris_true <- subset(nbmorris_true, !TotalFarmed =="N/A")
+nbmorris_true <- unique(nbmorris_true[,1:3])
+
+## using shapefiles from Maritimes and NL maps.R
+NSmorrismap <- ggplot() + 
+  geom_spatial(data=NB.low, aes(fill=ctry_en)) + ### canvec spatialpolygonsdataframe
+  geom_spatial(data=PE.low, aes(fill=ctry_en)) + ### canvec spatialpolygonsdataframe
+  geom_spatial(data=NS.low, aes(fill=ctry_en)) + ### canvec spatialpolygonsdataframe
+  scale_fill_manual(values=c("grey"), guide=FALSE) + ### fills geom_spatials with grey
+  geom_polygon(data=GOMclip, aes(long, lat, group=group), fill="grey") + ### Gulf of Maine shapefile to get Grand Manan & Maine
+  #geom_path(data=CA.df, aes(long, lat, group=group),colour="black") + ### plots black outline on provinces
+  annotate(geom="rect", xmin=-60, xmax=-59.5, ymin=47.5, ymax= 48, fill="grey") + ### these annotates hide white space!
+  annotate(geom="rect", xmin=-64, xmax=-59.5, ymin=43.2, ymax= 44, fill="grey") +
+  annotate(geom="rect", xmin=-61, xmax=-59.5, ymin=44, ymax= 45, fill="grey") +
+  coord_map(xlim=c(-67.7, -59.5), ylim=c(43.2, 48)) + ### sets boundaries
+  theme_classic() + ### my favourite theme settings here and below (makes land white)
+  theme(panel.background = element_blank(), panel.border=element_rect(colour="black", fill=NA)) +
+  geom_point(data=nsrivers_all, aes(long, lat), shape=21, fill="blue", colour="black", size=5) +
+  geom_point(data=nsmorris_true, aes(long, lat), size=5, fill="red", shape=21, colour="black") +
+  #geom_label_repel(data=nsrivers_all, aes(long, lat, label=River), size=3, point.padding = unit(0.5,"lines"), min.segment.length = unit(0.1, "lines"))+
+  geom_point(data=nbrivers, aes(long, lat), shape=21, fill="blue", colour="black", size=5) +
+  geom_point(data=nbmorris_true, aes(long, lat), size=5, fill="red", shape=21, colour="black")
+  #geom_label_repel(data=nbrivers, aes(long, lat, label=River), size=3, point.padding = unit(0.5,"lines"), min.segment.length = unit(0.1, "lines"))
+
+```

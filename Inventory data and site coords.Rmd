@@ -1,0 +1,241 @@
+---
+title: "Inventory data clean-up"
+output: html_document
+---
+
+```{r}
+require(reshape2)
+require(plyr)
+require(sp)
+require(maptools)
+require(ggplot2)
+require(rgdal)
+require(lubridate)
+require(dplyr)
+require(ggmap)
+require(raster)
+require(rgeos)
+require(PBSmapping)
+require(gdistance)
+```
+
+
+
+### NEWFOUNDLAND ###
+
+```{r}
+inventory <- read.csv("C:/Users/keyserf/Documents/data/Inventory data/NL inventory master2_fixed.csv", colClasses = "character")
+
+names(inventory) <- c("ID", "Cage", "NStart", "YC", "YCAdj", "NIntro", "NMort", "NHarvest", 
+                      "NTransfer", "CountDev", "CountDevAbs", "NEscape", "NRemain", "ReportYear", "Bay", "Coord1", "Coord2")
+
+str(inventory)
+
+clean <- function(i) { 
+  temp=gsub(pattern=",", replacement="",x=i)
+  temp=gsub(pattern=" ", replacement="",x=temp)
+  return(temp)
+}
+
+inventory[] <- sapply(inventory, clean)
+
+inventory$NStart <- as.numeric(inventory$NStart)
+inventory$NIntro <- as.numeric(inventory$NIntro)
+inventory$NMort <- as.numeric(inventory$NMort)
+inventory$NHarvest <- as.numeric(inventory$NHarvest)
+inventory$NTransfer <- as.numeric(inventory$NTransfer)
+inventory$CountDev <- as.numeric(inventory$CountDev)
+inventory$CountDevAbs <- as.numeric(inventory$CountDevAbs)
+inventory$NEscape <- as.numeric(inventory$NEscape)
+inventory$NRemain <- as.numeric(inventory$NRemain)
+
+inventory_clean <- subset(inventory, !ID=="" & !Bay=="")
+
+inventory_clean[, 6:13][is.na(inventory_clean[, 6:13])] <- 0
+inventory_clean[,3][is.na(inventory_clean[, 3])] <- 0
+inventory_clean[, 6:13] <- abs(inventory_clean[, 6:13])
+
+inventory_clean$ReportYear <- as.numeric(inventory_clean$ReportYear)
+
+
+################### CALCULATE FISH YEARS ########################
+
+# 2 rules: 
+#   1) morts, harvests and transfers occur mid-year
+#   2) always assume max reported number of fish is most accurate
+#   3) Introductions occur at beginning of year
+# 3 cases: 
+#   1) if NRemain = 0 and CountDev > 0    --->    (NStart + NIntro + CountDev)/2
+#   2) if NRemain = 0 and CountDev <= 0   --->    (NStart + NIntro)/2
+#   3) if NRemain > 0                     --->    NRemain + (NMort + NTransfer + NHarvest)/2
+
+inventory_clean$case <- ifelse(inventory_clean$NRemain==0 & inventory_clean$CountDev > 0, 1, 
+                         ifelse(inventory_clean$NRemain==0 & (inventory_clean$CountDev < 0 | inventory_clean$CountDev == 0), 2,
+                                ifelse(inventory_clean$NRemain>0 , 3, NA)))
+
+inventory_clean$fishcount <- ifelse(inventory_clean$case==1, (inventory_clean$NStart + inventory_clean$NIntro + inventory_clean$CountDev)/2,
+                              ifelse(inventory_clean$case==2, (inventory_clean$NStart + inventory_clean$NIntro)/2, 
+                                     ifelse(inventory_clean$case==3, inventory_clean$NRemain + 
+                                              ((abs(inventory_clean$NMort) + abs(inventory_clean$NHarvest) + abs(inventory_clean$NTransfer))/2), NA)))
+
+
+
+### Annual inventory dataframe
+
+annual <- ddply(.data=inventory_clean, .(ID, ReportYear),
+                summarize,
+                totalfish=sum(fishcount))
+
+
+
+### Combine with coordinate data
+
+sites <- read.csv("C:/Users/keyserf/Documents/Data/Inventory data/Site coordinates_NL_all.csv", header=TRUE)
+str(sites)
+
+sites <- subset(sites, select=c("Licence...", "Latitude", "Longitude"))
+names(sites) <- c("ID", "Lat", "Long")
+
+sites <- rbind(sites, data.frame(ID=c("1079", "1085", "1096", "1107"), 
+                                 Lat=c(47.92217, 47.66130, 47.66155, 47.73218),
+                                 Long=c(-55.95247, -55.13680, -56.51965, -56.32793)))
+
+sites$ID <- as.character(sites$ID)
+sites
+
+annual <- join(annual, sites, type="left")
+
+
+### Clean up missing coordinates
+
+empty <- subset(annual, is.na(Lat)==TRUE)
+
+full <- unique(subset(inventory_clean, !Coord1=="", select=c("ID", "Coord1", "Coord2")))
+
+comp <- join(empty, full, type="left")
+comp$Lat <- ifelse(is.na(comp$Lat) == TRUE | comp$Lat == "", comp$Coord1, NA)
+comp$Long <- ifelse(is.na(comp$Long) == TRUE | comp$Long == "", comp$Coord2, NA)
+
+comp <- comp[,1:5]
+comp$Lat <- as.numeric(comp$Lat)
+comp$Long <- as.numeric(comp$Long)
+
+names(comp) <- c("ID", "ReportYear", "totalfish", "Lat2", "Long2")
+
+annual <- join(annual, comp, type="left")
+
+annual[,4] <- ifelse(is.na(annual[,4]) == TRUE, annual[,6], annual[,4])
+annual[,5] <- ifelse(is.na(annual[,5]) == TRUE, annual[,7], annual[,5])
+
+bad <- subset(annual, is.na(Lat)==TRUE)
+bad <- join(bad, inventory_clean, type="left")
+bad <- unique(bad[,c(1, 4:5, 20)])
+
+otherlocs <- read.csv("C:/Users/keyserf/Documents/Data/Inventory data/locs.csv", header=TRUE)
+otherlocs <- unique(otherlocs)
+
+sites <- unique(select(totfishall, ID, Lat, Long))
+
+annualinventoryNL <- join(annual, sites, type="left")
+write.csv(annualinventoryNL, "C:/Users/keyserf/Documents/Data/NL annual inventory and coords_summary_2016-11-29.csv")
+annual <- read.csv("C:/Users/keyserf/Documents/Data/Inventory data/NL annual inventory and coords_summary_2016-11-29.csv")
+
+
+```
+
+
+
+### NEW BRUNSWICK ###
+
+```{r}
+
+NB.BOF.sites <- read.csv("C:/Users/keyserf/Documents/Data/R output/NB sites 2016-11-22.csv")
+str(NB.BOF.sites)
+
+NB_licence <- read.csv("C:/Users/keyserf/Documents/Data/Inventory data/NB 1998-2016 licensing_salar.csv")
+head(NB_licence)
+
+str(NB_licence)
+
+NB_licence <- dplyr::select(NB_licence, Company, Species, Number, Site.ID, Issue.Date)
+
+NB_licence$Issue.Date <- dmy(NB_licence$Issue.Date)
+NB_licence$Year <- year(NB_licence$Issue.Date)
+
+head(NB_licence)
+
+NB_licence$Site.ID <- as.character(NB_licence$Site.ID)
+s <- strsplit(NB_licence$Site.ID, split = ",")
+NB_licence_l <- data.frame(Site.ID = unlist(s), Company = rep(NB_licence$Company, sapply(s, length)), 
+                           Species = rep(NB_licence$Species, sapply(s, length)),
+                           Number = rep(NB_licence$Number, sapply(s, length)),
+                           Issue.Date = rep(NB_licence$Issue.Date, sapply(s, length)),
+                           Year = rep(NB_licence$Year, sapply(s, length)))
+
+breakdown <- ddply(.data=NB_licence_l, .(Issue.Date, Company),
+                   summarize,
+                   nsites = length(unique(Site.ID)))
+
+NB_licence_l <- join(NB_licence_l, breakdown, type="left")
+
+NB_licence_l$Number.adj <- NB_licence_l$Number / NB_licence_l$nsites 
+
+
+NB_licence_compl <- subset(NB_licence_l, !is.na(Site.ID)==TRUE & !is.na(Number.adj)==TRUE) 
+
+options(scipen=999)
+
+NB_stocking <- ddply(.data=NB_licence_compl, .(Site.ID, Year), 
+                     summarize, 
+                     totalfish = sum(Number.adj))
+
+NB_stocking[] <- sapply(NB_stocking, clean)
+
+NB_stocking$Site.ID <- as.character(NB_stocking$Site.ID)
+NB_stocking$Site.ID <- as.numeric(NB_stocking$Site.ID)
+
+names(NB.BOF.sites) <- c("X", "Site.ID", "long", "lat", "Area")
+NB.BOF.sites <- NB.BOF.sites[,2:5]
+
+NB_stocking <- join(NB_stocking, NB.BOF.sites, type="left")
+NB_stocking$totalfish <- as.numeric(NB_stocking$totalfish)
+
+NB_stocking <- subset(NB_stocking, !is.na(long)==TRUE)
+
+write.csv(NB_stocking, "C:/Users/keyserf/Documents/Data/R output/NB_stocking.csv")
+
+NB_stocking <- read.csv("C:/Users/keyserf/Documents/Data/R output/NB_stocking.csv")
+
+NB_stocking_summ <- ddply(.data=NB_stocking, .(Site.ID, long, lat),
+                          summarize,
+                          totalfish = sum(totalfish))
+
+```
+
+
+
+### NOVA SCOTIA ###
+
+```{r}
+NSinv <- read.csv("C:/Users/keyserf/Documents/Data/Inventory data/NS 1999-2015 licensing_salar_clean.csv")
+names(NSinv)
+
+NSinv <- subset(NSinv, select=c(Year, Site.ID, Life.Stage, Number))
+
+NSsitecoords <- subset(NSsitecoords, select=c(Site.ID, Lat, Long))
+NSsitecoords <- unique(NSsitecoords)
+
+NSinv <- join(NSinv, NSsitecoords, type="left")
+
+NSinv[] <- sapply(NSinv, clean)
+
+NSinv[,c(1,2,4,5,6)] <- apply(NSinv[,c(1,2,4,5,6)], 2, function(x) as.numeric(x))
+
+NSinv <- ddply(.data=NSinv, .(Site.ID, Year), 
+                     summarize, 
+                     totalfish = sum(Number))
+
+write.csv(NSinv, "C:/Users/keyserf/Documents/Data/Inventory data/NS Inventory.csv")
+NSinv <- read.csv("C:/Users/keyserf/Documents/Data/Inventory data/NS Inventory.csv")
+```
+

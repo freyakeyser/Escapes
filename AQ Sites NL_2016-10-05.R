@@ -14,7 +14,7 @@ require(gdistance)
 
 ##### Calculate standardized measure of fish for each site
 
-inventory <- read.csv("C:/Users/keyserf/Documents/data/NL inventory master2_fixed.csv", colClasses = "character")
+inventory <- read.csv("C:/Users/keyserf/Documents/data/Inventory data/NL inventory master2_fixed.csv", colClasses = "character")
 
 names(inventory) <- c("ID", "Cage", "NStart", "YC", "YCAdj", "NIntro", "NMort", "NHarvest", 
                       "NTransfer", "CountDev", "CountDevAbs", "NEscape", "NRemain", "ReportYear", "Bay", "Coord1", "Coord2")
@@ -104,7 +104,7 @@ standard <- ddply(.data=inventory_clean, .(ID),
 
 ### Combine with coordinate data
 
-sites <- read.csv("C:/Users/keyserf/Documents/Data/Site coordinates_NL_all.csv", header=TRUE)
+sites <- read.csv("C:/Users/keyserf/Documents/Data/Inventory data/Site coordinates_NL_all.csv", header=TRUE)
 str(sites)
 
 sites <- subset(sites, select=c("Licence...", "Latitude", "Longitude"))
@@ -116,6 +116,7 @@ sites <- rbind(sites, data.frame(ID=c("1079", "1085", "1096", "1107"),
 
 sites$ID <- as.character(sites$ID)
 sites
+
 
 ### for only 2013 year
 inv2013 <- subset(inventory_clean, ReportYear==2013)
@@ -169,7 +170,7 @@ totfishall <- totfishall[!is.na(totfishall$Lat)==TRUE, 1:7]
 sites <- unique(select(totfishall, ID, Lat, Long))
 
 annualinventory <- join(annual, sites, type="left")
-write.csv(annualinventory, "C:/Users/keyserf/Documents/Data/NL annual inventory and coords_summary_2016-11-18.csv")
+write.csv(annualinventory, "C:/Users/keyserf/Documents/Data/NL annual inventory and coords_summary_2016-11-29.csv")
 
 
 totfish0212 <- join(totfish0212, comp, type="left", by="ID")

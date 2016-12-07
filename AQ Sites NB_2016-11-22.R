@@ -120,7 +120,7 @@ GOM <- fortify(GOM)
 
 GOMclip <- gDifference(GOM, NB.low)
 
-writeOGR(obj = GOMclip, dsn = "C:/Users/keyserf/Documents/R/canvec/", layer="GOMclip", driver="ESRI Shapefile")
+#writeOGR(obj = GOMclip, dsn = "C:/Users/keyserf/Documents/R/canvec/", layer="GOMclip", driver="ESRI Shapefile")
 
 GOMclip <- fortify(GOMclip)
 
@@ -147,7 +147,7 @@ head(NB_licence)
 
 str(NB_licence)
 
-NB_licence <- select(NB_licence, Company, Species, Number, Site.ID, Issue.Date)
+NB_licence <- dplyr::select(NB_licence, Company, Species, Number, Site.ID, Issue.Date)
 
 NB_licence$Issue.Date <- dmy(NB_licence$Issue.Date)
 NB_licence$Year <- year(NB_licence$Issue.Date)
@@ -156,4 +156,61 @@ head(NB_licence)
 
 ```
 
+### NB and NS AQ site map
+```{r}
+
+NSsitecoords <- arrange(NSsitecoords, County)
+NSsitecoords$region <- NA
+NSsitecoords$region[1:8] <- "OBF"
+NSsitecoords$region[c(9:11, 16:19, 23:29, 31)] <- "SU"
+NSsitecoords$region[c(12:15, 20:22, 30)] <- "CB"
+
+NS_OBF <- subset(NSsitecoords, region=="OBF")
+NS_SU <- subset(NSsitecoords, region=="SU")
+NS_CB <- subset(NSsitecoords, region=="CB")
+
+PEprov <- fortify(PE.low)
+
+NB.land <- readOGR(dsn = "C:/Users/keyserf/Documents/R/canvec/canvec_250K_NB_Land_shp/island.shp", layer="island")
+NBland <- fortify(NB.land)
+
+rm(NB.low)
+
+str(NB.land)
+
+canada <- readOGR(dsn = "C:/Users/keyserf/Documents/R/canvec/canada.shp", layer="canada")
+usa <- readOGR(dsn = "C:/Users/keyserf/Documents/R/canvec/usa.shp", layer="usa")
+
+canada@data$cty <- "can"
+
+can <- fortify(canada)
+usa <- fortify(usa)
+
+ggplot() + 
+  #geom_polygon(data=NBprov, aes(long,lat, group=group), fill="grey") +
+  # geom_spatial(data=NS.low, aes(fill=ctry_en)) +
+  # geom_spatial(data=PE.low, aes(fill=ctry_en)) +
+  #scale_fill_manual(values=c("grey"), guide=FALSE) +
+  geom_polygon(data=NSprov, aes(long, lat, group=group), fill="grey") +
+  geom_polygon(data=PEprov, aes(long, lat, group=group), fill="grey") +
+  geom_polygon(data=GOM, aes(long, lat, group=group), fill="grey") +
+  annotate(geom="rect", xmin=-60, xmax=-59.5, ymin=47.5, ymax= 48, fill="grey") +
+  annotate(geom="rect", xmin=-64, xmax=-59.5, ymin=43.2, ymax= 44, fill="grey") +
+  annotate(geom="rect", xmin=-61, xmax=-59.5, ymin=44, ymax= 45, fill="grey") +
+  coord_map(xlim=c(-67.7, -59.5), ylim=c(43.2, 48)) +
+  theme_classic() +
+  theme(panel.border=element_rect(fill=NA, colour="black"))+
+  # geom_point(data=NB.BOF.sites, aes(mean(x), mean(y)), size=5, colour="red") +
+  # geom_point(data=NS_OBF, aes(mean(Longitude), mean(Latitude)), size=5, colour="red") +
+  # geom_point(data=NS_SU, aes(mean(Longitude), mean(Latitude)), size=5, colour="red") +
+  # geom_point(data=NS_CB, aes(mean(Longitude), mean(Latitude)), size=5, colour="red") 
+  stat_density_2d(data=NSsitecoords, geom="polygon", position="identity", aes(Longitude, Latitude, group=region, fill=..level..), alpha=0.5) +
+  stat_density_2d(data=NB.BOF.sites, geom="polygon", position="identity", aes(x,y, fill=..level..), alpha=0.5) +
+  scale_fill_gradientn(colours=c("yellow", "red")) +
+  geom_polygon(data=canada, aes(long, lat, group=group), fill="white")+
+  geom_spatial(data=usa, aes(long, lat, group=group), fill="white") +
+  geom_path(data=CA.df, aes(long, lat, group=group),colour="black")
+
+
+NSnew<- readOGR(dsn = "C:/Users/keyserf/Documents/R/canvec/NS_NSUSER_NS_Roads_HW2_line.shp", layer="NS_NSUSER_NS_Roads_HW2_line")
 

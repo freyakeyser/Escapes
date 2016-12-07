@@ -1,0 +1,1095 @@
+
+# Read in packages
+```
+require(ggplot2)
+require(plyr)
+require(lubridate)
+require(dplyr)
+require(sp)
+require(maptools)
+require(ggmap)
+require(ggplot2)
+require(reshape2)
+require(rgdal)
+require(raster)
+require(rgeos)
+require(PBSmapping)
+require(gdistance)
+require(grid)
+require(gridExtra)
+require(ggrepel)
+require(scales)
+```
+
+#############################################################################################################
+######################### SOUTHERN NEWFOUNDLAND CAGE SITE PROPAGULE PRESSSURES ##############################
+#############################################################################################################
+
+### Newfoundland - read in shapefiles, create raster file
+```{r}
+annual <- read.csv("C:/Users/keyserf/Documents/Data/Inventory data/NL annual inventory and coords_summary_2016-11-29.csv")
+
+## http://ftp.geogratis.gc.ca/pub/nrcan_rncan/vector/canvec/shp/Hydro/
+# NL <- readOGR(dsn = "./R/canvec/canvec_50K_NL_Hydro_shp/waterbody_2_1.shp", layer="waterbody_2_1")
+## THIS TAKES WAY TOO LONG, try lower resolution:
+## http://ftp.geogratis.gc.ca/pub/nrcan_rncan/vector/canvec/shp/Land/
+## NL.low <- readOGR(dsn = "C:/Users/keyserf/Documents/R/canvec/canvec_250K_NL_Hydro_shp/waterbody_2.shp", layer="waterbody_2")
+
+# #cropping shapefile to the area and details I need
+# NL.low.ocean <- crop(NL.low, extent(-57, -54, 46.8, 48))
+# NL.low.ocean <- subset(NL.low.ocean, perm_en=="Permanent")
+# writeOGR(obj=NL.low.ocean, dsn="canvec", layer="NL.low.ocean", driver="ESRI Shapefile")
+# rm(NL.low)
+
+# read in cropped shapefile: NL.low.ocean
+NL.low.ocean <- readOGR(dsn="C:/Users/keyserf/Documents/R/Escapes/canvec/NL.low.ocean.dbf", layer="NL.low.ocean")
+# plot(NL.low.ocean)
+# points(siterast, pch=16, col="red")
+
+# # creating raster
+r <- raster(ncol=1125, nrow=560)
+extent(r) <- extent(NL.low.ocean)
+NLrast <- rasterize(NL.low.ocean, r, fun="first")
+
+# if shoreline needed:
+# NLline <- readOGR("C:/Users/keyserf/Documents/R/canvec/canvec_250K_NL_Land_shp/shoreline_1_small.shp", "shoreline_1_small")
+
+# Change values in raster so that land is impassable (i.e. distances would be massive). 
+
+# Also get rid of ocean blob
+NLrast@data@values <- ifelse(is.na(NLrast@data@values)=="TRUE", 10000, 1)
+NLrast@data@values <- ifelse(coordinates(NLrast)[,1] < -56 & coordinates(NLrast)[,2] < 47.4, 1, NLrast@data@values)
+
+# create transition layer for raster (likelihood of presence within cell). 
+tr3 <- transition(1/NLrast, transitionFunction=mean, directions=8)
+tr3c <- geoCorrection(tr3, type="c")
+
+
+# # for q value analysis
+# # creating raster
+# r <- raster(ncol=553, nrow=585) #(1 grid square ~ 1 km2)
+# extent(r) <- extent(NLprov)
+# NLprovrast <- rasterize(NLprov, r, fun="first")
+# 
+# # adjust values to make lines impassable
+# NLprovrast@data@values <- ifelse(is.na(NLprovrast@data@values)=="TRUE", 10000, 1)
+# 
+# # create transition layer for raster (likelihood of presence within cell). 
+# tr3q <- transition(1/NLprovrast, transitionFunction=mean, directions=8)
+# tr3cq <- geoCorrection(tr3q, type="c")
+
+```
+
+
+## Newfoundland - AQ site coordinates and river mouths
+```{r}
+# site coords
+
+# read in sites from annual NL inventory. Adjust years as desired. Min for NL is 2005, max is 2015. 
+sitecoords <- unique(subset(annual, is.na(Lat)=="FALSE", select=c("ID","Lat", "Long")))
+x <- sitecoords$Long
+y <- sitecoords$Lat
+xy <- cbind(x, y)
+siterast <- as.matrix(xy)
+
+# for q values
+sitecoords <- unique(subset(annual, is.na(Lat)=="FALSE" & ReportYear<2013, select=c("ID","Lat", "Long")))
+x <- sitecoords$Long
+y <- sitecoords$Lat
+xy <- cbind(x, y)
+siterast <- as.matrix(xy)
+
+# # escaped fish location
+# escapes <- read.csv("C:/Users/keyserf/Documents/Data/Gillnetting2015 - Master Copy.csv")
+# rivers <- read.csv("C:/Users/keyserf/Documents/Data/river coords.csv")
+# str(escapes)
+# 
+# escapes$River <- gsub(escapes$River, pattern="Du", replacement="du")
+# names(rivers) <- c("code", "V1", "V2")
+# escapelocs <- unique(select(escapes, Latitude..N., Longitude..E.))
+# escapemat <- as.data.frame(cbind(escapelocs$Longitude..E., escapelocs$Latitude..N.))
+# escapemat <- rbind(escapemat, as.data.frame(rivers[,2:3]))
+# escapemat <- as.matrix(escapemat)
+
+## Newfoundland River mouths
+
+## Details for above:
+# rivers <- read.csv("C:/Users/keyserf/Documents/Data/river coords.csv")
+# 
+# ## To get river mouth locations, use click(). Click on the plot to get coords for the river mouths with sampling sites on them.
+# plot(NLrast)
+# text(rivers[,2], rivers[,3])
+# lines(NLline)
+# # rivermouths <- SpatialPoints(click(n=18))
+# rivermouths <- snapPointsToLines(rivermouths, NLline)
+# rivermouths <- fortify(as.data.frame(rivermouths))
+# text(rivermouths$X, rivermouths$Y, col="red", labels=1:18)
+
+# For Brendan's river sites:
+
+Bsites <- read.csv("C:/Users/keyserf/Documents/Data/sites_lat_long_brendan.csv", header=TRUE)
+# plot(NLrast)
+# head(Bsites)
+# points(Bsites$V1, Bsites$V2, pch=21, bg="black")
+# Bsites <- Bsites[1:18,] 
+# Bsites[,1:3] <- apply(Bsites[,1:3], 2, function(x) as.character(x))
+# Bsites[,2:3] <- apply(Bsites[,2:3], 2, function(x) as.numeric(x))
+#   
+# x <- Bsites$V1
+# y <- Bsites$V2
+# xy <-cbind(x, y)
+# Bsiterast <- as.matrix(xy)
+
+## For precise PARR project sampling locations in rivers:
+
+# sampling <- read.csv("C:/Users/keyserf/Documents/Data/Salmon sampling summary 2014.csv", header=TRUE)
+# sampling <- select(sampling[1:20,], Location, Latitude, Longitude)
+# sampling$code <- c("BTB", "CNR", "CNR", "DLR", "GAR", "GBB", "GLP", "LMS", "LTR", "LHR", "MAL", "NET", "NEB", "FBN", "OBB", "SMB", "SEB", "TRB", "TBB", "TEB")
+# sampling <- sampling[-c(2,12),]
+# sampling
+# 
+# plot(NLrast)
+# points(sampling$Longitude, sampling$Latitude)
+# 
+# #rivermouths<- SpatialPoints(click(n=18))
+# rivermouths <- data.frame(rivermouths)
+# rivermouths <- cbind(rivermouths, Bsites$X)
+
+# write.csv(rivermouths, "C:/Users/keyserf/Documents/Data/Rivers/NL river mouth coords_2016-11-18.csv")
+rivermouths <- read.csv("C:/Users/keyserf/Documents/Data/Rivers/NL river mouth coords_2016-11-18.csv", header=TRUE)
+```
+
+# Newfoundland - Q values coords
+```{r}
+# read in sites
+qsites <- read.csv("C:/Users/keyserf/Documents/Data/Rivers/Qvalues_All NL_2016-11-10.csv")
+qsites <- qsites[,1:3]
+
+qsitecoords <- read.csv("C:/Users/keyserf/Documents/Data/Rivers/Moore_Salmon_Coords.csv")
+
+qsites <- join(qsites, qsitecoords, type="left")
+
+qsites[qsites$Code=="LHR",]$Long <- -54.94830
+qsites[qsites$Code=="LHR",]$Lat <- 47.77960 
+
+qsites[qsites$Code=="BSB",]$Long <- -53.282374
+qsites[qsites$Code=="BSB",]$Lat <- 46.756687
+```
+
+# Newfoundland - Fix some AQ site coords
+```{r}
+# for 2013 only:
+# plot(NLrast, xlim=c(-56.0, -55.5), ylim=c(47.4, 47.6))
+# points(siterast[12,1], siterast[12,2], col="blue")
+# siterast[12,] <- c(-55.58610, 47.51435)
+# make site 12 = -55.58610 and 47.51435
+
+# for 2010-2015 years:
+# plot(NLrast)
+# points(siterast[17,1], siterast[17,2])
+# siterast[17,] <- click()
+## make site 17 = -56.06074 and 47.77717
+# siterast[17,] <- c(-56.06074, 47.77717)
+# points(siterast[30,1], siterast[30,2])
+# siterast[30,] <- click()
+# siterast[30,] <- c(-55.78194, 47.57588)
+## make site 30 = -55.78194 and 47.57588
+
+# for all years (2005-2015):
+plot(NLrast, xlim=c(-56, -55.5), ylim=c(47.4, 47.6))
+points(siterast[35,1], siterast[35,2])
+siterast[35,] <- c(-55.77543, 47.59184)
+
+# for q values (2005-2013) entire prov:
+# plot(NLprovrast, xlim=c(-56.5, -55.5), ylim=c(47.5, 48))
+# text(siterast[,1], siterast[,2])
+siterast[18,] <- c(-56.06056, 47.77635)
+siterast[32,] <- c(-55.79204, 47.58395)
+siterast[43,] <- c(-55.79204, 47.58395)
+siterast[35,] <- c(-55.77543, 47.59184)
+siterast[48,] <- c(-55.77543, 47.59184)
+
+
+```
+
+
+# Newfoundland - calculate distance matrix
+```{r}
+# calculate least-cost distance between siterast (site location) and testrast (escaped fish location)
+d3 <- costDistance(tr3c, fromCoords = cbind(as.numeric(siterast[,1]), as.numeric(siterast[,2])), toCoords = cbind(as.numeric(rivermouths[,2]), as.numeric(rivermouths[,3])))
+
+d3
+
+# Q value coords
+d3q <- costDistance(tr3cq, fromCoords = cbind(as.numeric(siterast[,1]), as.numeric(siterast[,2])), toCoords = cbind(as.numeric(qsites[,5]), as.numeric(qsites[,6])))
+
+d3q 
+```
+
+
+### Newfoundland - merge with site coords and inventory data
+```{r}
+d3 <- as.data.frame(cbind(d3, sitecoords$ID))
+colnames(d3)[19] <- "ID"
+colnames(d3)[1:18] <- as.list(as.character(rivermouths$code))
+
+
+# q values
+d3q <- as.data.frame(cbind(d3q, sitecoords$ID))
+colnames(d3q)[16] <- "ID"
+colnames(d3q)[1:15] <- as.list(as.character(qsites$Code))
+
+```
+
+
+### Newfoundland - pick the years you want and summarize
+```{r}
+dist2AQ_sub <- subset(annual, ReportYear >2001 & ReportYear<2013 & is.na(Lat)==FALSE)
+dist2AQ_sub <- ddply(.data=dist2AQ_sub, .(ID, Lat, Long),
+                     summarize,
+                     totalfish=sum(totalfish))
+
+dist2AQ <- join(d3, dist2AQ_sub, type="left")
+#dist2AQ <- join(d3q, dist2AQ_sub, type="left")
+dist2AQ <- subset(dist2AQ, is.na(totalfish)==FALSE)
+```
+
+
+# Newfoundland - Calculate propagule pressure for each river. 
+```{r}
+dist2AQ[,1:18] <- apply(dist2AQ[,1:18], 2, function(x) as.character(x))
+dist2AQ[,1:18] <- apply(dist2AQ[,1:18], 2, function(x) as.numeric(x))
+
+# q values
+dist2AQ[,1:15] <- apply(dist2AQ[,1:15], 2, function(x) as.character(x))
+dist2AQ[,1:15] <- apply(dist2AQ[,1:15], 2, function(x) as.numeric(x))
+
+# For each AQ site, caclulate total fish/distance from river
+## original calculation
+dist2AQ$P1 <- dist2AQ$totalfish/dist2AQ$BTB
+dist2AQ$P2 <- dist2AQ$totalfish/dist2AQ$CNR
+dist2AQ$P3 <- dist2AQ$totalfish/dist2AQ$DLR
+dist2AQ$P4 <- dist2AQ$totalfish/dist2AQ$GAR
+dist2AQ$P5 <- dist2AQ$totalfish/dist2AQ$GBB
+dist2AQ$P6 <- dist2AQ$totalfish/dist2AQ$GLP
+dist2AQ$P7 <- dist2AQ$totalfish/dist2AQ$LMS
+dist2AQ$P8 <- dist2AQ$totalfish/dist2AQ$LTR
+dist2AQ$P9 <- dist2AQ$totalfish/dist2AQ$LHR
+dist2AQ$P10 <- dist2AQ$totalfish/dist2AQ$MAL
+dist2AQ$P11 <- dist2AQ$totalfish/dist2AQ$NEB
+dist2AQ$P12 <- dist2AQ$totalfish/dist2AQ$FBN
+dist2AQ$P13 <- dist2AQ$totalfish/dist2AQ$OBB
+dist2AQ$P14 <- dist2AQ$totalfish/dist2AQ$SMB
+dist2AQ$P15 <- dist2AQ$totalfish/dist2AQ$SEB
+dist2AQ$P16 <- dist2AQ$totalfish/dist2AQ$TRB
+dist2AQ$P17 <- dist2AQ$totalfish/dist2AQ$TBB
+dist2AQ$P18 <- dist2AQ$totalfish/dist2AQ$TEB
+
+# q values
+dist2AQ$P1 <- dist2AQ$totalfish/dist2AQ$GAR
+dist2AQ$P2 <- dist2AQ$totalfish/dist2AQ$BDN
+dist2AQ$P3 <- dist2AQ$totalfish/dist2AQ$CNR
+dist2AQ$P4 <- dist2AQ$totalfish/dist2AQ$LHR
+dist2AQ$P5 <- dist2AQ$totalfish/dist2AQ$GRR
+dist2AQ$P6 <- dist2AQ$totalfish/dist2AQ$LPR
+dist2AQ$P7 <- dist2AQ$totalfish/dist2AQ$NPR
+dist2AQ$P8 <- dist2AQ$totalfish/dist2AQ$RKR
+dist2AQ$P9 <- dist2AQ$totalfish/dist2AQ$LSR
+dist2AQ$P10 <- dist2AQ$totalfish/dist2AQ$NBT
+dist2AQ$P11 <- dist2AQ$totalfish/dist2AQ$BSB
+dist2AQ$P12 <- dist2AQ$totalfish/dist2AQ$STP
+dist2AQ$P13 <- dist2AQ$totalfish/dist2AQ$SGR
+dist2AQ$P14 <- dist2AQ$totalfish/dist2AQ$WAB
+dist2AQ$P15 <- dist2AQ$totalfish/dist2AQ$CMP
+
+# sum all pressures for total propagule pressure at a river
+prop.press_all <- apply(as.matrix(dist2AQ[,23:40]), 2, function(x) sum(x, na.rm=TRUE))
+
+# match to river mouth coords
+prop.press_all <- data.frame(code=rivermouths$code, lat=rivermouths[,3], long = rivermouths[,2], prop.press = prop.press_all)
+
+write.csv(prop.press_all, "C:/Users/keyserf/Documents/Data/R output/Propagule Pressure_NL_all years_2016-12-01.csv")
+
+
+# sum all pressures for total propagule pressure at Q value river
+prop.press_q <- apply(as.matrix(dist2AQ[,20:34]), 2, function(x) sum(x, na.rm=TRUE))
+
+# match to river mouth coords
+prop.press_q <- data.frame(Code=qsites$Code, lat=qsites[,6], long = qsites[,5], prop.press = prop.press_q)
+
+write.csv(prop.press_q, "C:/Users/keyserf/Documents/Data/R output/Propagule Pressure_NL_qvalues_2005-2012_2016-12-06.csv")
+```
+
+
+# Newfoundland - plot propagule pressure
+```{r}
+dist2AQ_sub_plot <- subset(dist2AQ_sub, totalfish > 0)
+dist2AQ_sub_plot$Lat <- as.numeric(dist2AQ_sub_plot$Lat)
+dist2AQ_sub_plot$Long <- as.numeric(dist2AQ_sub_plot$Long)
+
+prov <- fortify(NL.low.ocean)
+
+prov$group <- ifelse(prov$long < -56.2 & prov$lat < 47.375, 4771.1, prov$group)
+
+dist2AQ_sub_plot <- arrange(dist2AQ_sub_plot, -totalfish)
+prop.press_all <- arrange(prop.press_all, -prop.press)
+
+plot1 <- ggplot() + 
+  ggtitle("Aquaculture sites")+
+  geom_polygon(data=prov, aes(long, lat, group=group), fill="grey")+ 
+  annotate(geom="rect", xmin=-57, xmax=-56, ymin=46.8, ymax= 47.45, fill="grey") +
+  geom_point(data=dist2AQ_sub_plot, aes(Long, Lat, size=totalfish), fill="red", shape=21, colour="black") + 
+  theme_bw() +
+  coord_map(xlim=c(-56.7, -54.5), ylim=c(46.82, 48)) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
+  scale_size_continuous(name="Total fish", range = c(0.5,10), limits=c(1,5250000), breaks=c(100, 1000, 10000, 100000, 1000000, 2500000, 5250000))
+
+plot2 <- ggplot() + 
+  ggtitle("Salmon rivers")+
+  geom_polygon(data=prov, aes(long, lat, group=group), fill="grey")+
+  annotate(geom="rect", xmin=-57, xmax=-56, ymin=46.8, ymax= 47.45, fill="grey") +
+  geom_point(data=prop.press_all, aes(long, lat, size=prop.press), fill="yellow", shape=21, colour="black") +
+  theme_bw() +  coord_map(xlim=c(-56.7, -54.5), ylim=c(46.82, 48)) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
+  #scale_size_area(name="\u03A3(totalfish/d)", breaks=seq(50, 4000, 500)) +
+  #scale_size_continuous(name="Propagule pressure=\n\u03A3(total fish^-0.0012*dist)", range = c(0.5,8), limits=c(5,25), breaks=c(5,10,15,20,25))
+  scale_size_continuous(name="Propagule pressure=\n\u03A3(total fish/dist)", range = c(0.5,8), limits=c(100,17500), breaks=c(500, 1000, 5000, 10000, 15000, 17500))
+
+gA <- ggplotGrob(plot1)
+gB <- ggplotGrob(plot2)
+grid.newpage()
+grid.draw(cbind(gA, gB))
+### PNG 1500*600
+
+
+```
+
+# Newfoundland - Q value analysis
+```{r}
+qsites <- join(qsites, prop.press_q[,c(1,4)], type="left") 
+
+ggplot() + 
+  geom_smooth(data=qsites, aes(prop.press, Q), method="lm", se=TRUE) +
+  geom_point(data=qsites, aes(prop.press, Q)) +
+  geom_label_repel(data=qsites, aes(prop.press, Q, label=Code)) +
+  theme_classic() + 
+  theme(panel.background=element_rect(colour="black")) +
+  ggtitle("2005-2012")+
+  xlab("Propagule pressure") +
+  ylab("Q value") 
+
+summary(lm(data=qsites, Q~prop.press))
+
+prop.press_q<- arrange(prop.press_q, -prop.press)
+
+ggplot() + 
+  ggtitle("Q values") +
+  geom_spatial(data=NL.low, aes(fill=ctry_en)) + ### canvec spatialpolygonsdataframe
+  scale_fill_manual(values=c("grey"), guide=FALSE) + ### fills geom_spatial with grey
+  #geom_path(data=CA.NL, aes(long, lat, group=group),colour="black") + ### black outline
+  annotate(geom="rect", xmin=-60, xmax=-56.5, ymin=46.5, ymax= 47.25, fill="grey") + ### hides stupid white spaces
+  annotate(geom="rect", xmin=-60, xmax=-56.1, ymin=46.5, ymax= 47.4, fill="grey") +
+  annotate(geom="rect", xmin=-60, xmax=-59.42, ymin=46.5, ymax= 50.21, fill="grey")+
+  annotate(geom="rect", xmin=-56.1, xmax=-55.9, ymin=46.5, ymax= 46.83, fill="grey") +
+  annotate(geom="rect", xmin=-54, xmax=-52.2, ymin=50, ymax= 51.8, fill="grey") +
+  coord_map(xlim=c(-59.9, -52.3), ylim=c(46.52, 51.79)) + ### sets boundaries
+  theme_classic() + ### favourite theme settings plus makes sure land is white
+  theme(panel.background = element_blank(), panel.border=element_rect(colour="black", fill=NA)) +
+  geom_point(data=prop.press_q, aes(long, lat, size=prop.press), fill="yellow", shape=21, colour="black") +
+  geom_label_repel(data=prop.press_q, aes(long, lat, label=Code), size=3, point.padding = unit(0.5,"lines"))
+
+```
+
+
+######################################################################################################################
+################################# NOVA SCOTIA CAGE SITE PROPAGULE PRESSURES ##########################################
+######################################################################################################################
+
+
+### Nova scotia propagule pressures
+## Nova Scotia - shapefile prep
+```{r}
+
+# read in cropped shapefile: NL.low.ocean
+# NS.low <- readOGR(dsn = "C:/Users/keyserf/Documents/R/canvec/canvec_250K_NS_Hydro_shp/waterbody_2.shp", layer="waterbody_2")
+NS.low <- crop(NS.low, extent(-66.5, -59.5, 43.3, 47.5))
+#plot(NS.low)
+
+# creating raster
+r <- raster(ncol=534, nrow=415)
+extent(r) <- extent(NS.low)
+NSrast <- rasterize(NS.low, r, fun="first")
+
+# Also get rid of ocean blob
+NSrast@data@values <- ifelse(is.na(NSrast@data@values)=="TRUE", 10000, 1)
+NSrast@data@values <- ifelse(coordinates(NSrast)[,1] > -64.5 & coordinates(NSrast)[,2] < 44, 1, NSrast@data@values)
+NSrast@data@values <- ifelse(coordinates(NSrast)[,1] > -61 & coordinates(NSrast)[,2] < 45, 1, NSrast@data@values)
+NSrast@data@values <- ifelse(coordinates(NSrast)[,2] >47.2, 1, NSrast@data@values)
+
+# create transition layer for raster (likelihood of presence within cell). 
+tr5 <- transition(1/NSrast, transitionFunction=mean, directions=8)
+tr5c <- geoCorrection(tr5, type="c")
+
+```
+
+
+## Nova Scotia - AQ site coordinates and rivermouths
+```{r}
+# read in sites from I&T file. Adjust years as desired. Min for NS is 1999, max is 2015. 
+NSsitecoords <- read.csv("C:/Users/keyserf/Documents/Data/Inventory data/NS I&T/NS IT sites_FK_EP_FK.csv", header=TRUE)
+sitecoords <- unique(subset(NSsitecoords, is.na(Lat)=="FALSE", select=c("Site.ID","Lat", "Long")))
+x <- sitecoords$Long
+y <- sitecoords$Lat
+xy <- cbind(x, y)
+siterast <- as.matrix(xy)
+
+
+plot(NSrast)
+points(siterast[,1], siterast[,2], col="red")
+
+# # escaped fish location from Escapes_2016-10-07 morris df
+
+nsrivers <- as.data.frame(unique(morris$River[morris$Prov=="NS"]))
+names(nsrivers) <- c("river")
+coords_clean <- rbind(c(44.778122, -65.439294), 
+               c(46.094226, -60.857244), 
+               c(45.399889, -64.326540),
+               c(44.729245, -63.662550),
+               c(45.109829, -64.275097), 
+               c(45.610836, -60.626756), 
+               c(43.842299, -65.991485),
+               c(45.966662, -61.115833),
+               c(44.310002, -64.390153), 
+               c(46.428359, -61.095991),
+               c(44.220810, -66.143551),
+               c(44.047893, -64.709702), 
+               c(44.611538, -65.676093),
+               c(46.082903, -60.909614), 
+               c(44.939173, -65.055891), 
+               c(46.299002, -60.615435), 
+               c(45.409762, -64.098723),
+               c(45.003232, -62.087995),
+               c(44.052819, -66.169571), 
+               c(45.050054, -61.892250),
+               c(45.298904, -63.479638), 
+               c(46.368190, -60.525074),
+               c(45.865024, -60.802479),
+               c(46.218702, -60.610511),
+               c(45.953641, -61.102664)) 
+nsrivers <- cbind(nsrivers, coords_clean)
+
+names(nsrivers) <- c("River", "lat", "long")
+
+nsrivers$code <- c("APR", "BAD", "BRR", "BRA", "GAK", "GRA", "HAR", "IND", "LAH", "LIS", "MGR", "MER", "MET", "MID", "NIC", "NRV", "PAR", "SAC", "SAD", "SKY", "STW", "STA", "SMA", "TUS", "WHY")
+# 
+# nsmorris <- subset(morris, ProvState=="NS")
+# nsmorris <- join(nsmorris, nsrivers, type="left")
+# 
+# unique(nsmorris$TotalFarmed)
+# 
+# nsmorris_true <- subset(nsmorris, !TotalFarmed =="0", select=c("River", "lat", "long", "TotalFarmed"))
+# nsmorris_true <- subset(nsmorris_true, !TotalFarmed =="N/A")
+# nsmorris_true <- unique(nsmorris_true[,1:3])
+
+
+# Q value rivers NS
+
+# for q-values
+NSQ <- read.csv("C:/Users/keyserf/Documents/Data/Rivers/NS Q values.csv", header=TRUE) 
+head(NSQ)
+
+names(NSQ) <- c("Code", "Q", "Distance")
+
+qsitecoords <- read.csv("C:/Users/keyserf/Documents/Data/Rivers/Moore_Salmon_Coords.csv")
+
+NSQ <- join(NSQ, qsitecoords, type="left")
+NSQ <- NSQ[!is.na(NSQ$Lat)==TRUE,]
+NSQ <- subset(NSQ, !Region %in% c("Southern Quebec", "Gaspesie", "Anticosti", "North Shore upper", "North Shore Lower"))
+NSQ <- subset(NSQ, !Site %in% c("Cap Chat", "Cross", "Big Salmon", "Jacquet", "Miramichi", "Nashwaak", "Tobique"))
+
+NSQ[1, 5:6] <- c(-61.957673, 45.623055)
+NSQ[2, 5:6] <- c(-60.586089, 45.954479)
+NSQ[3, 5:6] <- c(-64.273080, 45.111435)
+NSQ[4, 5:6] <- c(-64.385449, 44.307135)
+NSQ[7, 5:6] <- c(-63.384861, 45.358871)
+NSQ[8, 5:6] <- c(-60.611916, 46.291407)
+NSQ[9, 5:6] <- c(-61.931604, 45.075335)
+NSQ[10, 5:6] <- c(-63.478616, 45.306643)
+
+```
+
+
+# Nova Scotia - Fix some river coords
+```{r}
+# make nictaux = to annapolis
+nsrivers[15,3] <- nsrivers[1,3]
+nsrivers[15,2] <- nsrivers[1,2]
+
+# for all years:
+# plot(NSrast, xlim=c(-61, -60), ylim=c(46, 47))
+# text(nsrivers[16,3], nsrivers[16,2], col="red")
+nsrivers[16,2:3] <- c(46.26345, -60.59543)
+plot(NSrast, xlim=c(-62.5, -62), ylim=c(44.75, 45.25))
+# text(nsrivers[,3], nsrivers[,2], col="red")
+nsrivers[18,2:3] <- c(44.97533, -62.08651)
+
+```
+
+
+# Nova Scotia - Transition layer, Geocorrection, calculate distance matrix
+```{r}
+# create transition layer for raster (likelihood of presence within cell). 
+tr5 <- transition(1/NSrast, transitionFunction=mean, directions=8)
+tr5c <- geoCorrection(tr5, type="c")
+
+# calculate least-cost distance between siterast (site location) and testrast (escaped fish location)
+d5 <- costDistance(tr5c, fromCoords = cbind(as.numeric(siterast[,1]), as.numeric(siterast[,2])), toCoords = cbind(as.numeric(nsrivers[,3]), as.numeric(nsrivers[,2])))
+
+d5 
+
+# for Q value analysis
+# d5q <- costDistance(tr5c, fromCoords = cbind(as.numeric(siterast[,1]), as.numeric(siterast[,2])), toCoords = cbind(as.numeric(NSQ[,5]), as.numeric(NSQ[,6])))
+
+# d5q
+
+```
+
+
+# Nova Scotia - Merge with site coords and inventory data
+```{r}
+colnames(sitecoords)[1] <- "Site.ID"
+d5 <- as.data.frame(cbind(d5, sitecoords$Site.ID))
+colnames(d5)[26] <- "Site.ID"
+colnames(d5)[1:25] <- as.list(as.character(nsrivers$code))
+
+dist2AQ_NS <- join(d5, sitecoords, type="left")
+
+
+# for q values
+
+colnames(sitecoords)[1] <- "Site.ID"
+d5q <- as.data.frame(cbind(d5q, sitecoords$Site.ID))
+colnames(d5q)[11] <- "Site.ID"
+colnames(d5q)[1:10] <- as.list(as.character(NSQ$Code))
+
+dist2AQ_NS <- join(d5q, sitecoords, type="left")
+
+```
+
+
+### Nova Scotia - pick the years you want and summarize
+```{r}
+NSinv <- read.csv("C:/Users/keyserf/Documents/Data/Inventory data/NS Inventory.csv")
+names(NSinv)
+
+NSsitecoords <- subset(NSsitecoords, select=c(Site.ID, Lat, Long))
+NSsitecoords <- unique(NSsitecoords)
+
+NSinv <- join(NSinv, NSsitecoords, type="left")
+
+dist2AQ_sub_NS <- subset(NSinv, Year >2001 & Year<2013 & is.na(Lat)==FALSE)
+dist2AQ_sub_NS <- ddply(.data=dist2AQ_sub_NS, .(Site.ID, Lat, Long),
+                     summarize,
+                     totalfish=sum(totalfish))
+
+dist2AQ <- join(d5, dist2AQ_sub_NS, type="left")
+# q value
+dist2AQ <- join(d5q, dist2AQ_sub_NS, type="left")
+
+dist2AQ_NS <- subset(dist2AQ, is.na(totalfish)==FALSE)
+```
+
+
+# Nova Scotia - Calculate propagule pressure for each river. 
+```{r}
+dist2AQ_NS[,1:10] <- apply(dist2AQ_NS[,1:10], 2, function(x) as.character(x))
+dist2AQ_NS[,1:10] <- apply(dist2AQ_NS[,1:10], 2, function(x) as.numeric(x))
+
+# For each AQ site, caclulate total fish/distance from river
+## original calculation
+dist2AQ_NS$P1 <- dist2AQ_NS$totalfish/dist2AQ_NS$APR
+dist2AQ_NS$P2 <- dist2AQ_NS$totalfish/dist2AQ_NS$BAD
+dist2AQ_NS$P3 <- dist2AQ_NS$totalfish/dist2AQ_NS$BRR
+dist2AQ_NS$P4 <- dist2AQ_NS$totalfish/dist2AQ_NS$BRA
+dist2AQ_NS$P5 <- dist2AQ_NS$totalfish/dist2AQ_NS$GAK
+dist2AQ_NS$P6 <- dist2AQ_NS$totalfish/dist2AQ_NS$GRA
+dist2AQ_NS$P7 <- dist2AQ_NS$totalfish/dist2AQ_NS$HAR
+dist2AQ_NS$P8 <- dist2AQ_NS$totalfish/dist2AQ_NS$IND
+dist2AQ_NS$P9 <- dist2AQ_NS$totalfish/dist2AQ_NS$LAH
+dist2AQ_NS$P10 <- dist2AQ_NS$totalfish/dist2AQ_NS$LIS
+dist2AQ_NS$P11 <- dist2AQ_NS$totalfish/dist2AQ_NS$MGR
+dist2AQ_NS$P12 <- dist2AQ_NS$totalfish/dist2AQ_NS$MER
+dist2AQ_NS$P13 <- dist2AQ_NS$totalfish/dist2AQ_NS$MET
+dist2AQ_NS$P14 <- dist2AQ_NS$totalfish/dist2AQ_NS$MID
+dist2AQ_NS$P15 <- dist2AQ_NS$totalfish/dist2AQ_NS$NIC
+dist2AQ_NS$P16 <- dist2AQ_NS$totalfish/dist2AQ_NS$NRV
+dist2AQ_NS$P17 <- dist2AQ_NS$totalfish/dist2AQ_NS$PAR
+dist2AQ_NS$P18 <- dist2AQ_NS$totalfish/dist2AQ_NS$SAC
+dist2AQ_NS$P19 <- dist2AQ_NS$totalfish/dist2AQ_NS$SAD
+dist2AQ_NS$P20 <- dist2AQ_NS$totalfish/dist2AQ_NS$SKY
+dist2AQ_NS$P21 <- dist2AQ_NS$totalfish/dist2AQ_NS$STW
+dist2AQ_NS$P22 <- dist2AQ_NS$totalfish/dist2AQ_NS$STA
+dist2AQ_NS$P23 <- dist2AQ_NS$totalfish/dist2AQ_NS$SMA
+dist2AQ_NS$P24 <- dist2AQ_NS$totalfish/dist2AQ_NS$TUS
+dist2AQ_NS$P25 <- dist2AQ_NS$totalfish/dist2AQ_NS$WHY
+
+# q values
+dist2AQ_NS[,1:10] <- apply(dist2AQ_NS[,1:10], 2, function(x) as.character(x))
+dist2AQ_NS[,1:10] <- apply(dist2AQ_NS[,1:10], 2, function(x) as.numeric(x))
+
+dist2AQ_NS$P1 <- dist2AQ_NS$totalfish/dist2AQ_NS$ANW
+dist2AQ_NS$P2 <- dist2AQ_NS$totalfish/dist2AQ_NS$ESK
+dist2AQ_NS$P3 <- dist2AQ_NS$totalfish/dist2AQ_NS$GAK
+dist2AQ_NS$P4 <- dist2AQ_NS$totalfish/dist2AQ_NS$LAH
+dist2AQ_NS$P5 <- dist2AQ_NS$totalfish/dist2AQ_NS$MED
+dist2AQ_NS$P6 <- dist2AQ_NS$totalfish/dist2AQ_NS$MGR
+dist2AQ_NS$P7 <- dist2AQ_NS$totalfish/dist2AQ_NS$NRH
+dist2AQ_NS$P8 <- dist2AQ_NS$totalfish/dist2AQ_NS$NRV
+dist2AQ_NS$P9 <- dist2AQ_NS$totalfish/dist2AQ_NS$SMA
+dist2AQ_NS$P10 <- dist2AQ_NS$totalfish/dist2AQ_NS$STW
+
+
+# sum all pressures for total propagule pressure at a river
+prop.press_NS <- apply(as.matrix(dist2AQ_NS[,30:54]), 2, function(x) sum(x, na.rm=TRUE))
+
+# match to river mouth coords
+prop.press_NS <- data.frame(code=nsrivers[,4], lat=nsrivers[,2], long = nsrivers[,3], prop.press = prop.press_NS)
+
+write.csv(prop.press_NS, "C:/Users/keyserf/Documents/Data/R output/Propagule Pressure NS_all years_2016-12-05.csv")
+
+
+# q values
+# sum all pressures for total propagule pressure at a river
+prop.press_NS_q <- apply(as.matrix(dist2AQ_NS[,15:24]), 2, function(x) sum(x, na.rm=TRUE))
+
+# match to river mouth coords
+prop.press_NS_q <- data.frame(code=NSQ$Code, lat=NSQ$Lat, long = NSQ$Long, prop.press = prop.press_NS_q, q=NSQ$Q)
+
+write.csv(prop.press_NS_q, "C:/Users/keyserf/Documents/Data/R output/Propagule Pressure NS_Q values_2016-12-07.csv")
+```
+
+
+# Nova Scotia - plot propagule pressure
+```{r}
+dist2AQ_NS_plot <- arrange(subset(dist2AQ_NS, select=c(Site.ID, Lat, Long, totalfish)), -totalfish)
+prop.press_NS <- arrange(prop.press_NS, -prop.press)
+
+plot3 <- ggplot() + 
+  ggtitle("Aquaculture sites") +
+  geom_spatial(data=NB.low, aes(fill=ctry_en), show.legend=FALSE) + ### canvec spatialpolygonsdataframe
+  geom_spatial(data=PE.low, aes(fill=ctry_en), show.legend=FALSE) + ### canvec spatialpolygonsdataframe
+  geom_spatial(data=NS.low, aes(fill=ctry_en), show.legend=FALSE) + ### canvec spatialpolygonsdataframe
+  scale_fill_manual(values=c("grey"), guide=FALSE) + ### fills geom_spatials with grey
+  geom_polygon(data=GOMclip, aes(long, lat, group=group), fill="grey") + ### Gulf of Maine shapefile to get Grand Manan & Maine
+  #geom_path(data=CA.df, aes(long, lat, group=group),colour="black") + ### plots black outline on provinces
+  annotate(geom="rect", xmin=-60, xmax=-59.5, ymin=47.5, ymax= 48, fill="grey") + ### these annotates hide white space!
+  annotate(geom="rect", xmin=-64, xmax=-59.5, ymin=43.2, ymax= 44, fill="grey") +
+  annotate(geom="rect", xmin=-61, xmax=-59.5, ymin=44, ymax= 45, fill="grey") +
+  coord_map(xlim=c(-67.7, -59.5), ylim=c(43.2, 48)) + ### sets boundaries
+  geom_point(data=dist2AQ_NS_plot, aes(Long, Lat, size=totalfish), fill="red", shape=21, colour="black") + 
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
+  scale_size_continuous(name="Total fish", range = c(0.5,10), limits=c(0,4250000), breaks=c(1,10000, 50000,75000,1000000, 2000000, 4250000))
+
+plot4 <- ggplot() + 
+  ggtitle("Salmon rivers") +
+  geom_spatial(data=NB.low, aes(fill=ctry_en), show.legend=FALSE) + ### canvec spatialpolygonsdataframe
+  geom_spatial(data=PE.low, aes(fill=ctry_en), show.legend=FALSE) + ### canvec spatialpolygonsdataframe
+  geom_spatial(data=NS.low, aes(fill=ctry_en), show.legend=FALSE) + ### canvec spatialpolygonsdataframe
+  scale_fill_manual(values=c("grey"), guide=FALSE) + ### fills geom_spatials with grey
+  geom_polygon(data=GOMclip, aes(long, lat, group=group), fill="grey") + ### Gulf of Maine shapefile to get Grand Manan & Maine
+  #geom_path(data=CA.df, aes(long, lat, group=group),colour="black") + ### plots black outline on provinces
+  annotate(geom="rect", xmin=-60, xmax=-59.5, ymin=47.5, ymax= 48, fill="grey") + ### these annotates hide white space!
+  annotate(geom="rect", xmin=-64, xmax=-59.5, ymin=43.2, ymax= 44, fill="grey") +
+  annotate(geom="rect", xmin=-61, xmax=-59.5, ymin=44, ymax= 45, fill="grey") +
+  coord_map(xlim=c(-67.7, -59.5), ylim=c(43.2, 48)) + ### sets boundaries +
+  geom_point(data=prop.press_NS, aes(long, lat, size=prop.press), fill="yellow", shape=21, colour="black") + 
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
+  scale_size_continuous(name="Propagule pressure=\n\u03A3(total fish/dist)", range = c(0.5,10), limits=c(0,500), breaks=c(1, 10, 50, 100, 200, 350, 500))
+
+gA <- ggplotGrob(plot3)
+gB <- ggplotGrob(plot4)
+grid.newpage()
+grid.draw(cbind(gA, gB))
+
+
+
+## q values
+
+ggplot() + 
+  geom_smooth(data=prop.press_NS_q, aes(prop.press, q), method="lm", se=TRUE) +
+  geom_point(data=prop.press_NS_q, aes(prop.press, q)) +
+  geom_label_repel(data=prop.press_NS_q, aes(prop.press, q, label=code)) +
+  theme_classic() + 
+  theme(panel.background=element_rect(colour="black")) +
+  xlab("Propagule pressure") +
+  ylab("Q value") 
+
+ggplot() + geom_text(data=prop.press_NS, aes(long, lat, label=code))
+
+```
+
+######################################################################################################################
+############################### NEW BRUNSWICK CAGE SITE DISTANCES TEMPLATE CODE ######################################
+######################################################################################################################
+
+### New Brunswick - read in shapefiles, create raster file
+```{r}
+## http://ftp.geogratis.gc.ca/pub/nrcan_rncan/vector/canvec/shp/Hydro/
+# NB.low <- readOGR(dsn = "C:/Users/keyserf/Documents/R/canvec/canvec_250K_NB_Hydro_shp/waterbody_2.shp", layer="waterbody_2")
+# GOM <- readOGR(dsn = "C:/Users/keyserf/Documents/R/canvec/PhysioRegions_WGS84.shp", layer="PhysioRegions_WGS84")
+# GOMclip <- gDifference(GOM, NB.low)
+# GOMclip <- SpatialPolygonsDataFrame(GOMclip, data=as.data.frame(x=1))
+
+# NB.BOF <- crop(GOM, extent(-67.3, -64.5, 44.5, 47.08))
+# NB.BOF2 <- crop(NB.low, extent(-67.3, -64.5, 44.5, 47.1)) ### This makes stripes through grand manan??
+
+NB <- getData("GADM", country="CAN", level=2)
+NB.BOF <- crop(NB, extent(-67.3, -64.5, 44.5, 47.1))
+NB.prov <-crop(NB, extent(-67.85, -63.7, 44.5, 48.1))
+
+# creating raster
+r <- raster(ncol=2270, nrow=2820)
+extent(r) <- extent(NB.BOF)
+NBrast <- rasterize(NB.BOF, r, fun="first")
+
+# Change values in raster so that land is impassable (i.e. distances would be massive).
+NBrast@data@values <- ifelse(is.na(NBrast@data@values)=="FALSE", 10000, 1)
+
+# if shoreline needed:
+# NBline <- readOGR("C:/Users/keyserf/Documents/R/canvec/canvec_250K_NB_Land_shp/shoreline_1.shp", "shoreline_1")
+
+# create transition layer for raster (likelihood of presence within cell). 
+NBrast <- crop(NBrast, extent(-67.3, -64.5, 44.5, 46))
+tr4 <- transition(1/NBrast, transitionFunction=mean, directions=8)
+tr4c <- geoCorrection(tr4, type="c")
+
+plot(raster(tr4c))
+
+
+# for q values
+# creating raster
+r <- raster(ncol=972, nrow=1188) # 1 grid cell = 3km2
+extent(r) <- extent(NB.prov)
+NBprovrast <- rasterize(NB.prov, r, fun="first")
+
+# Change values in raster so that land is impassable (i.e. distances would be massive).
+NBprovrast@data@values <- ifelse(is.na(NBprovrast@data@values)=="FALSE", 10000, 1)
+
+# create transition layer for raster (likelihood of presence within cell). 
+tr4q <- transition(1/NBprovrast, transitionFunction=mean, directions=8)
+tr4cq <- geoCorrection(tr4q, type="c")
+
+plot(raster(tr4cq))
+
+```
+
+
+## New Brunswick - AQ site coordinates and river mouths
+```{r}
+# site coords
+
+# read in sites from annual NB stocking. Adjust years as desired. Min for NB is 1998, max is 2016. 
+NB_stocking <- read.csv("C:/Users/keyserf/Documents/Data/R output/NB_stocking.csv")
+sitecoords <- unique(subset(NB_stocking, is.na(lat)=="FALSE", select=c("Site.ID","lat", "long")))
+x <- sitecoords$long
+y <- sitecoords$lat
+xy <- cbind(x, y)
+siterast <- as.matrix(xy)
+
+## New Brunswick river mouths
+morris <- read.csv("C:/Users/keyserf/Documents/Data/Escape events and reports/Morris et al 2008 data.csv", header=TRUE)
+
+nbrivers <- as.data.frame(unique(morris$River[morris$ProvState=="NB"]))
+names(nbrivers) <- c("river")
+coords_clean <- rbind(c(45.545066, -66.011293), 
+               c(45.422197, -65.402976),
+               c(45.262844, -65.781699),
+               c(45.179130, -66.987045),
+               c(45.131204, -67.068731),
+               c(45.199799, -67.261215),
+               c(45.118038, -66.876022),
+               c(47.074048, -65.399438),
+               c(45.570888, -65.774480),
+               c(45.957255, -66.618207),
+               c(45.502517, -66.072903),
+               c(45.167935, -67.194878),
+               c(45.610963, -64.957627),
+               c(45.206954, -67.147044))
+nbrivers <- cbind(nbrivers, coords_clean)
+
+names(nbrivers) <- c("River", "lat", "long")
+
+plot(NBrast)
+plot(NB.low, add=TRUE)
+points(nbrivers[,3], nbrivers[,2], col="red")
+nbrivers[,2:3] <- rbind(c(45.25795, -66.04133),
+                    c(45.40349, -65.40872),
+                    c(45.25354, -65.79461),
+                    c(45.14328, -66.97758),
+                    c(45.11682, -67.02819),
+                    c(45.18298, -67.27490),
+                    c(45.12123, -66.91432),
+                    c(NA, NA),
+                    c(45.25795, -66.04765),
+                    c(45.24913, -66.04765),
+                    c(45.24913, -66.04765),
+                    c(45.16092, -67.19266),
+                    c(45.58872, -64.93427),
+                    c(45.17416, -67.15471))
+
+nbrivers2 <- subset(nbrivers, is.na(lat)=="FALSE")
+nbrivers2$code <- c("BIB", "BSR", "BKR", "BOC", "CHS", "DNS", "MDR", "MTB", "NSH", "SJR", "SCR", "USR", "WAR")
+
+
+# for q-values
+
+NBQ <- read.csv("C:/Users/keyserf/Documents/Data/Rivers/NS Q values.csv", header=TRUE) 
+head(NBQ)
+
+names(NBQ) <- c("Code", "Q", "Distance")
+
+qsitecoords <- read.csv("C:/Users/keyserf/Documents/Data/Rivers/Moore_Salmon_Coords.csv")
+
+NBQ <- join(NBQ, qsitecoords, type="left")
+NBQ <- NBQ[!is.na(NBQ$Lat)==TRUE,]
+NBQ <- subset(NBQ, Site %in% c("Big Salmon", "Jacquet", "Miramichi", "Nashwaak", "Tobique"))
+
+NBQ[1, 5:6] <- c(-65.40428, 45.41445)
+# NBQ[2, 5:6] <- c(-66.02681, 47.93944)
+# NBQ[3, 5:6] <- c(-65.34352, 47.08349)
+NBQ[4, 5:6] <- c(-66.03602, 45.24463)
+NBQ[5, 5:6] <- c(-66.03602, 45.24463)
+
+# plot(NB.prov, xlim=c(-66, -67), ylim=c(47.5, 48.5))
+# plot(NB.low, add=TRUE)
+# text(NBQ[,5], NBQ[,6], col="red")
+# click()
+
+# remove Gulf sites because no NB aquaculture on that side, and unreliable to combine NS and NB inventory data. 
+NBQ <- NBQ[c(1,4:5),]
+
+```
+
+
+# New Brunswick - calculate distance matrix
+```{r}
+# calculate least-cost distance between siterast (site location) and testrast (escaped fish location)
+d4 <- costDistance(tr4c, fromCoords = cbind(as.numeric(siterast[,1]), as.numeric(siterast[,2])), toCoords = cbind(as.numeric(nbrivers2[,3]), as.numeric(nbrivers2[,2])))
+
+d4 
+
+# for Q value analysis
+# d4q <- costDistance(tr4cq, fromCoords = cbind(as.numeric(siterast[,1]), as.numeric(siterast[,2])), toCoords = cbind(as.numeric(NBQ[,5]), as.numeric(NBQ[,6])))
+
+# d4q
+```
+
+
+### New Brunswick - merge with site coords and inventory data
+```{r}
+d4 <- as.data.frame(cbind(d4, sitecoords$Site.ID))
+colnames(d4)[14] <- "Site.ID"
+colnames(d4)[1:13] <- as.list(as.character(nbrivers2$code))
+
+# for q values
+
+d4q <- as.data.frame(cbind(d4q, sitecoords$Site.ID))
+colnames(d4q)[4] <- "Site.ID"
+colnames(d4q)[1:3] <- as.list(as.character(NBQ$Code))
+
+```
+
+
+### New Brunswick - pick the years you want and summarize
+```{r}
+dist2AQ_sub <- subset(NB_stocking, Year >2001 & Year<2013 & is.na(lat)==FALSE)
+dist2AQ_sub <- ddply(.data=dist2AQ_sub, .(Site.ID, lat, long),
+                     summarize,
+                     totalfish=sum(totalfish))
+
+dist2AQ <- join(d4, dist2AQ_sub, type="left")
+# for qvalues
+dist2AQ <- join(d4q, dist2AQ_sub, type="left")
+
+dist2AQ <- subset(dist2AQ, is.na(totalfish)==FALSE)
+```
+
+
+# New Brunswick - Calculate propagule pressure for each river. 
+```{r}
+dist2AQ[,1:13] <- apply(dist2AQ[,1:13], 2, function(x) as.character(x))
+dist2AQ[,1:13] <- apply(dist2AQ[,1:13], 2, function(x) as.numeric(x))
+
+# For each AQ site, caclulate total fish/distance from river
+## original calculation
+dist2AQ$P1 <- dist2AQ$totalfish/dist2AQ$BIB
+dist2AQ$P2 <- dist2AQ$totalfish/dist2AQ$BSR
+dist2AQ$P3 <- dist2AQ$totalfish/dist2AQ$BKR
+dist2AQ$P4 <- dist2AQ$totalfish/dist2AQ$BOC
+dist2AQ$P5 <- dist2AQ$totalfish/dist2AQ$CHS
+dist2AQ$P6 <- dist2AQ$totalfish/dist2AQ$DNS
+dist2AQ$P7 <- dist2AQ$totalfish/dist2AQ$MDR
+dist2AQ$P8 <- dist2AQ$totalfish/dist2AQ$MTB
+dist2AQ$P9 <- dist2AQ$totalfish/dist2AQ$NSH
+dist2AQ$P10 <- dist2AQ$totalfish/dist2AQ$SJR
+dist2AQ$P11 <- dist2AQ$totalfish/dist2AQ$SCR
+dist2AQ$P12 <- dist2AQ$totalfish/dist2AQ$USR
+dist2AQ$P13 <- dist2AQ$totalfish/dist2AQ$WAR
+
+
+## for q values
+dist2AQ[,1:3] <- apply(dist2AQ[,1:3], 2, function(x) as.character(x))
+dist2AQ[,1:3] <- apply(dist2AQ[,1:3], 2, function(x) as.numeric(x))
+
+# For each AQ site, caclulate total fish/distance from river
+## original calculation
+dist2AQ$P1 <- dist2AQ$totalfish/dist2AQ$BSR
+dist2AQ$P2 <- dist2AQ$totalfish/dist2AQ$NSH
+dist2AQ$P3 <- dist2AQ$totalfish/dist2AQ$TOB
+
+
+
+# sum all pressures for total propagule pressure at a river
+prop.press_NB_all <- apply(as.matrix(dist2AQ[,18:30]), 2, function(x) sum(x, na.rm=TRUE))
+
+# match to river mouth coords
+prop.press_NB_all <- data.frame(code=nbrivers2$code, lat=nbrivers2[,2], long = nbrivers2[,3], prop.press = prop.press_NB_all)
+
+write.csv(prop.press_NB_all, "C:/Users/keyserf/Documents/Data/R output/Propagule Pressure_NB_lin_all years_2016-12-02.csv")
+
+
+
+# for qvalues
+# sum all pressures for total propagule pressure at a river
+prop.press_NB_q <- apply(as.matrix(dist2AQ[,8:10]), 2, function(x) sum(x, na.rm=TRUE))
+
+# match to river mouth coords
+prop.press_NB_q <- data.frame(code=NBQ$Code, lat=NBQ[,6], long = NBQ[,5], prop.press = prop.press_NB_q, q=NBQ$Q)
+
+write.csv(prop.press_NB_q, "C:/Users/keyserf/Documents/Data/R output/Propagule Pressure_NB_q values_2016-12-07.csv")
+
+```
+
+
+# New Brunswick - plot propagule pressure
+```{r}
+dist2AQ_sub_plot <- subset(dist2AQ_sub, totalfish > 0)
+dist2AQ_sub_plot$lat <- as.numeric(dist2AQ_sub_plot$lat)
+dist2AQ_sub_plot$long <- as.numeric(dist2AQ_sub_plot$long)
+
+dist2AQ_sub_plot <- arrange(dist2AQ_sub_plot, -totalfish)
+prop.press_NB_all <- arrange(prop.press_NB_all, -prop.press)
+
+### get shapefiles in <Maritimes and NL maps.R>
+
+
+plot1 <- ggplot() + 
+  ggtitle("Aquaculture sites") +
+  geom_spatial(data=NB.low, aes(fill=ctry_en), show.legend = FALSE) + ### canvec spatialpolygonsdataframe
+  #geom_spatial(data=PE.low, aes(fill=ctry_en)) + ### canvec spatialpolygonsdataframe
+  #geom_spatial(data=NS.low, aes(fill=ctry_en)) + ### canvec spatialpolygonsdataframe
+  scale_fill_manual(values=c("grey"), guide=FALSE) + ### fills geom_spatials with grey
+  geom_polygon(data=GOMclip, aes(long, lat, group=group), fill="grey") + ### Gulf of Maine shapefile to get Grand Manan & Maine
+  #geom_path(data=CA.df, aes(long, lat, group=group),colour="black") + ### plots black outline on provinces
+  annotate(geom="rect", xmin=-60, xmax=-59.5, ymin=47.5, ymax= 48, fill="grey") + ### these annotates hide white space!
+  annotate(geom="rect", xmin=-64, xmax=-59.5, ymin=43.2, ymax= 44, fill="grey") +
+  annotate(geom="rect", xmin=-61, xmax=-59.5, ymin=44, ymax= 45, fill="grey") +
+  coord_map(xlim=c(-67.3, -64.3), ylim=c(44.5, 46)) + ### sets boundaries
+  theme_bw() + ### my favourite theme settings here and below (makes land white)
+    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
+  geom_point(data=dist2AQ_sub_plot, aes(long, lat, size=totalfish), fill="red", shape=21, colour="black") +    scale_size_continuous(name="Total fish", range = c(0.5,8), limits=c(1,2500000), breaks=c(100, 1000, 10000, 100000, 1000000, 2500000))
+
+
+
+plot2 <- ggplot() + 
+  ggtitle("Salmon rivers")+
+  geom_spatial(data=NB.low, aes(fill=ctry_en), show.legend = FALSE) + ### canvec spatialpolygonsdataframe
+  #geom_spatial(data=PE.low, aes(fill=ctry_en)) + ### canvec spatialpolygonsdataframe
+  #geom_spatial(data=NS.low, aes(fill=ctry_en)) + ### canvec spatialpolygonsdataframe
+  scale_fill_manual(values=c("grey"), guide=FALSE) + ### fills geom_spatials with grey
+  geom_polygon(data=GOMclip, aes(long, lat, group=group), fill="grey") + ### Gulf of Maine shapefile to get Grand Manan & Maine
+  #geom_path(data=CA.df, aes(long, lat, group=group),colour="black") + ### plots black outline on provinces
+  annotate(geom="rect", xmin=-60, xmax=-59.5, ymin=47.5, ymax= 48, fill="grey") + ### these annotates hide white space!
+  annotate(geom="rect", xmin=-64, xmax=-59.5, ymin=43.2, ymax= 44, fill="grey") +
+  annotate(geom="rect", xmin=-61, xmax=-59.5, ymin=44, ymax= 45, fill="grey") +
+  geom_point(data=prop.press_NB_all, aes(long, lat, size=prop.press), fill="yellow", shape=21, colour="black") +
+  theme_bw() + ### my favourite theme settings here and below (makes land white)
+  coord_map(xlim=c(-67.3, -64.3), ylim=c(44.5, 46)) + ### sets boundaries
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
+  scale_size_continuous(name="Propagule pressure=\n\u03A3(total fish/dist)", range = c(0.5,8), limits=c(100,6000), breaks=c(500, 1000, 2000, 4000, 6000))
+
+gA <- ggplotGrob(plot1)
+gB <- ggplotGrob(plot2)
+grid.newpage()
+grid.draw(cbind(gA, gB))
+### PNG 1500*600
+
+## q values
+
+ggplot() + 
+  geom_smooth(data=prop.press_NB_q, aes(prop.press, q), method="lm", se=TRUE) +
+  geom_point(data=prop.press_NB_q, aes(prop.press, q)) +
+  geom_label_repel(data=prop.press_NB_q, aes(prop.press, q, label=code)) +
+  theme_classic() + 
+  theme(panel.background=element_rect(colour="black")) +
+  xlab("Propagule pressure") +
+  ylab("Q value") 
+
+
+
+### TRYING HEATMAP
+
+# ?rasterize
+# test <- rasterize(c(dist2AQ_sub_plot$long, dist2AQ_sub_plot$lat), r, fun=sum(dist2AQ_sub_plot$totalfish))
+# 
+# test <- dist2AQ_sub_plot
+# 
+# coordinates(test) <- ~long+lat
+# 
+# proj4string(test) <- CRS("+proj=longlat +ellps=GRS80 +no_defs") # set it to lat-long
+# test <- spTransform(test,CRS("+proj=longlat +ellps=GRS80 +no_defs"))
+# gridded(test) <- TRUE
+# r2 <- raster(test)
+# projection(r2) <- CRS("+proj=longlat +ellps=GRS80 +no_defs")
+# 
+# hpars<-read.table("https://sites.google.com/site/arunsethuraman1/teaching/hpars.dat?revision=1")#Read in the density data
+# 
+# head(hpars)
+# positions <- data.frame(lon=rnorm(20000, mean=-75.1803458, sd=0.05), lat=rnorm(10000,mean=39.98352197, sd=0.05))
+# 
+# dist2AQ_sub_plot$adj <- dist2AQ_sub_plot$totalfish/1000
+# test <- data.frame(lat=rep(dist2AQ_sub_plot$lat, round(dist2AQ_sub_plot$adj,0)), long=rep(dist2AQ_sub_plot$long, round(dist2AQ_sub_plot$adj, 0)))
+# 
+# 
+# can <- readOGR("C:/Users/keyserf/Documents/R/canvec/canada.shp", layer="canada")
+# can <- fortify(can)
+# 
+# usa <- readOGR("C:/Users/keyserf/Documents/R/canvec/usa.shp", layer="usa")
+# usa <- fortify(usa)
+# 
+# ggplot() + 
+#   geom_polygon(data=can, aes(long, lat, group=group)) +
+#   geom_polygon(data=usa, aes(long, lat, group=group)) +
+#   coord_map(xlim=c(-68, -66), ylim=c(44.25, 45.5)) +
+#   geom_density2d(data = test, aes(x = long, y = lat), size = 0.3) + 
+#   stat_density2d(data = test, aes(x = long, y = lat, fill = ..level.., alpha = ..level..), size = 0.01, 
+#     bins = 16, geom = "polygon") + 
+#   scale_fill_gradient(low = "green", high = "red") + 
+#   scale_alpha(range = c(0, 0.3), guide = FALSE)
+# ?geom_density2d
+# 
+# ggplot() +
+#   geom_density2d(data = test, aes(x = long, y = lat), size = 0.3) + 
+#   #stat_density2d(data = test, aes(x = long, y = lat, fill = ..level.., alpha = ..level..), size = 0.01, 
+#     bins = 16, geom = "polygon") + 
+#   scale_fill_gradient(low = "green", high = "red") + 
+#   scale_alpha(range = c(0, 0.3), guide = FALSE) +
+#   geom_spatial(can) +
+#   geom_spatial(usa) +
+#   coord_map(xlim=c(-68, -66), ylim=c(44.25, 45.5))
+
+
+```
+

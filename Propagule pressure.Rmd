@@ -256,6 +256,8 @@ totfishall$Lat <- as.numeric(totfishall$Lat)
 totfishall$Long <- as.numeric(totfishall$Long)
 
 prov <- fortify(NL.low.ocean)
+
+
 prov$group <- ifelse(prov$long < -56.2 & prov$lat < 47.375, 4771.1, prov$group)
 
 totfishall <- arrange(totfishall, -totalfish)

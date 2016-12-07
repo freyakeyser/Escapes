@@ -1,5 +1,11 @@
 ## Freya's hacky ways to make Atl. Canada maps look good enough...
 
+require(ggspatial)
+require(ggplot2)
+require(rgdal)
+require(rgeos)
+require(sp)
+require(plyr)
 
 ### HIGHLY RECOMMENDED: once you've read in shapefiles and cropped them, use writeOGR to save the cropped versions 
 ### for future use. This means you won't have to read in the massive shapefiles ever again.
@@ -8,17 +14,13 @@
 ##### Maritimes (canvec 250K hydro shapefiles, canvec_1M_CA_Land_shp shoreline_1 shapefile, GOMclip shapefile)
 
 ## http://ftp.geogratis.gc.ca/pub/nrcan_rncan/vector/canvec/shp/Land/
-CAshp <- readOGR(dsn = "C:/Users/keyserf/Documents/R/canvec/canvec_1M_CA_Land_shp/shoreline_1.shp", layer="shoreline_1")
-CA.low <- crop(CAshp, extent(-67.7, -59.5, 43.2, 48.1))
-CA.low@data$id <- rownames(CA.low@data)
-CA.low.points <- fortify(CA.low, region="id")
-CA.df = join(CA.low.points, CA.low@data, by="id")
-
-## http://www.gulfofmaine-census.org/data-mapping/gis-data-layers/
-GOM <- readOGR(dsn = "C:/Users/keyserf/Documents/R/canvec/PhysioRegions_WGS84.shp", layer="PhysioRegions_WGS84")
-GOMclip <- gDifference(GOM, NB.low)
-GOMclip <- fortify(GOMclip)
-# OR READ IN GOMclip if you already have it!!
+#CAshp <- readOGR(dsn = "C:/Users/keyserf/Documents/R/canvec/canvec_1M_CA_Land_shp/shoreline_1.shp", layer="shoreline_1")
+#CA.low <- crop(CAshp, extent(-67.7, -59.5, 43.2, 48.1))
+#CA.low@data$id <- rownames(CA.low@data)
+#writeOGR(CA.low, "C:/Users/keyserf/Documents/R/Escapes/canvec/CA.low.shp", layer="CA.low", driver="ESRI Shapefile")
+CA.low <- readOGR("C:/Users/keyserf/Documents/R/Escapes/canvec/CA.low.shp", layer="CA.low")
+CA.df <- fortify(CA.low, region="id")
+# CA.df = join(CA.low.points, CA.low@data, by="id")
 
 ## http://ftp.geogratis.gc.ca/pub/nrcan_rncan/vector/canvec/shp/Hydro/
 # NS.low <- readOGR(dsn = "C:/Users/keyserf/Documents/R/canvec/canvec_250K_NS_Hydro_shp/waterbody_2.shp", layer="waterbody_2")
@@ -29,6 +31,11 @@ NB.low <- readOGR(dsn = "C:/Users/keyserf/Documents/R/canvec/canvec_250K_NB_Hydr
 
 ## http://ftp.geogratis.gc.ca/pub/nrcan_rncan/vector/canvec/shp/Hydro/
 PE.low <- readOGR(dsn = "C:/Users/keyserf/Documents/R/canvec/canvec_250K_PE_Hydro_shp/waterbody_2.shp", layer="waterbody_2")
+
+## http://www.gulfofmaine-census.org/data-mapping/gis-data-layers/
+# GOM <- readOGR(dsn = "C:/Users/keyserf/Documents/R/canvec/PhysioRegions_WGS84.shp", layer="PhysioRegions_WGS84")
+GOMclip <- gDifference(GOM, NB.low)
+GOMclip <- fortify(GOMclip)
 
 
 ggplot() + 
@@ -52,20 +59,23 @@ ggplot() +
 ### Newfoundland (canvec 250K hydro shapefile, canvec_1M_CA_Land_shp shoreline_1 shapefile cropped)
 
 ## http://ftp.geogratis.gc.ca/pub/nrcan_rncan/vector/canvec/shp/Land/
-CAshp <- readOGR(dsn = "C:/Users/keyserf/Documents/R/canvec/canvec_1M_CA_Land_shp/shoreline_1.shp", layer="shoreline_1")
-CA.NL <- crop(CAshp, extent(-60, -52, 46.5, 52))
-CA.NL@data$id <- rownames(CA.NL@data)
-CA.NL.points <- fortify(CA.NL, region="id")
-CA.NL.df = join(CA.NL.points, CA.NL@data, by="id")
+# CAshp <- readOGR(dsn = "C:/Users/keyserf/Documents/R/canvec/canvec_1M_CA_Land_shp/shoreline_1.shp", layer="shoreline_1")
+# CA.NL <- crop(CAshp, extent(-60, -52, 46.5, 52))
+# CA.NL@data$id <- rownames(CA.NL@data)
+CA.NL <- readOGR("C:/Users/keyserf/Documents/R/canvec/CA.NL.shp", layer="CA.NL")
+CA.NL <- fortify(CA.NL, region="id")
 
 ## http://ftp.geogratis.gc.ca/pub/nrcan_rncan/vector/canvec/shp/Hydro/
-NL.low <- readOGR(dsn = "C:/Users/keyserf/Documents/R/canvec/canvec_250K_NL_Hydro_shp/waterbody_2.shp", layer="waterbody_2")
-NL.low <- crop(NL.low, extent(-59.92, -52.3, 46.52, 51.78))
+# NLshp <- readOGR(dsn = "C:/Users/keyserf/Documents/R/canvec/canvec_250K_NL_Hydro_shp/waterbody_2.shp", layer="waterbody_2")
+# NL.low <- crop(NLshp, extent(-59.92, -52.3, 46.52, 51.78))
+NL.low <- readOGR("C:/Users/keyserf/Documents/R/canvec/NL.low.shp", layer="NL.low")
+
+##Southern NL
 
 ggplot() + 
   geom_spatial(data=NL.low, aes(fill=ctry_en)) + ### canvec spatialpolygonsdataframe
   scale_fill_manual(values=c("grey"), guide=FALSE) + ### fills geom_spatial with grey
-  geom_path(data=CA.NL.df, aes(long, lat, group=group),colour="black") + ### black outline
+  geom_path(data=CA.NL, aes(long, lat, group=group),colour="black") + ### black outline
   annotate(geom="rect", xmin=-60, xmax=-56.5, ymin=46.5, ymax= 47.25, fill="grey") + ### hides stupid white spaces
   annotate(geom="rect", xmin=-60, xmax=-56.1, ymin=46.5, ymax= 47.4, fill="grey") +
   annotate(geom="rect", xmin=-60, xmax=-59.42, ymin=46.5, ymax= 50.21, fill="grey")+
@@ -74,3 +84,9 @@ ggplot() +
   coord_map(xlim=c(-59.9, -52.3), ylim=c(46.52, 51.79)) + ### sets boundaries
   theme_classic() + ### favourite theme settings plus makes sure land is white
   theme(panel.background = element_blank(), panel.border=element_rect(colour="black", fill=NA)) 
+
+### Entire island of Newfoundland
+
+NLprov <- readOGR("C:/Users/keyserf/Documents/R/Escapes/canvec/NLprov.shp", layer="NLprov")
+
+plot(NLprov)

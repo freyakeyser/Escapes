@@ -1,0 +1,138 @@
+
+# BRADBURY SAMPLING: Newfoundland
+
+## Read in 2015 files
+```{r}
+bradesc2015 <- read.csv("C:/Users/keyserf/Documents/Data/Escape events and reports/Gillnetting2015 - Master Copy.csv")
+bradsets2015 <- read.csv("C:/Users/keyserf/Documents/Data/Escape events and reports/Gillnetting2015 - Set Details.csv")
+```
+
+## Tidy up
+```{r}
+bradsets2015$Set.Time..UTC. <- dmy_hms(paste(bradsets2015$Date, bradsets2015$Set.Time..UTC.))
+bradsets2015$Retrieval.Time..UTC. <- dmy_hms(paste(bradsets2015$Date, bradsets2015$Retrieval.Time..UTC.))
+bradsets2015$duration <- bradsets2015$Retrieval.Time..UTC. - bradsets2015$Set.Time..UTC.
+
+colnames(bradsets2015)[2] <- "River"
+
+bradsets2015 <- dplyr::select(bradsets2015, Set.ID, River, Gear.Type, duration)
+
+bradesc2015$River <- gsub("Du", "du", bradesc2015$River)
+```
+
+## Join metadata
+```{r}
+bradesc2015 <- join(bradesc2015, bradsets2015, type="left")
+```
+
+## Counts
+```{r}
+bradprops2015 <- ddply(.data=bradesc2015, .(Life.Stage, River, Gear.Type),
+                       summarize,
+                       count = length(unique(Sample.ID)))
+
+bradprops2015$Esc <- c(1,1,1,1,2,2,2,2,2,2)
+
+bradgill <- subset(bradprops2015, Gear.Type=="Gillnet")
+
+bradrod <- subset(bradprops2015, Gear.Type=="Rod")
+
+bradgill <- ddply(.data=bradgill, .(River, Gear.Type), 
+                  summarize,
+                  total=sum(count))
+
+bradrod <- ddply(.data=bradrod, .(River, Gear.Type),
+                 summarize,
+                 total=sum(count))
+
+bradtotals <- rbind(bradgill, bradrod)
+
+bradprops2015 <- join(bradprops2015, bradtotals, type="left")
+
+bradprops2015 <- subset(bradprops2015, Life.Stage=="Farmed")
+add <- data.frame(Life.Stage=rep("Farmed", 2), 
+                  River = c("Garnish River", "Little River"), 
+                  Gear.Type=c("Gillnet", "Rod"), 
+                  count=rep(0,2),
+                  Esc=c(NA, NA),
+                  total=rep(1,2))
+
+bradprops2015 <- rbind(bradprops2015, add)
+
+bradprops2015$prop <- bradprops2015$count/bradprops2015$total
+
+
+
+bradesc2015 <- subset(bradesc2015, Life.Stage=="Farmed")
+
+bradesc2015$River <- as.factor(bradesc2015$River)
+
+effort <- ddply(.data=bradsets2015, .(Gear.Type, River),
+                summarize,
+                time = sum(duration))
+
+
+catch <- ddply(.data=bradesc2015, .(Gear.Type, River),
+               summarize,
+               catch=length(unique(Sample.ID)),
+               lat = mean(Latitude..N.),
+               long= mean(Longitude..E.))
+
+CPUE <- join(effort, catch, type="left")
+
+CPUE$adj.catch <- CPUE$catch/as.numeric(CPUE$time)
+
+```
+
+## Compare against propagule pressure
+```{r}
+prop.press_NL <- read.csv("C:/Users/keyserf/Documents/Data/R output/Propagule Pressure_NL_20142015_2016-12-15.csv")
+plot(NL.low, xlim=c(-56, -55), ylim=c(47.5, 48))
+text(CPUE$long, CPUE$lat)
+CPUE$code <- as.factor(c("BDN", "GAR", "LTR", "SMB", "BDN", "LTR", "FBN"))
+
+CPUEprop <- join(CPUE[,c(1,2,3,4,7,8)], prop.press_NL, type="left")
+
+CPUEprop$catch[is.na(CPUEprop$catch)] <- 0
+CPUEprop$time[is.na(CPUEprop$time)] <- 0
+CPUEprop$adj.catch[is.na(CPUEprop$adj.catch)] <- 0
+
+ggplot() + geom_point(data=CPUEprop, aes(log(prop.press), adj.catch)) +
+  theme_classic() + ### favourite theme settings plus makes sure land is white
+  theme(panel.background = element_blank(), panel.border=element_rect(colour="black", fill=NA))
+
+
+bradprops2015$code <- c("BDN", "BDN", "FBN", "SMB", "GAR", "LTR")
+
+bradprops2015 <- join(bradprops2015, prop.press_NL, type="left")
+
+ggplot() + geom_point(data=bradprops2015, aes(prop.press, prop)) +
+  theme_classic() + ### favourite theme settings plus makes sure land is white
+  theme(panel.background = element_blank(), panel.border=element_rect(colour="black", fill=NA)) 
+
+require(aod)
+model1 <- glm(data=bradprops2015, prop ~ prop.press, family=binomial(link="probit"))
+summary(model1)
+
+newdata <- data.frame(prop.press=prop.press_q$prop.press, code=prop.press_NL$code)
+
+newdata[, c("p", "se")] <- predict(model1, newdata,
+  type = "response", se.fit=TRUE)[-3]
+
+newdata
+
+colnames(qsites)[1] <- "code"
+names(newdata)
+
+newdata <- join(qsites, newdata[], type="left")
+
+ggplot() + geom_point(data=test, aes(prop.press, catch))
+
+ggplot() + geom_point(data=test, aes(prop.press, time))
+
+ggplot() + geom_point(data=test, aes(time, catch))
+
+## try with propagule pressure for only 2014-2015
+
+
+```

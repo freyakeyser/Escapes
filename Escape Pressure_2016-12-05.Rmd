@@ -20,11 +20,13 @@ require(ggrepel)
 require(scales)
 ```
 
-########################################################################################################
-################################# Newfoundland escapes data ############################################
-########################################################################################################
+---------------------------------------------------------------------------------------------------------
+# Newfoundland escapes data
+---------------------------------------------------------------------------------------------------------
 
-### # Newfoundland - Read in Geoff's escape locations and AQ site locations
+## Set up
+
+### Newfoundland - Read in Geoff's escape locations and AQ site locations
 ```{r}
 ## mapping unknown sites from Geoff Perry
 
@@ -41,7 +43,7 @@ annual <- read.csv("C:/Users/keyserf/Documents/Data/Inventory data/NL annual inv
 sitecoords <- unique(subset(annual, is.na(Lat)=="FALSE", select=c("ID","Lat", "Long")))
 ```
 
-## Newfoundland - Read in Geoff's escape reports db and tidy up
+### Newfoundland - Read in Geoff's escape reports db and tidy up
 ```{r}
 geoescapes <- read.csv("C:/Users/keyserf/Documents/Data/Escape events and reports/NL Escapee database.csv", na.strings=c(""))
 
@@ -179,7 +181,7 @@ escape_summ_2 <- escape_summ_2[1:27,]
 ```
 
 
-### ESCAPE PRESSURE: Newfoundland - AQ site coordinates and river mouths
+## ESCAPE PRESSURE: Newfoundland - AQ site coordinates and river mouths
 ```{r}
 # read in cropped shapefile: NL.low.ocean
 NL.low.ocean <- readOGR(dsn="C:/Users/keyserf/Documents/R/Escapes/canvec/NL.low.ocean.dbf", layer="NL.low.ocean")
@@ -238,7 +240,7 @@ siterast <- as.matrix(xy)
 str(qsites)
 ```
 
-# ESCAPE PRESSURE: Newfoundland - Fix some AQ site coords
+### ESCAPE PRESSURE: Newfoundland - Fix some AQ site coords
 ```{r}
 # for escape data:
 # plot(NLrast)
@@ -259,7 +261,7 @@ siterast[14,] <- c(-56.0654, 47.77681)
 
 ```
 
-# ESCAPE PRESSURE: Newfoundland - Q values coords
+### ESCAPE PRESSURE: Newfoundland - Q values coords
 ```{r}
 # read in sites
 qsites <- read.csv("C:/Users/keyserf/Documents/Data/Rivers/Qvalues_All NL_2016-11-10.csv")
@@ -276,7 +278,7 @@ qsites[qsites$Code=="BSB",]$Long <- -53.282374
 qsites[qsites$Code=="BSB",]$Lat <- 46.756687
 ```
 
-# ESCAPE PRESSURE: Newfoundland - calculate distance matrix
+### ESCAPE PRESSURE: Newfoundland - calculate distance matrix
 ```{r}
 # calculate least-cost distance between siterast (site location) and testrast (escaped fish location)
 # d6 <- costDistance(tr4c, fromCoords = cbind(as.numeric(siterast[,1]), as.numeric(siterast[,2])), toCoords = cbind(as.numeric(qsites[,5]), as.numeric(qsites[,6])))
@@ -305,7 +307,7 @@ colnames(d6q)[1:15] <- as.list(as.character(qsites$Code))
 dist2Escape <- join(d6q, escape_summ, type="left")
 ```
 
-# ESCAPE PRESSURE: Newfoundland - Calculate propagule pressure for each river. 
+### ESCAPE PRESSURE: Newfoundland - Calculate propagule pressure for each river. 
 ```{r}
 dist2Escape[,1:18] <- apply(dist2Escape[,1:18], 2, function(x) as.character(x))
 dist2Escape[,1:18] <- apply(dist2Escape[,1:18], 2, function(x) as.numeric(x))
@@ -390,7 +392,7 @@ write.csv(esc.press_q, "C:/Users/keyserf/Documents/Data/Escape Pressure_NL_Q val
 
 ```
 
-# ESCAPE PRESSURE: Newfoundland - plot escape pressure
+### ESCAPE PRESSURE: Newfoundland - plot escape pressure
 ```{r}
 escape_summ_2 <- subset(escape_summ_2, totalescape > 0)
 escape_summ_2$Lat <- as.numeric(escape_summ_2$Lat)
@@ -440,7 +442,7 @@ ggplot() + geom_smooth(data=esc.press_q, aes(esc.press, q), method="lm", se=TRUE
 
 ```
 
-# MORRIS RECORDS: Newfoundland
+## MORRIS RECORDS: Newfoundland
 ```{r}
 morris <- read.csv("C:/Users/keyserf/Documents/Data/Escape events and reports/Morris et al 2008 data.csv", header=TRUE)
 
@@ -482,7 +484,7 @@ NLmorrismap + annotate(geom="rect", xmin=-60, xmax=-59.42, ymin=46.5, ymax= 50.2
 # grid.arrange(NSmorrismap, NLmorrismap, ncol=2)
 ```
 
-# BRADBURY SAMPLING: Newfoundland
+## BRADBURY SAMPLING: Newfoundland
 ```{r}
 bradesc2015 <- read.csv("C:/Users/keyserf/Documents/Data/Escape events and reports/Gillnetting2015 - Master Copy.csv")
 bradsets2015 <- read.csv("C:/Users/keyserf/Documents/Data/Escape events and reports/Gillnetting2015 - Set Details.csv")
@@ -531,9 +533,11 @@ ggplot() + geom_point(data=test, aes(prop.press, adj.catch))
 
 ```
 
-########################################################################################################
-################################# New Brunswick escapes data ############################################
-########################################################################################################
+---------------------------------------------------------------------------------------------------------
+# New Brunswick escapes data 
+---------------------------------------------------------------------------------------------------------
+
+## Set up
 
 ### New Brunswick - Read in Geoff's escape reports db and tidy up
 ```{r}
@@ -605,7 +609,8 @@ escape_summ <- ddply(.data=NBescapes2, .(ID, Lat, Long),
 ```
 
 
-### ESCAPE PRESSURE: New Brunswick - AQ site coordinates and river mouths
+## ESCAPE PRESSURE: New Brunswick - AQ site coordinates and river mouths
+
 ### New Brunswick - read in shapefiles, create raster file
 ```{r}
 ## http://ftp.geogratis.gc.ca/pub/nrcan_rncan/vector/canvec/shp/Hydro/
@@ -745,7 +750,7 @@ NBQ <- NBQ[c(1,4:5),]
 
 ```
 
-# ESCAPE PRESSURE: New Brunswick - Fix some AQ site coords
+### ESCAPE PRESSURE: New Brunswick - Fix some AQ site coords
 ```{r}
 # # for escape data:
 # # plot(NLrast)
@@ -761,7 +766,7 @@ NBQ <- NBQ[c(1,4:5),]
 
 ```
 
-# ESCAPE PRESSURE: New Brunswick - calculate distance matrix
+### ESCAPE PRESSURE: New Brunswick - calculate distance matrix
 ```{r}
 d7 <- costDistance(tr4c, fromCoords = cbind(as.numeric(siterast[,1]), as.numeric(siterast[,2])), toCoords = cbind(as.numeric(nbrivers2[,3]), as.numeric(nbrivers2[,2])))
 
@@ -792,7 +797,7 @@ colnames(d7q)[1:3] <- as.list(as.character(NBQ$Code))
 dist2Escape_NB <- join(d7q, escape_summ, type="left")
 ```
 
-# ESCAPE PRESSURE: New Brunswick - Calculate propagule pressure for each river. 
+### ESCAPE PRESSURE: New Brunswick - Calculate propagule pressure for each river. 
 ```{r}
 dist2Escape_NB[,1:13] <- apply(dist2Escape_NB[,1:13], 2, function(x) as.character(x))
 dist2Escape_NB[,1:13] <- apply(dist2Escape_NB[,1:13], 2, function(x) as.numeric(x))
@@ -846,7 +851,7 @@ write.csv(esc.press_NB_q, "C:/Users/keyserf/Documents/Data/Escape Pressure_NB_q 
 
 ```
 
-# ESCAPE PRESSURE: New Brunswick - plot escape pressure
+### ESCAPE PRESSURE: New Brunswick - plot escape pressure
 ```{r}
 escape_summ_2 <- subset(escape_summ_2, totalescape > 0)
 escape_summ_2$Lat <- as.numeric(escape_summ_2$Lat)
@@ -912,7 +917,7 @@ ggplot() + geom_smooth(data=esc.press_NB_q, aes(esc.press, q), method="lm", se=T
 
 ```
 
-# MORRIS RECORDS: New Brunswick and Nova Scotia
+## MORRIS RECORDS: New Brunswick and Nova Scotia
 ```{r}
 ### read in data on farmed escapes from Morris et al paper
 

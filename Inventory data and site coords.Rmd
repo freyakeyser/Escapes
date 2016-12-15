@@ -138,6 +138,8 @@ sites <- unique(select(totfishall, ID, Lat, Long))
 
 annualinventoryNL <- join(annual, sites, type="left")
 write.csv(annualinventoryNL, "C:/Users/keyserf/Documents/Data/NL annual inventory and coords_summary_2016-11-29.csv")
+
+### SKIP ABOVE READ THIS:
 annual <- read.csv("C:/Users/keyserf/Documents/Data/Inventory data/NL annual inventory and coords_summary_2016-11-29.csv")
 
 
@@ -204,6 +206,7 @@ NB_stocking <- subset(NB_stocking, !is.na(long)==TRUE)
 
 write.csv(NB_stocking, "C:/Users/keyserf/Documents/Data/R output/NB_stocking.csv")
 
+### SKIP ABOVE READ THIS:
 NB_stocking <- read.csv("C:/Users/keyserf/Documents/Data/R output/NB_stocking.csv")
 
 NB_stocking_summ <- ddply(.data=NB_stocking, .(Site.ID, long, lat),
@@ -236,6 +239,9 @@ NSinv <- ddply(.data=NSinv, .(Site.ID, Year),
                      totalfish = sum(Number))
 
 write.csv(NSinv, "C:/Users/keyserf/Documents/Data/Inventory data/NS Inventory.csv")
+
+### SKIP ABOVE READ THIS:
+
 NSinv <- read.csv("C:/Users/keyserf/Documents/Data/Inventory data/NS Inventory.csv")
 ```
 

@@ -49,9 +49,11 @@ geoescapes <- read.csv("C:/Users/keyserf/Documents/Data/Escape events and report
 
 str(geoescapes)
 
-head(geoescapes)
-geoescapes$Year <- as.numeric(as.character(geoescapes$Year))
-geoescapes$Number <- as.character(geoescapes$Number)
+geoescapes_sal <- subset(geoescapes, Species %in% c("Atlanticsalmon", "AtlanticSalmon", "Salmon"))
+
+head(geoescapes_sal)
+geoescapes_sal$Year <- as.numeric(as.character(geoescapes_sal$Year))
+geoescapes_sal$Number <- as.character(geoescapes_sal$Number)
 
 clean <- function(i) { 
   temp=gsub(pattern=",", replacement="",x=i)
@@ -60,28 +62,28 @@ clean <- function(i) {
   return(temp)
 }
 
-geoescapes[]<- sapply(geoescapes, clean)
-geoescapes$Number.adj <- as.numeric(as.character(geoescapes$Number))
-geoescapes$Size.adj <- as.numeric(as.character(geoescapes$Size))
-geoescapes$Size.bin <- ifelse(geoescapes$Size.adj > 1000 | geoescapes$Size %in% c("mkts", "near-mkt"), "large", ifelse(geoescapes$Size.adj < 1001, "small", NA))
-str(geoescapes)
-geoescapes$ID <- as.character(geoescapes$ID)
-colnames(geoescapes)[11] <- "Longitude"
-colnames(geoescapes)[12] <- "Latitude"
-geoescapes$Year <- as.numeric(geoescapes$Year)
+geoescapes_sal[]<- sapply(geoescapes_sal, clean)
+geoescapes_sal$Number.adj <- as.numeric(as.character(geoescapes_sal$Number))
+geoescapes_sal$Size.adj <- as.numeric(as.character(geoescapes_sal$Size))
+geoescapes_sal$Size.bin <- ifelse(geoescapes_sal$Size.adj > 1000 | geoescapes_sal$Size %in% c("mkts", "near-mkt"), "large", ifelse(geoescapes_sal$Size.adj < 1001, "small", NA))
+str(geoescapes_sal)
+geoescapes_sal$ID <- as.character(geoescapes_sal$ID)
+colnames(geoescapes_sal)[11] <- "Longitude"
+colnames(geoescapes_sal)[12] <- "Latitude"
+geoescapes_sal$Year <- as.numeric(geoescapes_sal$Year)
 ```
 
 ### Newfoundland - Join escapes with coordinates
 ```{r}
-geoescapes <- join(geoescapes, sitecoords, type="left")
+geoescapes_sal <- join(geoescapes_sal, sitecoords, type="left")
 
-geoescapes$Long <- ifelse(is.na(geoescapes$Long)==TRUE, geoescapes$Longitude, geoescapes$Long)
-geoescapes$Lat <- ifelse(is.na(geoescapes$Lat)==TRUE, geoescapes$Latitude, geoescapes$Lat)
+geoescapes_sal$Long <- ifelse(is.na(geoescapes_sal$Long)==TRUE, geoescapes_sal$Longitude, geoescapes_sal$Long)
+geoescapes_sal$Lat <- ifelse(is.na(geoescapes_sal$Lat)==TRUE, geoescapes_sal$Latitude, geoescapes_sal$Lat)
 
-geoescapes$Long <- as.numeric(geoescapes$Long)
-geoescapes$Lat <- as.numeric(geoescapes$Lat)
+geoescapes_sal$Long <- as.numeric(geoescapes_sal$Long)
+geoescapes_sal$Lat <- as.numeric(geoescapes_sal$Lat)
 
-ggplot() + geom_point(data=geoescapes, aes(Year, Number.adj, colour=Farm))
+ggplot() + geom_point(data=geoescapes_sal, aes(Year, Number.adj, colour=Farm))
 
 # ggplot() + 
 #   geom_polygon(data=prov2, aes(long, lat, group=group), fill="grey")+
@@ -107,9 +109,9 @@ ggplot() + geom_point(data=geoescapes, aes(Year, Number.adj, colour=Farm))
 
 ### Newfoundland - Deal with unknown escapes. If escape size is unknown, assume that it is equal to average escape size.
 ```{r}
-geoescapes$Other.Observations <- as.character(geoescapes$Other.Observations)
-geoescapes$Other.Observations[geoescapes$Other.Observations==""] <- NA
-observ <- subset(geoescapes, is.na(Other.Observations)==FALSE)
+geoescapes_sal$Other.Observations <- as.character(geoescapes_sal$Other.Observations)
+geoescapes_sal$Other.Observations[geoescapes_sal$Other.Observations==""] <- NA
+observ <- subset(geoescapes_sal, is.na(Other.Observations)==FALSE)
 
 options(scipen=999)
 
@@ -120,10 +122,10 @@ options(scipen=999)
 #   ylab("Number of fish") +
 #   scale_x_continuous(breaks=seq(1980, 2015, by=5))
 
-geoescapes_2 <- dplyr::select(geoescapes, Year, Location, Lat, Long, Number.adj, Size.adj, Size.bin, Other.Observations)
+geoescapes_2 <- dplyr::select(geoescapes_sal, Year, Location, Lat, Long, Number.adj, Size.adj, Size.bin, Other.Observations)
 
-geoescapes_2$Year <- as.numeric(as.character(geoescapes$Year))
-geoescapes_2$Size.bin <- as.factor(as.character(geoescapes$Size.bin))
+geoescapes_2$Year <- as.numeric(as.character(geoescapes_sal$Year))
+geoescapes_2$Size.bin <- as.factor(as.character(geoescapes_sal$Size.bin))
 geoescapes_2$Location <- as.factor(geoescapes_2$Location)
 
 avg.escape.per.year <- ddply(.data=geoescapes_2, .(Location),
@@ -143,7 +145,7 @@ summary(geoescapes_2$Number.adj)
 mean(geoescapes_2$Number.adj, na.rm=TRUE)
 
 # If escape size is unknown, assume that it is equal to average escape size
-geoescapes_2$escapesize <- ifelse(is.na(geoescapes_2$Number.adj)=="TRUE", "21913", geoescapes_2$Number.adj)
+geoescapes_2$escapesize <- ifelse(is.na(geoescapes_2$Number.adj)=="TRUE", "10375", geoescapes_2$Number.adj)
 
 geoescapes_2$escapesize <- as.numeric(geoescapes_2$escapesize)
 
@@ -175,7 +177,7 @@ escape_summ_2 <- ddply(.data=geoescapes_2, .(Location, Lat, Long),
                     totalescape = sum(escapesize))
 
 escape_summ_2$Location <- as.factor(escape_summ_2$Location)
-escape_summ_2 <- escape_summ_2[1:27,]
+
 #### USE ESCAPE_SUMM_2 TO CALCULATE ESCAPE PRESSURE IN PROPAGULE PRESSURE.RMD
 
 ```
@@ -212,19 +214,12 @@ tr3c <- geoCorrection(tr3, type="c")
 # # adjust values to make lines impassable
 # NLprovrast@data@values <- ifelse(is.na(NLprovrast@data@values)=="TRUE", 10000, 1)
 # 
-# # create transition layer for raster (likelihood of presence within cell). 
+# # create transition layer for raster (likelihood of presence within cell).
 # tr3q <- transition(1/NLprovrast, transitionFunction=mean, directions=8)
 # tr3cq <- geoCorrection(tr3q, type="c")
 
 
-# AQ escape site coords
-x <- escape_summ_2$Long
-y <- escape_summ_2$Lat
-xy <- cbind(x, y)
-siterast <- as.matrix(xy)
-
-
-# Q values AQ escape site coords
+# AQ escape site qvals coords
 x <- escape_summ$Long
 y <- escape_summ$Lat
 xy <- cbind(x, y)
@@ -242,22 +237,23 @@ str(qsites)
 
 ### ESCAPE PRESSURE: Newfoundland - Fix some AQ site coords
 ```{r}
+### NOT REQUIRED FOR ATL SALMON ONLY
+
 # for escape data:
 # plot(NLrast)
 # plot(NLrast, xlim=c(-56.25, -55.75), ylim=c(47.6, 48))
 # text(siterast[,1], siterast[,2], col="red")
 
-NLline <- readOGR("C:/Users/keyserf/Documents/R/canvec/canvec_250K_NL_Land_shp/shoreline_1_small.shp", "shoreline_1_small")
+# NLline <- readOGR("C:/Users/keyserf/Documents/R/canvec/canvec_250K_NL_Land_shp/shoreline_1_small.shp", "shoreline_1_small")
 # siterast <- SpatialPoints(siterast)
 # siterast <- snapPointsToLines(siterast, NLline)
 # siterast <- as.matrix(siterast@coords)
 
-siterast[14,] <- c(-56.0654, 47.77681)
+# siterast[14,] <- c(-56.0654, 47.77681)
 
 # for q values
-# plot(NLprovrast, xlim=c(-56.5, -55.5), ylim=c(47.5, 48.3))
-# text(siterast[,1], siterast[,2])
-# siterast[12,] <- c(-55.78495, 47.57846)
+# plot(NLprovrast, xlim=c(-54, -53), ylim=c(47, 48))
+# text(qsites[,5], qsites[,6])
 
 ```
 
@@ -276,6 +272,10 @@ qsites[qsites$Code=="LHR",]$Lat <- 47.77960
 
 qsites[qsites$Code=="BSB",]$Long <- -53.282374
 qsites[qsites$Code=="BSB",]$Lat <- 46.756687
+
+qsites[qsites$Code=="RKR",]$Long <- -53.58051
+qsites[qsites$Code=="RKR",]$Lat <- 47.18114
+
 ```
 
 ### ESCAPE PRESSURE: Newfoundland - calculate distance matrix
@@ -287,7 +287,7 @@ d6 <- costDistance(tr3c, fromCoords = cbind(as.numeric(siterast[,1]), as.numeric
 
 d6 
 
-## q values
+## q values #### NOT POSSIBLE FOR ATL SALMON ONLY BECAUSE NO RECENT ESCAPE RECORDS
 # d6q <- costDistance(tr3cq, fromCoords = cbind(as.numeric(siterast[,1]), as.numeric(siterast[,2])), toCoords = cbind(as.numeric(qsites[,5]), as.numeric(qsites[,6])))
 # 
 # d6q
@@ -301,10 +301,10 @@ colnames(d6)[1:18] <- as.list(as.character(rivermouths$code))
 dist2Escape <- join(d6, escape_summ_2, type="left")
 
 #q values
-d6q <- as.data.frame(cbind(d6q, escape_summ$Location))
-colnames(d6q)[16] <- "Location"
-colnames(d6q)[1:15] <- as.list(as.character(qsites$Code))
-dist2Escape <- join(d6q, escape_summ, type="left")
+# d6q <- as.data.frame(cbind(d6q, escape_summ$Location))
+# colnames(d6q)[16] <- "Location"
+# colnames(d6q)[1:15] <- as.list(as.character(qsites$Code))
+# dist2Escape <- join(d6q, escape_summ, type="left")
 ```
 
 ### ESCAPE PRESSURE: Newfoundland - Calculate propagule pressure for each river. 
@@ -352,12 +352,12 @@ dist2Escape$P18 <- dist2Escape$totalescape/dist2Escape$TEB
 
 
 # sum all pressures for total propagule pressure at a river
-esc.press_all <- apply(as.matrix(dist2Escape[,24:41]), 2, function(x) sum(x, na.rm=TRUE))
+esc.press_all <- apply(as.matrix(dist2Escape[,23:40]), 2, function(x) sum(x, na.rm=TRUE))
 
 # match to river mouth coords
 esc.press_all  <- data.frame(code=rivermouths[,4], lat=rivermouths[,3], long = rivermouths[,2], esc.press = esc.press_all)
 
-write.csv(esc.press_all, "C:/Users/keyserf/Documents/Data/Escape Pressure_lin_all rivers_all years_2016-12-05.csv")
+write.csv(esc.press_all, "C:/Users/keyserf/Documents/Data/Escape Pressure_lin_all rivers_all years_salar only_2016-12-20.csv")
 
 
 ### q values
@@ -382,12 +382,12 @@ dist2Escape$P14 <- dist2Escape$totalescape/dist2Escape$WAB
 dist2Escape$P15 <- dist2Escape$totalescape/dist2Escape$CMP
 
 # sum all pressures for total propagule pressure at a river
-esc.press_q <- apply(as.matrix(dist2Escape[,20:34]), 2, function(x) sum(x, na.rm=TRUE))
+esc.press_q <- apply(as.matrix(dist2Escape[,21:35]), 2, function(x) sum(x, na.rm=TRUE))
 
 # match to river mouth coords
 esc.press_q  <- data.frame(code=qsites$Code, lat=qsites[,6], long = qsites[,5], esc.press = esc.press_q, q=qsites$Q)
 
-write.csv(esc.press_q, "C:/Users/keyserf/Documents/Data/Escape Pressure_NL_Q values_2002-2012_2016-12-05.csv")
+write.csv(esc.press_q, "C:/Users/keyserf/Documents/Data/Escape Pressure_NL_Q values_2002-2012_salar_2016-12-20.csv")
 
 
 ```
@@ -421,7 +421,7 @@ plot2 <- ggplot() +
   geom_point(data=esc.press_all, aes(long, lat, size=esc.press), fill="yellow", shape=21, colour="black") +
   theme_bw() +  coord_map(xlim=c(-56.7, -54.5), ylim=c(46.82, 48)) +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
-  scale_size_continuous(name="Escape pressure=\n\u03A3(total escapes/dist)", range = c(0.5,8), limits=c(1,180))
+  scale_size_continuous(name="Escape pressure=\n\u03A3(total escapes/dist)", range = c(0,4), limits=c(0,4))
 
 gA <- ggplotGrob(plot1)
 gB <- ggplotGrob(plot2)
@@ -434,8 +434,9 @@ ggplot() + geom_smooth(data=esc.press_q, aes(esc.press, q), method="lm", se=TRUE
   geom_point(data=esc.press_q, aes(esc.press, q)) +
   geom_label_repel(data=esc.press_q, aes(esc.press, q, label=code)) +
   theme_classic() + 
+  ylim(-0.05,0.22)+
   theme(panel.background=element_rect(colour="black")) +
-  ggtitle("NL 2002-2012")+
+  ggtitle("NL 2011-2012")+
   xlab("Escape pressure") +
   ylab("Q value") 
 
@@ -490,7 +491,7 @@ NLmorrismap + annotate(geom="rect", xmin=-60, xmax=-59.42, ymin=46.5, ymax= 50.2
 
 ## Set up
 
-### New Brunswick - Read in Geoff's escape reports db and tidy up
+### New Brunswick - Read in Jeff's escape reports db and tidy up
 ```{r}
 NBescapes <- read.csv("C:/Users/keyserf/Documents/Data/Escape events and reports/NB Escapes.csv", na.strings=c("", "Unknown*"))
 NBescapes <- subset(NBescapes, is.na(Lat)==FALSE)
@@ -876,48 +877,43 @@ morris <- read.csv("C:/Users/keyserf/Documents/Data/Escape events and reports/Mo
 
 
 ## NS
-nsrivers <- as.data.frame(unique(morris_clean$River[morris_clean$Prov=="NS"]))
+nsrivers <- as.data.frame(unique(morris$River[morris$Prov=="NS"]))
 names(nsrivers) <- c("river")
 coords_clean <- rbind(c(44.778122, -65.439294), 
-               c(46.094226, -60.857244),
-               c(45.109829, -64.275097),
-               c(45.610836, -60.626756),
-               c(44.310002, -64.390153),
-               c(44.047893, -64.709702),
-               c(46.082903, -60.909614),
-               c(44.939173, -65.055891),
-               c(46.299002, -60.615435),
-               c(44.052819, -66.169571),
-               c(45.298904, -63.479638),
-               c(45.953641, -61.102664))
+               c(46.094226, -60.857244), 
+               c(45.399889, -64.326540),
+               c(44.729245, -63.662550),
+               c(45.109829, -64.275097), 
+               c(45.610836, -60.626756), 
+               c(43.842299, -65.991485),
+               c(45.966662, -61.115833),
+               c(44.310002, -64.390153), 
+               c(46.428359, -61.095991),
+               c(44.220810, -66.143551),
+               c(44.047893, -64.709702), 
+               c(44.611538, -65.676093),
+               c(46.082903, -60.909614), 
+               c(44.939173, -65.055891), 
+               c(46.299002, -60.615435), 
+               c(45.409762, -64.098723),
+               c(45.003232, -62.087995),
+               c(44.052819, -66.169571), 
+               c(45.050054, -61.892250),
+               c(45.298904, -63.479638), 
+               c(46.368190, -60.525074),
+               c(45.865024, -60.802479),
+               c(46.218702, -60.610511),
+               c(45.953641, -61.102664)) 
 nsrivers <- cbind(nsrivers, coords_clean)
 
-nsrivers_other <- unique(subset(morris, ProvState=="NS", select="River"))
-names(nsrivers_other) <- "river"
-nsrivers_other <- anti_join(nsrivers_other, nsrivers)
-nsrivers_other
-coords_rough <- rbind(c(43.842299, -65.991485),
-                      c(44.729245, -63.662550),
-                      c(46.218702, -60.610511),
-                      c(45.050054, -61.892250),
-                      c(45.865024, -60.802479),
-                      c(45.409762, -64.098723),
-                      c(46.368190, -60.525074),
-                      c(44.611538, -65.676093),
-                      c(46.428359, -61.095991),
-                      c(45.003232, -62.087995),
-                      c(44.220810, -66.143551),
-                      c(45.399889, -64.326540),
-                      c(45.966662, -61.115833))
-nsrivers_other <- cbind(nsrivers_other, coords_rough)
+names(nsrivers) <- c("River", "lat", "long")
+
+nsrivers$code <- c("APR", "BAD", "BRR", "BRA", "GAK", "GRA", "HAR", "IND", "LAH", "LIS", "MGR", "MER", "MET", "MID", "NIC", "NRV", "PAR", "SAC", "SAD", "SKY", "STW", "STA", "SMA", "TUS", "WHY")
                       
-nsrivers_all <- rbind(nsrivers, nsrivers_other)
-names(nsrivers_all) <- c("River", "lat", "long")
-
 nsmorris <- subset(morris, ProvState=="NS")
-nsmorris <- join(nsmorris, nsrivers_all, type="left")
+nsmorris <- join(nsmorris, nsrivers, type="left")
 
-unique(nsmorris$TotalFarmed)
+unique(nsmorris[,c(1,12)])
 
 nsmorris_true <- subset(nsmorris, !TotalFarmed =="0", select=c("River", "lat", "long", "TotalFarmed"))
 nsmorris_true <- subset(nsmorris_true, !TotalFarmed =="N/A")

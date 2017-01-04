@@ -21,11 +21,11 @@ require(ggrepel)
 require(scales)
 ```
 
-#############################################################################################################
-######################### SOUTHERN NEWFOUNDLAND CAGE SITE PROPAGULE PRESSSURES ##############################
-#############################################################################################################
+-------------------------------------------------------------------------------------------------------------
+# SOUTHERN NEWFOUNDLAND CAGE SITE PROPAGULE PRESSSURES 
+-------------------------------------------------------------------------------------------------------------
 
-### Newfoundland - read in shapefiles, create raster file
+## Newfoundland - read in shapefiles, create raster file
 ```{r}
 annual <- read.csv("C:/Users/keyserf/Documents/Data/Inventory data/NL annual inventory and coords_summary_2016-11-29.csv")
 
@@ -166,7 +166,7 @@ sampling2015 <- rbind(rivermouths, bdn)
 
 ```
 
-# Newfoundland - Q values coords
+## Newfoundland - Q values coords
 ```{r}
 # read in sites
 qsites <- read.csv("C:/Users/keyserf/Documents/Data/Rivers/Qvalues_All NL_2016-11-10.csv")
@@ -183,7 +183,7 @@ qsites[qsites$Code=="BSB",]$Long <- -53.282374
 qsites[qsites$Code=="BSB",]$Lat <- 46.756687
 ```
 
-# Newfoundland - Fix some AQ site coords
+### Newfoundland - Fix some AQ site coords
 ```{r}
 # for 2013 only:
 # plot(NLrast, xlim=c(-56.0, -55.5), ylim=c(47.4, 47.6))
@@ -223,7 +223,7 @@ siterast[48,] <- c(-55.76244, 47.59899)
 ```
 
 
-# Newfoundland - calculate distance matrix
+## Newfoundland - calculate distance matrix
 ```{r}
 # calculate least-cost distance between siterast (site location) and testrast (escaped fish location)
 d3 <- costDistance(tr3c, fromCoords = cbind(as.numeric(siterast[,1]), as.numeric(siterast[,2])), toCoords = cbind(as.numeric(sampling2015[,2]), as.numeric(sampling2015[,3])))
@@ -237,7 +237,7 @@ d3
 ```
 
 
-### Newfoundland - merge with site coords and inventory data
+## Newfoundland - merge with site coords and inventory data
 ```{r}
 d3 <- as.data.frame(cbind(d3, sitecoords$ID))
 colnames(d3)[20] <- "ID"
@@ -252,7 +252,7 @@ colnames(d3)[1:19] <- as.list(as.character(sampling2015$code))
 ```
 
 
-### Newfoundland - pick the years you want and summarize
+## Newfoundland - pick the years you want and summarize
 ```{r}
 dist2AQ_sub <- subset(annual, ReportYear >2013 & ReportYear<2016 & is.na(Lat)==FALSE)
 dist2AQ_sub <- ddply(.data=dist2AQ_sub, .(ID, Lat, Long),
@@ -265,7 +265,7 @@ dist2AQ <- subset(dist2AQ, is.na(totalfish)==FALSE)
 ```
 
 
-# Newfoundland - Calculate propagule pressure for each river. 
+## Newfoundland - Calculate propagule pressure for each river. 
 ```{r}
 dist2AQ[,1:19] <- apply(dist2AQ[,1:19], 2, function(x) as.character(x))
 dist2AQ[,1:19] <- apply(dist2AQ[,1:19], 2, function(x) as.numeric(x))
@@ -336,7 +336,7 @@ write.csv(prop.press_201415, "C:/Users/keyserf/Documents/Data/R output/Propagule
 ```
 
 
-# Newfoundland - plot propagule pressure
+## Newfoundland - plot propagule pressure
 ```{r}
 dist2AQ_sub_plot <- subset(dist2AQ_sub, totalfish > 0)
 dist2AQ_sub_plot$Lat <- as.numeric(dist2AQ_sub_plot$Lat)
@@ -379,7 +379,7 @@ grid.draw(cbind(gA, gB))
 
 ```
 
-# Newfoundland - Q value analysis
+## Newfoundland - Q value analysis
 ```{r}
 qsites <- join(qsites, prop.press_q[,c(1,4)], type="left") 
 
@@ -418,12 +418,13 @@ ggplot() +
 ```
 
 
-######################################################################################################################
-################################# NOVA SCOTIA CAGE SITE PROPAGULE PRESSURES ##########################################
-######################################################################################################################
 
 
-### Nova scotia propagule pressures
+
+
+---------------------------------------------------------------------------------------------------------------------
+# NOVA SCOTIA CAGE SITE PROPAGULE PRESSURES ---------------------------------------------------------------------------------------------------------------------
+
 ## Nova Scotia - shapefile prep
 ```{r}
 
@@ -536,7 +537,7 @@ NSQ[10, 5:6] <- c(-63.478616, 45.306643)
 ```
 
 
-# Nova Scotia - Fix some river coords
+### Nova Scotia - Fix some river coords
 ```{r}
 # make nictaux = to annapolis
 nsrivers[15,3] <- nsrivers[1,3]
@@ -553,7 +554,7 @@ nsrivers[18,2:3] <- c(44.97533, -62.08651)
 ```
 
 
-# Nova Scotia - Transition layer, Geocorrection, calculate distance matrix
+## Nova Scotia - Transition layer, Geocorrection, calculate distance matrix
 ```{r}
 # create transition layer for raster (likelihood of presence within cell). 
 tr5 <- transition(1/NSrast, transitionFunction=mean, directions=8)
@@ -572,7 +573,7 @@ d5
 ```
 
 
-# Nova Scotia - Merge with site coords and inventory data
+## Nova Scotia - Merge with site coords and inventory data
 ```{r}
 colnames(sitecoords)[1] <- "Site.ID"
 d5 <- as.data.frame(cbind(d5, sitecoords$Site.ID))
@@ -594,7 +595,7 @@ dist2AQ_NS <- join(d5q, sitecoords, type="left")
 ```
 
 
-### Nova Scotia - pick the years you want and summarize
+## Nova Scotia - pick the years you want and summarize
 ```{r}
 NSinv <- read.csv("C:/Users/keyserf/Documents/Data/Inventory data/NS Inventory.csv")
 names(NSinv)
@@ -617,7 +618,7 @@ dist2AQ_NS <- subset(dist2AQ, is.na(totalfish)==FALSE)
 ```
 
 
-# Nova Scotia - Calculate propagule pressure for each river. 
+## Nova Scotia - Calculate propagule pressure for each river. 
 ```{r}
 dist2AQ_NS[,1:10] <- apply(dist2AQ_NS[,1:10], 2, function(x) as.character(x))
 dist2AQ_NS[,1:10] <- apply(dist2AQ_NS[,1:10], 2, function(x) as.numeric(x))
@@ -686,7 +687,7 @@ write.csv(prop.press_NS_q, "C:/Users/keyserf/Documents/Data/R output/Propagule P
 ```
 
 
-# Nova Scotia - plot propagule pressure
+## Nova Scotia - plot propagule pressure
 ```{r}
 dist2AQ_NS_plot <- arrange(subset(dist2AQ_NS, select=c(Site.ID, Lat, Long, totalfish)), -totalfish)
 prop.press_NS <- arrange(prop.press_NS, -prop.press)
@@ -747,11 +748,14 @@ ggplot() + geom_text(data=prop.press_NS, aes(long, lat, label=code))
 
 ```
 
-######################################################################################################################
-############################### NEW BRUNSWICK CAGE SITE DISTANCES TEMPLATE CODE ######################################
-######################################################################################################################
 
-### New Brunswick - read in shapefiles, create raster file
+
+
+
+---------------------------------------------------------------------------------------------------------------------
+# NEW BRUNSWICK CAGE SITE DISTANCES TEMPLATE CODE ---------------------------------------------------------------------------------------------------------------------
+
+## New Brunswick - read in shapefiles, create raster file
 ```{r}
 ## http://ftp.geogratis.gc.ca/pub/nrcan_rncan/vector/canvec/shp/Hydro/
 # NB.low <- readOGR(dsn = "C:/Users/keyserf/Documents/R/canvec/canvec_250K_NB_Hydro_shp/waterbody_2.shp", layer="waterbody_2")
@@ -890,7 +894,7 @@ NBQ <- NBQ[c(1,4:5),]
 ```
 
 
-# New Brunswick - calculate distance matrix
+## New Brunswick - calculate distance matrix
 ```{r}
 # calculate least-cost distance between siterast (site location) and testrast (escaped fish location)
 d4 <- costDistance(tr4c, fromCoords = cbind(as.numeric(siterast[,1]), as.numeric(siterast[,2])), toCoords = cbind(as.numeric(nbrivers2[,3]), as.numeric(nbrivers2[,2])))
@@ -904,7 +908,7 @@ d4
 ```
 
 
-### New Brunswick - merge with site coords and inventory data
+## New Brunswick - merge with site coords and inventory data
 ```{r}
 d4 <- as.data.frame(cbind(d4, sitecoords$Site.ID))
 colnames(d4)[14] <- "Site.ID"
@@ -919,7 +923,7 @@ colnames(d4q)[1:3] <- as.list(as.character(NBQ$Code))
 ```
 
 
-### New Brunswick - pick the years you want and summarize
+## New Brunswick - pick the years you want and summarize
 ```{r}
 dist2AQ_sub <- subset(NB_stocking, Year >2001 & Year<2013 & is.na(lat)==FALSE)
 dist2AQ_sub <- ddply(.data=dist2AQ_sub, .(Site.ID, lat, long),
@@ -934,7 +938,7 @@ dist2AQ <- subset(dist2AQ, is.na(totalfish)==FALSE)
 ```
 
 
-# New Brunswick - Calculate propagule pressure for each river. 
+## New Brunswick - Calculate propagule pressure for each river. 
 ```{r}
 dist2AQ[,1:13] <- apply(dist2AQ[,1:13], 2, function(x) as.character(x))
 dist2AQ[,1:13] <- apply(dist2AQ[,1:13], 2, function(x) as.numeric(x))
@@ -990,7 +994,7 @@ write.csv(prop.press_NB_q, "C:/Users/keyserf/Documents/Data/R output/Propagule P
 ```
 
 
-# New Brunswick - plot propagule pressure
+## New Brunswick - plot propagule pressure
 ```{r}
 dist2AQ_sub_plot <- subset(dist2AQ_sub, totalfish > 0)
 dist2AQ_sub_plot$lat <- as.numeric(dist2AQ_sub_plot$lat)

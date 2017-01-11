@@ -220,8 +220,8 @@ tr3c <- geoCorrection(tr3, type="c")
 
 
 # AQ escape site qvals coords
-x <- escape_summ$Long
-y <- escape_summ$Lat
+x <- escape_summ_2$Long
+y <- escape_summ_2$Lat
 xy <- cbind(x, y)
 siterast <- as.matrix(xy)
 
@@ -237,7 +237,7 @@ str(qsites)
 
 ### ESCAPE PRESSURE: Newfoundland - Fix some AQ site coords
 ```{r}
-### NOT REQUIRED FOR ATL SALMON ONLY
+### NOT REQUIRED WHEN USING ATL SALMON DATA ONLY
 
 # for escape data:
 # plot(NLrast)
@@ -404,7 +404,7 @@ escape_summ_2$Long <- as.numeric(escape_summ_2$Long)
 escape_summ_2 <- arrange(escape_summ_2, -totalescape)
 esc.press_all <- arrange(esc.press_all, -esc.press)
 
-plot1 <- ggplot() + 
+plot3 <- ggplot() + 
   ggtitle("Escape locations")+
   geom_polygon(data=prov, aes(long, lat, group=group), fill="grey")+ 
   annotate(geom="rect", xmin=-57, xmax=-56, ymin=46.8, ymax= 47.45, fill="grey") +
@@ -414,20 +414,25 @@ plot1 <- ggplot() +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
   scale_size_continuous(name="Total escape", range = c(0.5,10), limits=c(1,160000))
 
-plot2 <- ggplot() + 
-  ggtitle("Salmon rivers")+
+plot4 <- ggplot() + 
+  ggtitle("Escape pressure (1979-2015)")+
   geom_polygon(data=prov, aes(long, lat, group=group), fill="grey")+
   annotate(geom="rect", xmin=-57, xmax=-56, ymin=46.8, ymax= 47.45, fill="grey") +
   geom_point(data=esc.press_all, aes(long, lat, size=esc.press), fill="yellow", shape=21, colour="black") +
   theme_bw() +  coord_map(xlim=c(-56.7, -54.5), ylim=c(46.82, 48)) +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
-  scale_size_continuous(name="Escape pressure=\n\u03A3(total escapes/dist)", range = c(0,4), limits=c(0,4))
+  scale_size_continuous(name="\u03A3(total escapes/dist)", range = c(0,4), limits=c(0,4))
 
 gA <- ggplotGrob(plot1)
 gB <- ggplotGrob(plot2)
 grid.newpage()
 grid.draw(cbind(gA, gB))
 
+## for propagule and escape pressure side by side
+gA <- ggplotGrob(plot2)
+gB <- ggplotGrob(plot4)
+grid.newpage()
+grid.draw(rbind(gA, gB))
 
 
 ggplot() + geom_smooth(data=esc.press_q, aes(esc.press, q), method="lm", se=TRUE) +
@@ -579,7 +584,7 @@ NB.BOF <- crop(NB, extent(-67.3, -64.5, 44.5, 47.1))
 NB.prov <-crop(NB, extent(-67.85, -63.7, 44.5, 48.1))
 
 # creating raster
-r <- raster(ncol=2270, nrow=2820)
+r <- raster(ncol=2200, nrow=1700)
 extent(r) <- extent(NB.BOF)
 NBrast <- rasterize(NB.BOF, r, fun="first")
 
@@ -778,7 +783,7 @@ esc.press_all_NB <- apply(as.matrix(dist2Escape_NB[,18:30]), 2, function(x) sum(
 esc.press_all_NB  <- data.frame(code=nbrivers2[,4], lat=nbrivers2[,2], long = nbrivers2[,3], esc.press = esc.press_all_NB)
 
 write.csv(esc.press_all_NB, "C:/Users/keyserf/Documents/Data/Escape Pressure_NB_all rivers_all years_2016-12-06.csv")
-
+read.csv("C:/Users/keyserf/Documents/Data/R output/Escape Pressure_NB_all rivers_all years_2016-12-06.csv")
 
 
 # for q values
@@ -809,13 +814,10 @@ escape_summ_2 <- subset(escape_summ_2, totalescape > 0)
 escape_summ_2$Lat <- as.numeric(escape_summ_2$Lat)
 escape_summ_2$Long <- as.numeric(escape_summ_2$Long)
 
-# prov <- fortify(NL.low.ocean)
-# prov$group <- ifelse(prov$long < -56.2 & prov$lat < 47.375, 4771.1, prov$group)
-
 escape_summ_2 <- arrange(escape_summ_2, -totalescape)
 esc.press_all_NB <- arrange(esc.press_all_NB, -esc.press)
 
-plot1 <- ggplot() + 
+plot3 <- ggplot() + 
   ggtitle("Escape locations") +
   geom_spatial(data=NB.low, aes(fill=ctry_en), show.legend = FALSE) + ### canvec spatialpolygonsdataframe
   #geom_spatial(data=PE.low, aes(fill=ctry_en)) + ### canvec spatialpolygonsdataframe
@@ -832,8 +834,8 @@ plot1 <- ggplot() +
   geom_point(data=escape_summ_2, aes(Long, Lat, size=totalescape), fill="red", shape=21, colour="black") + 
   scale_size_continuous(name="Total escape", range = c(0.5,10), limits=c(1,140000))
 
-plot2 <- ggplot() + 
-  ggtitle("Salmon rivers") +
+plot4 <- ggplot() + 
+  ggtitle("Escape pressure (2010-2015)") +
   geom_spatial(data=NB.low, aes(fill=ctry_en), show.legend = FALSE) + ### canvec spatialpolygonsdataframe
   #geom_spatial(data=PE.low, aes(fill=ctry_en)) + ### canvec spatialpolygonsdataframe
   #geom_spatial(data=NS.low, aes(fill=ctry_en)) + ### canvec spatialpolygonsdataframe
@@ -843,16 +845,21 @@ plot2 <- ggplot() +
   annotate(geom="rect", xmin=-60, xmax=-59.5, ymin=47.5, ymax= 48, fill="grey") + ### these annotates hide white space!
   annotate(geom="rect", xmin=-64, xmax=-59.5, ymin=43.2, ymax= 44, fill="grey") +
   annotate(geom="rect", xmin=-61, xmax=-59.5, ymin=44, ymax= 45, fill="grey") +
-  coord_map(xlim=c(-67.3, -64.3), ylim=c(44.5, 46)) + ### sets boundaries
+  coord_map(xlim=c(-67.4, -64.3), ylim=c(44.5, 46)) + ### sets boundaries
   theme_bw() + ### my favourite theme settings here and below (makes land white)
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
   geom_point(data=esc.press_all_NB, aes(long, lat, size=esc.press), fill="yellow", shape=21, colour="black") +
-  scale_size_continuous(name="Escape pressure=\n\u03A3(total escapes/dist)", range = c(0.5,8), limits=c(1,8))
+  scale_size_continuous(name="\u03A3(total escapes/dist)", range = c(0.5,8), limits=c(1,8))
 
 gA <- ggplotGrob(plot1)
 gB <- ggplotGrob(plot2)
 grid.newpage()
 grid.draw(cbind(gA, gB))
+
+gA <- ggplotGrob(plot2)
+gB <- ggplotGrob(plot4)
+grid.newpage()
+grid.draw(rbind(gA, gB))
 
 
 ## Qsite comparison

@@ -8,6 +8,7 @@ require(sp)
 require(plyr)
 require(raster)
 require(ggsn)
+require(ggrepel)
 
 ### HIGHLY RECOMMENDED: once you've read in shapefiles and cropped them, use writeOGR to save the cropped versions 
 ### for future use. This means you won't have to read in the massive shapefiles ever again.
@@ -63,9 +64,11 @@ ggplot() +
 ## sampling site summary
 sampmap <- read.csv("C:/Users/keyserf/Documents/Data/Escape events and reports/Sampling summary_all prov.csv")
 
-sampmap <- melt(sampmap[,1:10], measure.vars = c("Q.value", "Bradbury", "Morris", "PARR", "Other"))
+# sampmap <- melt(sampmap[,1:10], measure.vars = c("Q.value", "Bradbury", "Morris", "PARR", "Other"))
+# 
+# sampmapNSNB <- subset(sampmap, Prov %in% c("NS", "NB") & variable%in% c("Q.value", "Morris", "Other") & value=="Y")
 
-sampmapNSNB <- subset(sampmap, Prov %in% c("NS", "NB") & variable%in% c("Q.value", "Morris", "Other") & value=="Y")
+sampmapNSNB <- subset(sampmap, Prov %in% c("NS", "NB"))
 
 ggplot() + 
   geom_spatial(data=NB.low, aes(fill=ctry_en), show.legend=FALSE) + ### canvec spatialpolygonsdataframe
@@ -78,10 +81,13 @@ ggplot() +
   annotate(geom="rect", xmin=-64, xmax=-59.5, ymin=43.2, ymax= 44, fill="grey") +
   annotate(geom="rect", xmin=-61, xmax=-59.5, ymin=44, ymax= 45, fill="grey") +
   coord_map(xlim=c(-67.7, -59.5), ylim=c(43.2, 48)) + ### sets boundaries 
-  geom_point(data=sampmapNSNB, aes(Longitude, Latitude, colour=variable), shape=16, size=4, alpha=0.5)+
+  #geom_point(data=sampmapNSNB, aes(Longitude, Latitude, colour=variable), shape=16, size=4, alpha=0.5)+
+  geom_point(data=sampmapNSNB, aes(Longitude, Latitude), shape=1, size=3)+
   theme_bw() + 
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
-  scale_color_manual(values=c("red","dodgerblue4", "yellow"), name="Escape data type", labels=c("Q-value", "Morris et al. 2008", "Other"))+
+  #scale_color_manual(values=c("red","dodgerblue4", "yellow"), name="Escape data type", labels=c("Q-value", "Morris et al. 2008", "Other"))+
+  scalebar(data=fortify(NS.low), dist=75, dd2km=TRUE, model="WGS84", location="bottomright", anchor=c(x = -60, y = 43.8), st.size=3) +
+  geom_label_repel(data=sampmapNSNB, aes(Longitude, Latitude, label=Code), size=2, point.padding = unit(0.5,"lines")) 
   
 
 
@@ -134,9 +140,9 @@ plot(NLprov)
 
 sampmap <- read.csv("C:/Users/keyserf/Documents/Data/Escape events and reports/Sampling summary_all prov.csv")
 
-sampmap <- melt(sampmap[,1:10], measure.vars = c("Q.value", "Bradbury", "Morris", "PARR", "Other"))
-
-sampmapNL <- subset(sampmap, Prov %in% c("NL") & variable%in% c("Q.value", "Bradbury", "Morris", "PARR") & value=="Y")
+# sampmap <- melt(sampmap[,1:10], measure.vars = c("Q.value", "Bradbury", "Morris", "PARR", "Other"))
+# 
+sampmapNL <- subset(sampmap, Prov %in% c("NL"))
 
 ggplot() + 
   geom_spatial(data=NLprov, aes(fill=ctry_en), show.legend=FALSE) + ### canvec spatialpolygonsdataframe
@@ -147,11 +153,15 @@ ggplot() +
   annotate(geom="rect", xmin=-60, xmax=-59.42, ymin=46.5, ymax= 50.21, fill="grey")+
   annotate(geom="rect", xmin=-56.1, xmax=-55.9, ymin=46.5, ymax= 46.83, fill="grey") +
   annotate(geom="rect", xmin=-54, xmax=-52.2, ymin=50, ymax= 51.8, fill="grey") +
-  coord_map(xlim=c(-59.7, -52.6), ylim=c(46.6, 51.79)) + ### sets boundaries
+  annotate(geom="rect", xmin=-52.6, xmax=-52.4, ymin=46, ymax= 51, fill="grey") +
+  coord_map(xlim=c(-59.7, -52.5), ylim=c(46.6, 51.79)) + ### sets boundaries
   #geom_point(data=sampmapNL, aes(Longitude, Latitude, colour=variable), shape=16, size=5, alpha=0.5)+
+  geom_point(data=sampmapNL, aes(Longitude, Latitude), shape=1, size=3) +
+  geom_label_repel(data=sampmapNL, aes(Longitude, Latitude, label=Code), size=2, point.padding = unit(0.5,"lines")) +
   theme_bw() + 
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
-  annotate(geom="rect", xmin=-56.7, xmax=-54.4, ymin=46.82, ymax=48, fill=NA, colour="black")
-  scale_color_manual(values=c("red","green", "yellow", "dodgerblue4"), name="Escape data type", labels=c("Q-value", "Bradbury", "Morris et al. 2008", "PARR"))
+  scalebar(data=fortify(NLprov), dist=50, dd2km=TRUE, model="WGS84", location="topright", anchor=c(x = -53.5, y = 51), st.size=3)
+  #scale_color_manual(values=c("red","green", "yellow", "dodgerblue4"), name="Escape data type", labels=c("Q-value", "Bradbury", "Morris et al. 2008", "PARR"))
+
 
 

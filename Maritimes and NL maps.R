@@ -109,7 +109,8 @@ NL.low <- readOGR("C:/Users/keyserf/Documents/R/canvec/NL.low.shp", layer="NL.lo
 
 NL.low.ocean <- readOGR(dsn="C:/Users/keyserf/Documents/R/Escapes/canvec/NL.low.ocean.dbf", layer="NL.low.ocean")
 
-##Southern NL
+
+##Southern NL 
 
 ggplot() + 
   geom_spatial(data=NL.low.ocean, aes(fill=ctry_en)) + ### canvec spatialpolygonsdataframe
@@ -127,6 +128,25 @@ ggplot() +
   geom_point(data=unique(annual[,5:6]), aes(Long, Lat), size=1) +
   scalebar(data=fortify(NL.low.ocean), dist=25, dd2km=TRUE, model="WGS84", location="bottomright", anchor=c(x = -54.6, y = 46.88), st.size=3) +
   ggtitle("Southern Newfoundland")
+
+
+
+NL.south <- crop(NL.low, extent(-59, -53, 46, 49))
+
+sched <- read.csv("C:/Users/keyserf/Documents/Data/Rivers/NL Scheduled Coordinates.csv")
+
+## NL SFA 10 and 11
+
+ggplot() + geom_spatial(data=NL.south, aes(fill=ctry_en)) +
+  scale_fill_manual(values=c("grey"), guide=FALSE) + ### fills geom_spatial with grey
+  annotate(geom="rect", xmin=-59, xmax=-56.0, ymin=46.5, ymax= 47.4, fill="grey") +
+  annotate(geom="rect", xmin=-56, xmax=-55, ymin=46.5, ymax= 46.8, fill="grey") +
+  coord_map(xlim=c(-59, -53), ylim=c(46.5, 49)) +
+  theme_classic() + ### favourite theme settings plus makes sure land is white
+  theme(panel.background = element_blank(), panel.border=element_rect(colour="black", fill=NA)) +
+  geom_point(data=sched, aes(Long, Lat), size=1) +
+  scalebar(data=fortify(NL.south), dist=25, dd2km=TRUE, model="WGS84", location="bottomright", anchor=c(x = -54.6, y = 46.88), st.size=3) +
+  ggtitle("SFAs 10 and 11")
 
 
 

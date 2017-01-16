@@ -185,6 +185,9 @@ NB_licence_l$Number.adj <- NB_licence_l$Number / NB_licence_l$nsites
 
 NB_licence_compl <- subset(NB_licence_l, !is.na(Site.ID)==TRUE & !is.na(Number.adj)==TRUE) 
 
+
+
+
 options(scipen=999)
 
 NB_stocking <- ddply(.data=NB_licence_compl, .(Site.ID, Year), 
@@ -212,6 +215,48 @@ NB_stocking <- read.csv("C:/Users/keyserf/Documents/Data/R output/NB_stocking.cs
 NB_stocking_summ <- ddply(.data=NB_stocking, .(Site.ID, long, lat),
                           summarize,
                           totalfish = sum(totalfish))
+
+
+
+
+##### Troy Lyons' monitoring data
+NB_monitor <- read.csv("C:/Users/keyserf/Documents/Data/Inventory data/NB Salmon number data 2012-16_TroyLyons.csv", na.strings = c("", "<NA>", " ", "NA", "NaN"), stringsAsFactors=F)
+
+NB_monitor[,1:2] <- apply(NB_monitor[,1:2], 2, function(x) as.character(x))
+NB_monitor[,3:5] <- apply(NB_monitor[,3:5], 2, function(x) as.numeric(x))
+
+names(NB_monitor) <- c("ID", "BMA", "Number", "ReportYear", "YearClass")
+
+NB_monitor <- subset(NB_monitor, is.na(Number)==FALSE & Number>0)
+
+NB_monitor <- join(NB_monitor, NB.BOF.sites, type="left")
+NB_monitor <- NB_monitor[1:57,]
+
+## compare to stocking numbers
+
+names(NB_monitor) <- c("Site.ID", "BMA", "Number", "Year", "YC", "X", "x", "y", "Area")
+
+ggplot() + geom_point(data=NB_monitor, aes(as.factor(ID), Number), colour="red") +
+  geom_point(data=NB_stocking, aes(as.factor(Site.ID), totalfish), colour="blue") +
+  facet_wrap(~Year)
+
+NB_2012 <- subset(NB_monitor, Year==2012, select=c(Site.ID, Number, Year))
+NB_2012 <- join(NB_2012, NB_stocking, type="left")
+
+diff <- data.frame(Site.ID = NB_2012$Site.ID, diff=abs(NB_2012$Number - NB_2012$totalfish))
+NB_2012 <- select(NB_2012, Site.ID, Year, Number, totalfish)
+NB_2012 <- melt(NB_2012, id.vars=c("Site.ID", "Year"))
+
+NB_2012 <- join(NB_2012, diff, type="left")
+
+require(scales)
+
+ggplot() + geom_bar(data=NB_2012, aes(Site.ID, value, fill=variable), stat="identity", position="dodge") +
+  scale_fill_manual(name="Data type", labels=c("Measured", "Licensed"), values=c("#ef8a62", "#67a9cf")) +
+  theme_classic() +
+  scale_y_continuous(labels=comma, name="Number of Fish")+
+  scale_x_discrete(labels=NULL, name="Aquaculture Sites") +
+  ggtitle("New Brunswick 2012")
 
 ```
 

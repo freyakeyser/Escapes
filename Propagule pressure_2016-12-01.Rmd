@@ -68,7 +68,7 @@ tr3c <- geoCorrection(tr3, type="c")
 
 # for q value analysis
 # creating raster
-# r <- raster(ncol=553, nrow=585) #(1 grid square ~ 1 km2)
+# r <- raster(ncol=1100, nrow=1160) #(1 grid square ~ 0.5 km2)
 # extent(r) <- extent(NLprov)
 # NLprovrast <- rasterize(NLprov, r, fun="first")
 # 
@@ -79,6 +79,29 @@ tr3c <- geoCorrection(tr3, type="c")
 # tr3q <- transition(1/NLprovrast, transitionFunction=mean, directions=8)
 # tr3cq <- geoCorrection(tr3q, type="c")
 
+# for SFA 10 and 11 scheduled rivers
+# read in cropped shapefile: NL.low.ocean
+NL.south <- crop(NL.low, extent(-59, -53, 46, 49))
+
+plot(NL.south)
+
+# # creating raster
+r <- raster(ncol=920, nrow=552) ## 1 cell = 500m2
+extent(r) <- extent(NL.south)
+NLsouthrast <- rasterize(NL.south, r, fun="first")
+
+# Change values in raster so that land is impassable (i.e. distances would be massive). 
+
+# Also get rid of ocean blob
+NLsouthrast@data@values <- ifelse(is.na(NLsouthrast@data@values)=="TRUE", 10000, 1)
+NLsouthrast@data@values <- ifelse(coordinates(NLsouthrast)[,1] < -56 & coordinates(NLsouthrast)[,2] < 47.4, 1, NLsouthrast@data@values)
+NLsouthrast@data@values <- ifelse(coordinates(NLsouthrast)[,1] < -55 & coordinates(NLsouthrast)[,2] < 46.85, 1, NLsouthrast@data@values)
+
+plot(NLsouthrast)
+
+# create transition layer for raster (likelihood of presence within cell). 
+tr3s <- transition(1/NLsouthrast, transitionFunction=mean, directions=8)
+tr3cs <- geoCorrection(tr3s, type="c")
 ```
 
 
@@ -165,6 +188,9 @@ rivermouths <- read.csv("C:/Users/keyserf/Documents/Data/Rivers/NL river mouth c
 bdn <- data.frame(X=NA, x=-55.42002, y=47.7079, code="BDN")
 sampling2015 <- rbind(rivermouths, bdn)
 
+# for SFA 10 and 11 
+sched <- read.csv("C:/Users/keyserf/Documents/Data/Rivers/NL Scheduled Coords.csv")
+
 ```
 
 ## Newfoundland - Q values coords
@@ -182,6 +208,115 @@ qsites[qsites$Code=="LHR",]$Lat <- 47.77960
 
 qsites[qsites$Code=="BSB",]$Long <- -53.282374
 qsites[qsites$Code=="BSB",]$Lat <- 46.756687
+
+qsites[qsites$Code=="WAB",]$Long <- -56.77375
+qsites[qsites$Code=="WAB",]$Lat <- 51.21244
+
+qsites[qsites$Code=="NBT",]$Long <- -53.36932
+qsites[qsites$Code=="NBT",]$Lat <- 46.74945
+
+qsites[qsites$Code=="NPR",]$Long <- -53.99326
+qsites[qsites$Code=="NPR",]$Lat <- 47.24506
+
+qsites[qsites$Code=="GRR",]$Long <- -57.09784
+qsites[qsites$Code=="GRR",]$Lat <- 47.56489
+
+qsites[qsites$Code=="CNR",]$Long <- -55.77851
+qsites[qsites$Code=="CNR",]$Lat <- 47.86362
+
+qsites[qsites$Code=="RKR",]$Long <- -53.58221
+qsites[qsites$Code=="RKR",]$Lat <- 47.18433
+
+# plot(NLprovrast, xlim=c(-57.5, -55.5), ylim=c(47.5, 48))
+# text(qsites$Long, qsites$Lat)
+```
+
+### Newfoundland - for SFA 10 and 11. Fixing river coords
+```{r}
+sched <- arrange(sched, Long)
+
+plot(NLsouthrast, xlim=c(-56.2, -55), ylim=c(47.4, 48))
+text(sched$Long, sched$Lat)
+click(n=3)
+
+southcoords <- rbind(c(-58.12693,47.69343),# cinq cerf 1
+c(-58.04176,47.7074),# couteau 2
+c(-57.91504,47.706),# connoire 3
+c(-57.83610,47.64454),# middle 4
+c(-57.68445,47.63476),# grandy 5
+c(-57.56812,47.63616),# kingsharbour 6
+c(-57.54735,47.64734),# kelly 7
+c(-57.54527,47.65013),# bay deloup 8
+c(-57.29806,47.76048),# white bear 9
+c(-57.10626,47.57051),# grey 10
+c(-56.54329,47.70321),# dollard 11
+c(-56.51836,47.70740),# morgan 12
+c(-56.32932,47.69902),# brent cove 13
+c(-56.32101,47.76886),# bottom 14
+c(-56.29400,47.70181),# allans cove 15
+c(-56.16313,47.86384),# despoir 16
+c(-56.15274,47.83451),#hughes 17
+c(-56.09250,47.74371),#long reach 18
+c(-56.06645,47.77865),# salmon 19
+c(-55.86821,46.87000),# pierceys 20
+c(-55.83767,47.88911 ),# northwest 21
+c(-55.82535,47.08279),#fortune 22
+c(-55.77261,46.86104),# salmonier river 23
+c(-55.74623,47.10743),# grand bank 24
+c(-55.76058,47.91923 ),#southeast 25
+c(-55.71657,46.86776),#taylor bay brook 26
+c(-55.80285,47.79706 ),# little brook 27
+c(-55.76804,47.86400 ),# conne 28
+c(-55.67354,47.66986),# salmonier 29
+c(-55.63624,47.54434 ),# taylors bay 30
+c(-55.60889,47.55438 ),#old brook 31
+c(-55.54844,46.91255),#little lawn 32
+c(-55.49240,46.91927),#lawn 33
+c(-55.45720,47.63639),#simms 34
+c(-55.45720,47.63639 ),# salmon 35
+c(-55.46466,47.61965),# southwest 36
+c(-55.42238,47.70501),#bay du nord 37
+c(-55.39005,47.72007 ),#northwest 38
+c(-55.34075,46.91031),#little st. lawrence 39
+c(-55.37016,47.72007),#north east 40
+c(-55.35724,47.23734),#garnish 41
+c(-55.32097,47.26870),# devil 42
+c(-55.32789,47.65982),#belle harbour 43
+c(-55.12977,47.17238),#west 44
+c(-55.12977,47.17238),#tides 45
+c(-55.18252,47.04919),#big salmonier 46
+c(-55.21101,47.62635),#Rencontre 47
+c(-55.13392,47.65982),#mal bay 48
+c(-54.98913,47.27766),#red harbour 49
+c(-54.98913,47.27766),#northeast 50
+c(-54.96263,47.76526),# long harbour 51
+c(-54.96263,47.76526),#southwest 52
+c(-54.91001,47.33814),#rushoon 53 
+c(-54.81112,47.39189),#bay de leau 54
+c(-54.78110,47.66819),#grande la pierre 55
+c(-54.73200,47.37845),#cape roger 56
+c(-54.72390,47.67154),#terrenceville 57
+c(-54.68914,47.38965),#nonsuch 58
+c(-54.44787,47.57112),#black 59
+c(-54.44787,47.57112),#paradise 60
+c(-54.30613,47.67656),#sandy harbour 61
+c(-54.21163,47.87405),#pipers hole 62
+c(-54.18476,46.95063),#cuslett 63
+c(-54.18428,47.87405),#black 64
+c(-54.08508,47.87512),#watsons 65
+c(-54.08508,47.87512),#north harbour 66
+c(-54.07927,47.12758),#great barasway 67
+c(-54.05394,47.18806),#little barasway 68
+c(-54.00662,47.82529),#come by chance 69
+c(-53.97812,47.24182),#southeast 70
+c(-53.97812,47.24182),#shalloway 71
+c(-53.90230,47.34486),#ship harbour 72
+c(-53.92867,47.31126),#placentia sound 73
+c(-53.96823,47.24854))# northeast 74
+
+sched <- cbind(sched, southcoords)
+names(sched) <-c("Prov", "SFA", "Name", "Long.1", "Lat.1", "Long", "Lat")
+sched$Number <- c(1:74)
 ```
 
 ### Newfoundland - Fix some AQ site coords
@@ -214,7 +349,7 @@ siterast[48,] <- c(-55.76244, 47.59899)
 # for q values (2005-2013) entire prov:
 # plot(NLprovrast, xlim=c(-56.5, -55.5), ylim=c(47.5, 48))
 # text(siterast[,1], siterast[,2])
-# siterast[18,] <- c(-56.06056, 47.77635)
+siterast[18,] <- c(-56.06056, 47.77635)
 # siterast[32,] <- c(-55.79204, 47.58395)
 # siterast[43,] <- c(-55.79204, 47.58395)
 # siterast[35,] <- c(-55.77543, 47.59184)
@@ -235,6 +370,11 @@ d3
 # d3q <- costDistance(tr3cq, fromCoords = cbind(as.numeric(siterast[,1]), as.numeric(siterast[,2])), toCoords = cbind(as.numeric(qsites[,5]), as.numeric(qsites[,6])))
 # 
 # d3q
+
+# SFA coords
+# d3s <- costDistance(tr3cs, fromCoords = cbind(as.numeric(siterast[,1]), as.numeric(siterast[,2])), toCoords = cbind(as.numeric(sched$Long), as.numeric(sched$Lat)))
+# 
+# d3s
 ```
 
 
@@ -250,6 +390,10 @@ colnames(d3)[1:18] <- as.list(as.character(rivermouths$code))
 # colnames(d3q)[16] <- "ID"
 # colnames(d3q)[1:15] <- as.list(as.character(qsites$Code))
 
+# sfa values
+# d3s <- as.data.frame(cbind(d3s, sitecoords$ID))
+# colnames(d3s)[75] <- "ID"
+
 ```
 
 
@@ -261,8 +405,18 @@ dist2AQ_sub <- ddply(.data=dist2AQ_sub, .(ID, Lat, Long),
                      totalfish=sum(totalfish))
 
 dist2AQ <- join(d3, dist2AQ_sub, type="left")
+#dist2AQ <- join(d3s, dist2AQ_sub, type="left")
 #dist2AQ <- join(d3q, dist2AQ_sub, type="left")
 dist2AQ <- subset(dist2AQ, is.na(totalfish)==FALSE)
+
+# for distance only (no inventory numbers, just site y/n)
+dist2AQ_sub <- subset(annual, ReportYear >2001 & ReportYear<2013 & is.na(Lat)==FALSE)
+dist2AQ_sub_NL <- ddply(.data=dist2AQ_sub, .(ID, Lat, Long),
+                     summarize,
+                     totalfish=length(unique(ReportYear)))
+dist2AQ <- join(d3q, dist2AQ_sub_NL, type="left")
+dist2AQ_NL <- subset(dist2AQ, is.na(totalfish)==FALSE)
+
 ```
 
 
@@ -316,6 +470,87 @@ dist2AQ$P13 <- dist2AQ$totalfish/dist2AQ$SGR
 dist2AQ$P14 <- dist2AQ$totalfish/dist2AQ$WAB
 dist2AQ$P15 <- dist2AQ$totalfish/dist2AQ$CMP
 
+# sfa's
+dist2AQ[,1:74] <- apply(dist2AQ[,1:74], 2, function(x) as.character(x))
+dist2AQ[,1:74] <- apply(dist2AQ[,1:74], 2, function(x) as.numeric(x))
+
+# For each AQ site, caclulate total fish/distance from river
+## original calculation
+dist2AQ$P1 <- dist2AQ$totalfish/dist2AQ$V1
+dist2AQ$P2 <- dist2AQ$totalfish/dist2AQ$V2
+dist2AQ$P3 <- dist2AQ$totalfish/dist2AQ$V3
+dist2AQ$P4 <- dist2AQ$totalfish/dist2AQ$V4
+dist2AQ$P5 <- dist2AQ$totalfish/dist2AQ$V5
+dist2AQ$P6 <- dist2AQ$totalfish/dist2AQ$V6
+dist2AQ$P7 <- dist2AQ$totalfish/dist2AQ$V7
+dist2AQ$P8 <- dist2AQ$totalfish/dist2AQ$V8
+dist2AQ$P9 <- dist2AQ$totalfish/dist2AQ$V9
+dist2AQ$P10 <- dist2AQ$totalfish/dist2AQ$V10
+dist2AQ$P11 <- dist2AQ$totalfish/dist2AQ$V11
+dist2AQ$P12 <- dist2AQ$totalfish/dist2AQ$V12
+dist2AQ$P13 <- dist2AQ$totalfish/dist2AQ$V13
+dist2AQ$P14 <- dist2AQ$totalfish/dist2AQ$V14
+dist2AQ$P15 <- dist2AQ$totalfish/dist2AQ$V15
+dist2AQ$P16 <- dist2AQ$totalfish/dist2AQ$V16
+dist2AQ$P17 <- dist2AQ$totalfish/dist2AQ$V17
+dist2AQ$P18 <- dist2AQ$totalfish/dist2AQ$V18
+dist2AQ$P19 <- dist2AQ$totalfish/dist2AQ$V19
+dist2AQ$P20 <- dist2AQ$totalfish/dist2AQ$V20
+dist2AQ$P21 <- dist2AQ$totalfish/dist2AQ$V21
+dist2AQ$P22 <- dist2AQ$totalfish/dist2AQ$V22
+dist2AQ$P23 <- dist2AQ$totalfish/dist2AQ$V23
+dist2AQ$P24 <- dist2AQ$totalfish/dist2AQ$V24
+dist2AQ$P25 <- dist2AQ$totalfish/dist2AQ$V25
+dist2AQ$P26 <- dist2AQ$totalfish/dist2AQ$V26
+dist2AQ$P27 <- dist2AQ$totalfish/dist2AQ$V27
+dist2AQ$P28 <- dist2AQ$totalfish/dist2AQ$V28
+dist2AQ$P29 <- dist2AQ$totalfish/dist2AQ$V29
+dist2AQ$P30 <- dist2AQ$totalfish/dist2AQ$V30
+dist2AQ$P31 <- dist2AQ$totalfish/dist2AQ$V31
+dist2AQ$P32 <- dist2AQ$totalfish/dist2AQ$V32
+dist2AQ$P33 <- dist2AQ$totalfish/dist2AQ$V33
+dist2AQ$P34 <- dist2AQ$totalfish/dist2AQ$V34
+dist2AQ$P35 <- dist2AQ$totalfish/dist2AQ$V35
+dist2AQ$P36 <- dist2AQ$totalfish/dist2AQ$V36
+dist2AQ$P37 <- dist2AQ$totalfish/dist2AQ$V37
+dist2AQ$P38 <- dist2AQ$totalfish/dist2AQ$V38
+dist2AQ$P39 <- dist2AQ$totalfish/dist2AQ$V39
+dist2AQ$P40 <- dist2AQ$totalfish/dist2AQ$V40
+dist2AQ$P41 <- dist2AQ$totalfish/dist2AQ$V41
+dist2AQ$P42 <- dist2AQ$totalfish/dist2AQ$V42
+dist2AQ$P43 <- dist2AQ$totalfish/dist2AQ$V43
+dist2AQ$P44 <- dist2AQ$totalfish/dist2AQ$V44
+dist2AQ$P45 <- dist2AQ$totalfish/dist2AQ$V45
+dist2AQ$P46 <- dist2AQ$totalfish/dist2AQ$V46
+dist2AQ$P47 <- dist2AQ$totalfish/dist2AQ$V47
+dist2AQ$P48 <- dist2AQ$totalfish/dist2AQ$V48
+dist2AQ$P49 <- dist2AQ$totalfish/dist2AQ$V49
+dist2AQ$P50 <- dist2AQ$totalfish/dist2AQ$V50
+dist2AQ$P51 <- dist2AQ$totalfish/dist2AQ$V51
+dist2AQ$P52 <- dist2AQ$totalfish/dist2AQ$V52
+dist2AQ$P53 <- dist2AQ$totalfish/dist2AQ$V53
+dist2AQ$P54 <- dist2AQ$totalfish/dist2AQ$V54
+dist2AQ$P55 <- dist2AQ$totalfish/dist2AQ$V55
+dist2AQ$P56 <- dist2AQ$totalfish/dist2AQ$V56
+dist2AQ$P57 <- dist2AQ$totalfish/dist2AQ$V57
+dist2AQ$P58 <- dist2AQ$totalfish/dist2AQ$V58
+dist2AQ$P59 <- dist2AQ$totalfish/dist2AQ$V59
+dist2AQ$P60 <- dist2AQ$totalfish/dist2AQ$V60
+dist2AQ$P61 <- dist2AQ$totalfish/dist2AQ$V61
+dist2AQ$P62 <- dist2AQ$totalfish/dist2AQ$V62
+dist2AQ$P63 <- dist2AQ$totalfish/dist2AQ$V63
+dist2AQ$P64 <- dist2AQ$totalfish/dist2AQ$V64
+dist2AQ$P65 <- dist2AQ$totalfish/dist2AQ$V65
+dist2AQ$P66 <- dist2AQ$totalfish/dist2AQ$V66
+dist2AQ$P67 <- dist2AQ$totalfish/dist2AQ$V67
+dist2AQ$P68 <- dist2AQ$totalfish/dist2AQ$V68
+dist2AQ$P69 <- dist2AQ$totalfish/dist2AQ$V69
+dist2AQ$P70 <- dist2AQ$totalfish/dist2AQ$V70
+dist2AQ$P71 <- dist2AQ$totalfish/dist2AQ$V71
+dist2AQ$P72 <- dist2AQ$totalfish/dist2AQ$V72
+dist2AQ$P73 <- dist2AQ$totalfish/dist2AQ$V73
+dist2AQ$P74 <- dist2AQ$totalfish/dist2AQ$V74
+
 # sum all pressures for total propagule pressure at a river
 prop.press_all <- apply(as.matrix(dist2AQ[,23:40]), 2, function(x) sum(x, na.rm=TRUE))
 
@@ -334,6 +569,17 @@ write.csv(prop.press_201415, "C:/Users/keyserf/Documents/Data/R output/Propagule
 # prop.press_q <- data.frame(Code=qsites$Code, lat=qsites[,6], long = qsites[,5], prop.press = prop.press_q)
 # 
 # write.csv(prop.press_q, "C:/Users/keyserf/Documents/Data/R output/Propagule Pressure_NL_qvalues_2005-2012_2016-12-06.csv")
+
+
+
+# sum all pressures for total propagule pressure at SFA value river
+# prop.press_sfa <- apply(as.matrix(dist2AQ[,79:152]), 2, function(x) sum(x, na.rm=TRUE))
+# 
+# # match to river mouth coords
+# prop.press_sfa <- data.frame(Code=sched$Number, lat=sched$Lat, long = sched$Long, prop.press = prop.press_sfa)
+# 
+# write.csv(prop.press_sfa, "C:/Users/keyserf/Documents/Data/R output/Propagule Pressure_NL_sfa rivers_2005-2015_2017-01-16.csv")
+
 ```
 
 
@@ -344,11 +590,12 @@ dist2AQ_sub_plot$Lat <- as.numeric(dist2AQ_sub_plot$Lat)
 dist2AQ_sub_plot$Long <- as.numeric(dist2AQ_sub_plot$Long)
 
 prov <- fortify(NL.low.ocean)
+#prov <- fortify(NL.south)
 
 prov$group <- ifelse(prov$long < -56.2 & prov$lat < 47.375, 4771.1, prov$group)
 
 dist2AQ_sub_plot <- arrange(dist2AQ_sub_plot, -totalfish)
-prop.press_all <- arrange(prop.press_all, -prop.press)
+prop.press_sfa <- arrange(prop.press_sfa, -prop.press)
 
 plot1 <- ggplot() + 
   ggtitle("Aquaculture sites")+
@@ -361,7 +608,7 @@ plot1 <- ggplot() +
   scale_size_continuous(name="Total fish", range = c(0.5,10), limits=c(1,5250000), breaks=c(100, 1000, 10000, 100000, 1000000, 2500000, 5250000))
 
 plot2 <- ggplot() + 
-  ggtitle("Propagule pressure (2005-2015)")+
+  ggtitle("SFA 10 and 11: Propagule pressure (2005-2015)")+
   geom_polygon(data=prov, aes(long, lat, group=group), fill="grey")+
   annotate(geom="rect", xmin=-57, xmax=-56, ymin=46.8, ymax= 47.45, fill="grey") +
   geom_point(data=prop.press_all, aes(long, lat, size=prop.press), fill="yellow", shape=21, colour="black") +
@@ -389,7 +636,7 @@ require(ggrepel)
 ggplot() + 
   geom_smooth(data=qsites, aes(prop.press, Q), method="lm", se=TRUE) +
   geom_point(data=qsites, aes(prop.press, Q)) +
-  geom_label_repel(data=qsites, aes(prop.press, Q, label=code)) +
+  geom_label_repel(data=qsites, aes(prop.press, Q, label=Code)) +
   theme_classic() + 
   theme(panel.background=element_rect(colour="black")) +
   ggtitle("2005-2012")+
@@ -418,9 +665,38 @@ ggplot() +
 
 ```
 
+### SFA plots
+```{r}
+
+### SFA 10-11 plot
+ggplot() + geom_polygon(data=prov, aes(long, lat, group=group), fill="grey")+
+  annotate(geom="rect", xmin=-59, xmax=-56.0, ymin=46.5, ymax= 47.4, fill="grey") +
+  annotate(geom="rect", xmin=-56, xmax=-55, ymin=46.5, ymax= 46.8, fill="grey") +
+  coord_map(xlim=c(-58, -53.5), ylim=c(46.6, 48.2)) +
+  theme_classic() + ### favourite theme settings plus makes sure land is white
+  theme(panel.background = element_blank(), panel.border=element_rect(colour="black", fill=NA)) +
+  geom_point(data=prop.press_sfa, aes(long, lat, size=prop.press), fill="yellow", shape=21, colour="black") +
+  scalebar(data=fortify(NL.south), dist=25, dd2km=TRUE, model="WGS84", location="bottomleft", anchor=c(x = -57.75, y = 46.88), st.size=3) +
+  scale_size_continuous(name="\u03A3(total fish/dist)", range = c(0.5,8), limits=c(100,20000))+
+  ggtitle("SFAs 10 and 11")
 
 
+names(prop.press_sfa) <- c("Number", "lat", "long", "prop.press")
 
+prop.press_sfa <- join(prop.press_sfa, sched, type="left")
+
+prop.press_sfa <- select(prop.press_sfa, Prov, SFA, Name, Number, lat, long, prop.press)
+
+prop.press_sfa$Name <- factor(prop.press_sfa$Name, levels=prop.press_sfa$Name[order(prop.press_sfa$Number)], ordered=TRUE)
+
+ggplot() + geom_point(data=prop.press_sfa, aes(prop.press, Name)) + facet_grid(SFA~., scales="free_y", space="free") +
+  theme_bw() + 
+  theme(panel.background = element_blank(), panel.border=element_rect(colour="black", fill=NA)) +
+  xlab("Propagule pressure (2005-2015)") +
+  ylab("River name")
+  
+  
+```
 
 
 ---------------------------------------------------------------------------------------------------------------------
@@ -592,6 +868,11 @@ colnames(d5)[1:25] <- as.list(as.character(nsrivers$code))
 
 dist2AQ_NS <- join(d5, sitecoords, type="left")
 
+
+# Add distance to upstream rivers (NS -  Nictaux is 65 km upstream from assigned "rivermouth" location)
+
+dist2AQ_NS$NIC <- dist2AQ_NS$NIC + 65000
+# NIC was not a q-value river
 
 # for q values
 
@@ -959,13 +1240,16 @@ dist2AQ <- subset(dist2AQ, is.na(totalfish)==FALSE)
 
 
 # for distance only (no inventory numbers, just site y/n)
-dist2AQ_sub <- subset(NB_stocking, Year >1998 & Year<2016 & is.na(lat)==FALSE)
+dist2AQ_sub <- subset(NB_stocking, Year >2001 & Year<2013 & is.na(lat)==FALSE)
 dist2AQ_sub <- ddply(.data=dist2AQ_sub, .(Site.ID, lat, long),
                      summarize,
                      totalfish=length(unique(Year)))
-dist2AQ <- join(d4, dist2AQ_sub, type="left")
+dist2AQ <- join(d4q, dist2AQ_sub, type="left")
 dist2AQ <- subset(dist2AQ, is.na(totalfish)==FALSE)
 
+# Add extra distance for TOB and NSH since they are upstream. 116km for NSH and 293 km for TOB.
+dist2AQ$TOB <- dist2AQ$TOB + 293000
+dist2AQ$NSH <- dist2AQ$NSH + 116000
 ```
 
 
@@ -1144,3 +1428,43 @@ ggplot() +
 
 ```
 
+## all q values together with distance-only pressure
+```{r}
+qvals <- rbind(prop.press_NB_q, prop.press_NS_q)
+
+names(qsites)
+
+prop.press_NL_q <- data.frame(code=qsites$Code, lat=qsites$Lat, long=qsites$Long, prop.press=qsites$prop.press, q=qsites$Q)
+
+qvals <- rbind(qvals, prop.press_NL_q)
+
+qvals$prov <- c(rep("NB", 3), rep("NS", 10), rep("NL", 15))
+
+qvals <- subset(qvals, !code %in% c("TOB", "NSH"))
+
+model_all <- lm(data=qvals, q~prop.press)
+summary(model_all)
+qvals[,7:9] <- predict(qvals, object=model_all, interval=c("confidence"), level=0.95)
+
+qvals[,10:12] <- predict(qvals, object=model_all, interval=c("confidence"), level=0.97)
+qvals$out <- ifelse(qvals$q < qvals$V11 | qvals$q > qvals$V12, "out", "in")
+
+ggplot() + 
+  #geom_smooth(data=qvals, aes(prop.press, q), colour="black", method="lm", se=TRUE) +
+  geom_point(data=qvals, aes(prop.press, q, fill=prov, shape=prov), colour="black", size=3, alpha=0.5) +
+  geom_line(data=qvals, aes(prop.press, V7)) +
+  geom_line(data=qvals, aes(prop.press, V8), lty="dashed") +
+  geom_line(data=qvals, aes(prop.press, V9), lty="dashed") +
+  #geom_label_repel(data=qvals, aes(prop.press, q, label=code)) +
+  theme_classic() + 
+  theme(panel.background=element_rect(colour="black")) +
+  scale_shape_manual(values=c(21,22,23), labels=c("NB (2002-2012)", "NL (2005-2012)", "NS (2002-2012)"))+
+  scale_fill_discrete(labels=c("NB (2002-2012)", "NL (2005-2012)", "NS (2002-2012)"))+
+  xlab("Propagule pressure") +
+  ylab("Q value") +
+  geom_text_repel(data=qvals[qvals$out=="out",], aes(prop.press, q, label=code), size=3) +
+  geom_text(data=NULL, aes(0.0045, 0.27, label=paste0("slope = ", round(coefficients(model_all)[2], 4), "\nadj. Rsq. = ", round(summary(model_all)$adj.r.squared, 4), "\np-value = ", round(anova(model_all)[1,5],4))), size=4, hjust=0)
+  
+
+# try to add in distance for tob and nsh and nic too
+```

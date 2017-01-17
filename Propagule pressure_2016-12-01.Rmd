@@ -189,7 +189,7 @@ bdn <- data.frame(X=NA, x=-55.42002, y=47.7079, code="BDN")
 sampling2015 <- rbind(rivermouths, bdn)
 
 # for SFA 10 and 11 
-sched <- read.csv("C:/Users/keyserf/Documents/Data/Rivers/NL Scheduled Coords.csv")
+sched <- read.csv("C:/Users/keyserf/Documents/Data/Rivers/NL Scheduled Coordinates.csv")
 
 ```
 
@@ -682,6 +682,8 @@ ggplot() + geom_polygon(data=prov, aes(long, lat, group=group), fill="grey")+
 
 
 names(prop.press_sfa) <- c("Number", "lat", "long", "prop.press")
+
+sched
 
 prop.press_sfa <- join(prop.press_sfa, sched, type="left")
 
@@ -1434,9 +1436,14 @@ qvals <- rbind(prop.press_NB_q, prop.press_NS_q)
 
 names(qsites)
 
+
+prop.press_NL_q <- read.csv("C:/Users/keyserf/Documents/Data/R output/Propagule Pressure_NL_qvalues_2005-2012_2016-12-06.csv")
+
 prop.press_NL_q <- data.frame(code=qsites$Code, lat=qsites$Lat, long=qsites$Long, prop.press=qsites$prop.press, q=qsites$Q)
 
-qvals <- rbind(qvals, prop.press_NL_q)
+prop.press_NL_q <- join(prop.press_NL_q, qsites, type="left")
+
+
 
 qvals$prov <- c(rep("NB", 3), rep("NS", 10), rep("NL", 15))
 
@@ -1449,22 +1456,269 @@ qvals[,7:9] <- predict(qvals, object=model_all, interval=c("confidence"), level=
 qvals[,10:12] <- predict(qvals, object=model_all, interval=c("confidence"), level=0.97)
 qvals$out <- ifelse(qvals$q < qvals$V11 | qvals$q > qvals$V12, "out", "in")
 
+statlabel <- paste0("slope = ", round(coefficients(model_all)[2], 4), "              adj. Rsq. = ", round(summary(model_all)$adj.r.squared, 4), "              p-value = ", round(anova(model_all)[1,5],4))
+
+
 ggplot() + 
-  #geom_smooth(data=qvals, aes(prop.press, q), colour="black", method="lm", se=TRUE) +
-  geom_point(data=qvals, aes(prop.press, q, fill=prov, shape=prov), colour="black", size=3, alpha=0.5) +
-  geom_line(data=qvals, aes(prop.press, V7)) +
-  geom_line(data=qvals, aes(prop.press, V8), lty="dashed") +
-  geom_line(data=qvals, aes(prop.press, V9), lty="dashed") +
+  geom_smooth(data=prop.press_NL_q, aes(prop.press.prop.press, Q), colour="black", method="lm", se=FALSE) +
+  geom_point(data=prop.press_NL_q, aes(prop.press.prop.press, Q), colour="black", size=3, alpha=0.5) +
+  #geom_line(data=qvals[qvals$prov %in% c("NS", "NL"),], aes(prop.press, V7)) +
+  #geom_line(data=qvals[qvals$prov %in% c("NS", "NL"),], aes(prop.press, V8), lty="dashed") +
+  #geom_line(data=qvals[qvals$prov %in% c("NS", "NL"),], aes(prop.press, V9), lty="dashed") +
   #geom_label_repel(data=qvals, aes(prop.press, q, label=code)) +
   theme_classic() + 
   theme(panel.background=element_rect(colour="black")) +
-  scale_shape_manual(values=c(21,22,23), labels=c("NB (2002-2012)", "NL (2005-2012)", "NS (2002-2012)"))+
-  scale_fill_discrete(labels=c("NB (2002-2012)", "NL (2005-2012)", "NS (2002-2012)"))+
+  # scale_shape_manual(values=c(21,22,23), labels=c("NL (2005-2012)", "NS (2002-2012)"))+
+  # scale_fill_discrete(labels=c("NL (2005-2012)", "NS (2002-2012)"))+
   xlab("Propagule pressure") +
   ylab("Q value") +
-  geom_text_repel(data=qvals[qvals$out=="out",], aes(prop.press, q, label=code), size=3) +
-  geom_text(data=NULL, aes(0.0045, 0.27, label=paste0("slope = ", round(coefficients(model_all)[2], 4), "\nadj. Rsq. = ", round(summary(model_all)$adj.r.squared, 4), "\np-value = ", round(anova(model_all)[1,5],4))), size=4, hjust=0)
+  geom_text_repel(data=prop.press_NL_q, aes(prop.press.prop.press, Q, label=Code), size=3)+
+  ggtitle("Newfoundland 2005-2012")
+  #geom_text(data=NULL, aes(0.0045, 0.27, label=paste0("slope = ", round(coefficients(model_all)[2], 4), "\nadj. Rsq. = ", round(summary(model_all)$adj.r.squared, 4), "\np-value = ", round(anova(model_all)[1,5],4))), size=4, hjust=0, ) +
+  #facet_wrap(~prov, scales="free_x") +
+  #ggtitle(statlabel) +
+  #scale_x_continuous()
   
+sfa <- read.csv("C:/Users/keyserf/Documents/Data/R output/Propagule Pressure_NL_sfa rivers_2005-2015_2017-01-16.csv")
+hybrids <- read.csv("C:/Users/keyserf/Documents/Data/Rivers/Hybrid Proportions Output.csv")
+names(hybrids)
+colnames(sfa)[9]<-"River"
 
-# try to add in distance for tob and nsh and nic too
+hybrids <- join(hybrids, sfa, type="left")
+
+ggplot() + geom_point(data=hybrids, aes(Propagule.pressure, pHybNC)) + 
+  geom_smooth(data=hybrids, aes(Propagule.pressure, pHybNC), method="lm", se=FALSE) + 
+  theme_classic() +
+  theme(panel.background=element_rect(colour="black")) +
+  geom_text_repel(data=hybrids, aes(Propagule.pressure, pHybNC, label=River), size=3)+
+  xlab("Propagule pressure")
+
+ggplot() + geom_point(data=hybrids, aes(Propagule.pressure, pFarmNC)) + 
+  geom_smooth(data=hybrids, aes(Propagule.pressure, pFarmNC), method="lm", se=FALSE) +
+  theme_classic() +
+  theme(panel.background=element_rect(colour="black")) +
+  geom_text_repel(data=hybrids, aes(Propagule.pressure, pFarmNC, label=River), size=3)+
+  xlab("Propagule pressure")
+
+ggplot() + geom_point(data=hybrids, aes(Propagule.pressure, pWildNC)) + 
+  geom_smooth(data=hybrids, aes(Propagule.pressure, pWildNC), method="lm", se=FALSE) +
+  theme_classic() +
+  theme(panel.background=element_rect(colour="black")) +
+  geom_text_repel(data=hybrids, aes(Propagule.pressure, pWildNC, label=River), size=3)+
+  xlab("Propagule pressure")
+
+
+
+```
+
+
+
+### ALL PROVS COMBINED
+```{r}
+atlcan <- getData("GADM", country="CAN", level=2)
+atlcan <- crop(atlcan, extent(-68, -59, 42, 48))
+
+plot(atlcan)
+
+maritimes <- read.csv("C:/Users/keyserf/Documents/Data/Rivers/Maritimes coordinates.csv")
+
+maritimes <- subset(maritimes, Long<0)
+
+NSsitecoords <- read.csv("C:/Users/keyserf/Documents/Data/Inventory data/NS I&T/NS IT sites_FK_EP_FK.csv", header=TRUE)
+sitecoords <- unique(subset(NSsitecoords, is.na(Lat)=="FALSE", select=c("Site.ID","Lat", "Long")))
+x <- sitecoords$Long
+y <- sitecoords$Lat
+xy <- cbind(x, y)
+siterast <- as.matrix(xy)
+
+siterast[13,] <- c(-65.74858, 44.65102)
+siterast[1,] <- c(-64.32808,  44.41282)
+siterast[6,] <- c(-60.84400, 45.67315)
+siterast[10,] <- c(-60.84400, 45.67315)
+siterast[2,] <- c(-60.97440, 45.99829)
+
+sitecoords$prov <- "NS"
+
+NB_stocking <- read.csv("C:/Users/keyserf/Documents/Data/R output/NB_stocking.csv")
+sitecoords2 <- unique(subset(NB_stocking, is.na(lat)=="FALSE", select=c("Site.ID","lat", "long")))
+x <- sitecoords2$long
+y <- sitecoords2$lat
+xy2 <- cbind(x, y)
+siterast2 <- as.matrix(xy2)
+
+names(sitecoords2) <- c("Site.ID", "Lat", "Long")
+sitecoords2$prov <- "NB"
+
+sitecoords_all <- rbind(sitecoords, sitecoords2)
+
+siterast <- as.matrix(cbind(sitecoords_all$Long, sitecoords_all$Lat))
+
+# 
+# require(marmap)
+# atl <- getNOAA.bathy(lon1=-68, lon2=-59, lat1=42, lat2=48, resolution=0.5)
+# 
+# plot.bathy(atl)
+
+
+r <- raster(ncols=700, nrow=526)
+extent(r) <- extent(atlcan)
+MARrast <- rasterize(atlcan, r, fun="first")
+
+# Change values in raster so that land is impassable (i.e. distances would be massive).
+MARrast@data@values <- ifelse(is.na(MARrast@data@values)=="FALSE", 100000, 1)
+
+plot(MARrast)
+
+# create transition layer for raster (likelihood of presence within cell). 
+trmar <- transition(1/MARrast, transitionFunction=mean, directions=8)
+trmarc <- geoCorrection(trmar, type="c")
+
+# rastmap <- as.data.frame(cbind(coordinates(MARrast), MARrast@data@values))
+# 
+# names(rastmap)
+# 
+# maritimes$roundedlong <- round(maritimes$Long, 4)
+# maritimes$roundedlat <- round(maritimes$Lat, 4)
+# rastmap$x <- round(rastmap$x, 4)
+# rastmap$y <- round(rastmap$y, 4)
+# 
+# rastmap <- join(rastmap, maritimes, type="left")
+
+## example:
+# #create two sets of coordinates
+# sP1 <- cbind(c(65,5,-65),c(55,35,-35))
+# sP2 <- cbind(c(50,15,-40),c(80,20,-5))
+# #from and to different
+# costDistance(tr,sP1,sP2)
+# costDistance(tr2,sP1,sP2)
+
+dmar <- costDistance(trmarc, fromCoords = cbind(as.numeric(sitecoords_all$Long), as.numeric(sitecoords_all$Lat)), toCoords = cbind(as.numeric(maritimes$Long), as.numeric(maritimes$Lat)))
+
+dmar <- as.data.frame(dmar)
+
+# dmar_named <- dmar
+# 
+# colnames(dmar_named) <- as.character(maritimes$Name)
+# 
+# dmar_named <- dmar_named[ ,(dmar_named[1, ] < 10000000)]
+# 
+# View(dmar_named)
+# 
+# dmar2 <- dmar
+# 
+# colnames(dmar2) <- maritimes$Name
+# 
+# View(dmar2)
+# 
+# str(dmar)
+
+sitecoords_all<- read.csv("C:/Users/keyserf/Documents/Data/Rivers/sitecoords_all.csv")
+maritimes<- read.csv("C:/Users/keyserf/Documents/Data/Rivers/maritimes.csv")
+
+
+# Identify and remove "bad" rivers from maritimes DF
+test <- c(dmar[1,] < 10000000) # if less than 10 mill, true
+str(test)
+test <- data.frame(test=test, val = 1:387)
+test$var <- paste0("V", test$val)
+test <- subset(test, test=="TRUE")
+test
+
+namesyes <- test$var             
+               
+maritimes$var <- paste0("V", 1:387)
+
+maritimes2 <- join(maritimes, test, type="left")
+maritimes2 <- subset(maritimes2, test=="TRUE")
+
+maritimes2$Name <- as.factor(as.character(maritimes2$Name))
+maritimes2 <- arrange(maritimes2, Long, Lat)
+maritimesrast <- cbind(maritimes2$Long, maritimes2$Lat)
+maritimesrast <- as.matrix(maritimesrast)
+
+# make sitecoords into matrix? --> didn't help
+x <- sitecoords2$long
+y <- sitecoords2$lat
+xy2 <- cbind(x, y)
+siterast2 <- as.matrix(xy2)
+
+
+# Use maritimes rivers from previous analyses instead. Fix above tomorrow.
+marrivers <- rbind(nsrivers, nbrivers2) 
+
+# Re-run with only "good" maritimes rivers (bad values are still appearing... why? Are columns re-ordering somehow?)
+dmar <- costDistance(trmarc, fromCoords = cbind(as.numeric(siterast[,1]), as.numeric(siterast[,2])), toCoords = cbind(as.numeric(maritimesrast$long), as.numeric(marrivers$lat)))
+
+dmar <- as.data.frame(cbind(dmar, sitecoords_all$Site.ID))
+
+
+
+colnames(dmar)[1:38] <- as.list(as.character(marrivers$code))
+colnames(dmar)[39] <- "Site.ID"
+
+dist2AQ_NB <- subset(NB_stocking, Year >1999 & Year<2013 & is.na(lat)==FALSE)
+
+NSsitecoords <- subset(NSsitecoords, select=c(Site.ID, Lat, Long))
+NSsitecoords <- unique(NSsitecoords)
+
+NSinv <- join(NSinv, NSsitecoords, type="left")
+dist2AQ_NS <- subset(NSinv, Year >1999 & Year<2013 & is.na(Lat)==FALSE)
+
+names(dist2AQ_NB) <- c("X", "Site.ID", "Year", "totalfish", "Long", "Lat", "Area")
+names(dist2AQ_NS)
+dist2AQ_NB <- dist2AQ_NB[,1:6]
+
+dist2AQ_sub <- rbind(dist2AQ_NB, dist2AQ_NS)
+
+dist2AQ_sub <- ddply(.data=dist2AQ_sub, .(Site.ID, Lat, Long),
+                     summarize,
+                     totalfish=length(unique(Year)))
+
+dist2AQ <- join(dmar, dist2AQ_sub, type="left")
+dist2AQ <- subset(dist2AQ, is.na(totalfish)==FALSE)
+
+
+dist2AQ[,1:38] <- apply(dist2AQ[,1:38], 2, function(x) as.character(x))
+dist2AQ[,1:38] <- apply(dist2AQ[,1:38], 2, function(x) as.numeric(x))
+
+# For each AQ site, caclulate total fish/distance from river
+## original calculation
+test <- c(dist2AQ$totalfish/dist2AQ[,1:38])
+dist2AQ <- cbind(dist2AQ, test)
+
+# sum all pressures for total propagule pressure at a river
+prop.press_MILLIONRIVERS <- apply(as.matrix(dist2AQ[,43:80]), 2, function(x) sum(x, na.rm=TRUE))
+
+# match to river mouth coords
+prop.press_MILLIONRIVERS <- data.frame(code = marrivers$code, Lat=marrivers$lat, Long = marrivers$long, prop.press = prop.press_MILLIONRIVERS)
+
+prop.press_MILLIONRIVERS <- arrange(prop.press_MILLIONRIVERS, -prop.press)
+
+ggplot() + 
+  ggtitle("Propagule pressure (2000-2012)")+
+  geom_spatial(data=NB.low, aes(fill=ctry_en), show.legend = FALSE) + ### canvec spatialpolygonsdataframe
+  geom_spatial(data=PE.low, aes(fill=ctry_en), show.legend = FALSE) + ### canvec spatialpolygonsdataframe
+  geom_spatial(data=NS.low, aes(fill=ctry_en), show.legend = FALSE) + ### canvec spatialpolygonsdataframe
+  scale_fill_manual(values=c("grey"), guide=FALSE) + ### fills geom_spatials with grey
+  geom_polygon(data=GOMclip, aes(long, lat, group=group), fill="grey") + ### Gulf of Maine shapefile to get Grand Manan & Maine
+  #geom_path(data=CA.df, aes(long, lat, group=group),colour="black") + ### plots black outline on provinces
+  annotate(geom="rect", xmin=-60, xmax=-59.5, ymin=47.5, ymax= 48, fill="grey") + ### these annotates hide white space!
+  annotate(geom="rect", xmin=-64, xmax=-59.5, ymin=43.2, ymax= 44, fill="grey") +
+  annotate(geom="rect", xmin=-61, xmax=-59.5, ymin=44, ymax= 45, fill="grey") +
+  geom_point(data=prop.press_MILLIONRIVERS, aes(Long, Lat, size=prop.press), fill="yellow", shape=21, colour="black") +
+  coord_map(xlim=c(-68, -59.5), ylim=c(43.3, 48)) + ### sets boundaries
+  theme_classic() + ### favourite theme settings plus makes sure land is white
+  theme(panel.background = element_blank(), panel.border=element_rect(colour="black", fill=NA)) +
+  scale_size_continuous(name="\u03A3(years stocked/dist)", range = c(0.5,8))
+
+
+
+dist2AQ[,c(228,250,251,252,253,481)]
+
+plot(MARrast)
+text(maritimes$Long, maritimes$Lat)
+
+
+
+
 ```

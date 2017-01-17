@@ -1551,110 +1551,56 @@ sitecoords2$prov <- "NB"
 
 sitecoords_all <- rbind(sitecoords, sitecoords2)
 
-siterast <- as.matrix(cbind(sitecoords_all$Long, sitecoords_all$Lat))
 
-# 
-# require(marmap)
-# atl <- getNOAA.bathy(lon1=-68, lon2=-59, lat1=42, lat2=48, resolution=0.5)
-# 
-# plot.bathy(atl)
+# Get shapefile
+atlcan <- getData("GADM", country="CAN", level=3)
+extent(atlcan)
 
+# crop it
+atlcan <- crop(atlcan, extent(-68, -59, 41.67693, 50))
 
+#build raster file
 r <- raster(ncols=700, nrow=526)
 extent(r) <- extent(atlcan)
 MARrast <- rasterize(atlcan, r, fun="first")
 
-# Change values in raster so that land is impassable (i.e. distances would be massive).
-MARrast@data@values <- ifelse(is.na(MARrast@data@values)=="FALSE", 100000, 1)
+#save it in case of changes
+MARrast2 <- MARrast
 
-plot(MARrast)
+#change land values to make them impassable
+MARrast2@data@values <- ifelse(is.na(MARrast2@data@values)=="FALSE", 100000, 1)
 
-# create transition layer for raster (likelihood of presence within cell). 
-trmar <- transition(1/MARrast, transitionFunction=mean, directions=8)
+#canso causeway is impassable
+MARrast2@data@values <- ifelse(coordinates(MARrast2)[,1] > -61.42577 & coordinates(MARrast2)[,1] < -61.414002 & coordinates(MARrast2)[,2] > 45.641238 & coordinates(MARrast2)[,2] < 45.647156, 1000000, MARrast2@data@values)
+
+#transition layers
+trmar <- transition(1/MARrast2, transitionFunction=mean, directions=8)
 trmarc <- geoCorrection(trmar, type="c")
 
-# rastmap <- as.data.frame(cbind(coordinates(MARrast), MARrast@data@values))
-# 
-# names(rastmap)
-# 
-# maritimes$roundedlong <- round(maritimes$Long, 4)
-# maritimes$roundedlat <- round(maritimes$Lat, 4)
-# rastmap$x <- round(rastmap$x, 4)
-# rastmap$y <- round(rastmap$y, 4)
-# 
-# rastmap <- join(rastmap, maritimes, type="left")
+#remove the rivers that are on land by making a list of good rivers
+bad<-data.frame(extract(x = MARrast2, y = SpatialPoints(coords = cbind(maritimes$Long, maritimes$Lat), proj4string = CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"))))
+bad$Name <- maritimes$Name
+get_good <- which(bad[,1] == 1)
 
-## example:
-# #create two sets of coordinates
-# sP1 <- cbind(c(65,5,-65),c(55,35,-35))
-# sP2 <- cbind(c(50,15,-40),c(80,20,-5))
-# #from and to different
-# costDistance(tr,sP1,sP2)
-# costDistance(tr2,sP1,sP2)
+#calculate least-cost distance
+dmar2 <- costDistance(trmarc, fromCoords = cbind(as.numeric(sitecoords_all$Long), as.numeric(sitecoords_all$Lat)), 
+                      toCoords = cbind(as.numeric(maritimes$Long[get_good]), as.numeric(maritimes$Lat[get_good])))
 
-dmar <- costDistance(trmarc, fromCoords = cbind(as.numeric(sitecoords_all$Long), as.numeric(sitecoords_all$Lat)), toCoords = cbind(as.numeric(maritimes$Long), as.numeric(maritimes$Lat)))
+#set colnames in matrix to be the good rivers from maritimes df
+colnames(dmar2) <- maritimes$Name[get_good]
 
-dmar <- as.data.frame(dmar)
+#remove the "pond" columns
+dmar3 <- dmar2[,(dmar2[1, ] < 10000000)]
 
-# dmar_named <- dmar
-# 
-# colnames(dmar_named) <- as.character(maritimes$Name)
-# 
-# dmar_named <- dmar_named[ ,(dmar_named[1, ] < 10000000)]
-# 
-# View(dmar_named)
-# 
-# dmar2 <- dmar
-# 
-# colnames(dmar2) <- maritimes$Name
-# 
-# View(dmar2)
-# 
-# str(dmar)
+#cbind the AQ site IDs
+dmar3 <- as.data.frame(cbind(dmar3, sitecoords_all$Site.ID))
+colnames(dmar3)[104] <- "Site.ID"
 
-sitecoords_all<- read.csv("C:/Users/keyserf/Documents/Data/Rivers/sitecoords_all.csv")
-maritimes<- read.csv("C:/Users/keyserf/Documents/Data/Rivers/maritimes.csv")
-
-
-# Identify and remove "bad" rivers from maritimes DF
-test <- c(dmar[1,] < 10000000) # if less than 10 mill, true
-str(test)
-test <- data.frame(test=test, val = 1:387)
-test$var <- paste0("V", test$val)
-test <- subset(test, test=="TRUE")
-test
-
-namesyes <- test$var             
-               
-maritimes$var <- paste0("V", 1:387)
-
-maritimes2 <- join(maritimes, test, type="left")
-maritimes2 <- subset(maritimes2, test=="TRUE")
-
-maritimes2$Name <- as.factor(as.character(maritimes2$Name))
-maritimes2 <- arrange(maritimes2, Long, Lat)
-maritimesrast <- cbind(maritimes2$Long, maritimes2$Lat)
-maritimesrast <- as.matrix(maritimesrast)
-
-# make sitecoords into matrix? --> didn't help
-x <- sitecoords2$long
-y <- sitecoords2$lat
-xy2 <- cbind(x, y)
-siterast2 <- as.matrix(xy2)
-
-
-# Use maritimes rivers from previous analyses instead. Fix above tomorrow.
-marrivers <- rbind(nsrivers, nbrivers2) 
-
-# Re-run with only "good" maritimes rivers (bad values are still appearing... why? Are columns re-ordering somehow?)
-dmar <- costDistance(trmarc, fromCoords = cbind(as.numeric(siterast[,1]), as.numeric(siterast[,2])), toCoords = cbind(as.numeric(maritimesrast$long), as.numeric(marrivers$lat)))
-
-dmar <- as.data.frame(cbind(dmar, sitecoords_all$Site.ID))
-
-
-
-colnames(dmar)[1:38] <- as.list(as.character(marrivers$code))
-colnames(dmar)[39] <- "Site.ID"
+#get the true water sites by stealing the column names.
+maritimes3 <- as.character(colnames(dmar3)[1:103])
+maritimes$Name <- as.character(maritimes$Name)
+maritimes2 <- subset(maritimes, Name %in% maritimes3)
+arrange(maritimes2, Name)$Name
 
 dist2AQ_NB <- subset(NB_stocking, Year >1999 & Year<2013 & is.na(lat)==FALSE)
 
@@ -1674,23 +1620,25 @@ dist2AQ_sub <- ddply(.data=dist2AQ_sub, .(Site.ID, Lat, Long),
                      summarize,
                      totalfish=length(unique(Year)))
 
-dist2AQ <- join(dmar, dist2AQ_sub, type="left")
+dist2AQ <- join(dmar3, dist2AQ_sub, type="left")
 dist2AQ <- subset(dist2AQ, is.na(totalfish)==FALSE)
 
 
-dist2AQ[,1:38] <- apply(dist2AQ[,1:38], 2, function(x) as.character(x))
-dist2AQ[,1:38] <- apply(dist2AQ[,1:38], 2, function(x) as.numeric(x))
+dist2AQ[,1:103] <- apply(dist2AQ[,1:103], 2, function(x) as.character(x))
+dist2AQ[,1:103] <- apply(dist2AQ[,1:103], 2, function(x) as.numeric(x))
+
+dist2AQ[dist2AQ == 0] <- 1000
 
 # For each AQ site, caclulate total fish/distance from river
 ## original calculation
-test <- c(dist2AQ$totalfish/dist2AQ[,1:38])
+test <- c(dist2AQ$totalfish/dist2AQ[,1:103])
 dist2AQ <- cbind(dist2AQ, test)
 
 # sum all pressures for total propagule pressure at a river
-prop.press_MILLIONRIVERS <- apply(as.matrix(dist2AQ[,43:80]), 2, function(x) sum(x, na.rm=TRUE))
+prop.press_MILLIONRIVERS <- apply(as.matrix(dist2AQ[,108:210]), 2, function(x) sum(x, na.rm=TRUE))
 
 # match to river mouth coords
-prop.press_MILLIONRIVERS <- data.frame(code = marrivers$code, Lat=marrivers$lat, Long = marrivers$long, prop.press = prop.press_MILLIONRIVERS)
+prop.press_MILLIONRIVERS <- data.frame(Name = maritimes2$Name, Lat=maritimes2$Lat, Long =maritimes2$Long, prop.press = prop.press_MILLIONRIVERS, sfa=maritimes2$SFA)
 
 prop.press_MILLIONRIVERS <- arrange(prop.press_MILLIONRIVERS, -prop.press)
 
@@ -1713,12 +1661,20 @@ ggplot() +
 
 
 
-dist2AQ[,c(228,250,251,252,253,481)]
+levels(prop.press_MILLIONRIVERS$sfa) <- c("SFA 18", "SFA 19", "SFA 20", "SFA 21", "SFA 22", "SFA 23", "SFA 15", "SFA 15", "SFA 16", "SFA 17")
 
-plot(MARrast)
-text(maritimes$Long, maritimes$Lat)
+prop.press_MILLIONRIVERS$sfa <- factor(prop.press_MILLIONRIVERS$sfa, c("SFA 15", "SFA 16", "SFA 17", "SFA 18",
+                                                                       "SFA 19", "SFA 20", "SFA 21", "SFA 22", "SFA 23"))
 
 
+prop.press_sfa$Name <- factor(prop.press_sfa$Name, levels=prop.press_sfa$Name[order(prop.press_sfa$Number)], ordered=TRUE)
+prop.press_MILLIONRIVERS$Name <- factor(prop.press_MILLIONRIVERS$Name, levels=prop.press_MILLIONRIVERS$Name[order(prop.press_MILLIONRIVERS$Long)], ordered=TRUE)
+
+ggplot() + geom_point(data=prop.press_MILLIONRIVERS, aes(prop.press, Name)) + facet_grid(sfa~., scales="free_y", space="free") +
+  theme_bw() + 
+  theme(panel.background = element_blank(), panel.border=element_rect(colour="black", fill=NA)) +
+  xlab("Propagule pressure (2000-2012)") +
+  ylab("River name")
 
 
 ```

@@ -1659,8 +1659,12 @@ prop.press_2012<- apply(as.matrix(dist2AQ[dist2AQ$Year==2012,  109:211]), 2, fun
 
 prop.press_byyear <- data.frame(prop.press=c(prop.press_2000, prop.press_2001, prop.press_2002, prop.press_2003, prop.press_2004, prop.press_2005, prop.press_2006, prop.press_2007, prop.press_2008, prop.press_2009, prop.press_2010, prop.press_2011, prop.press_2012), year=rep(2000:2012, each=103), Name=rep(maritimes2$Name, 13), Lat=rep(maritimes2$Lat, 13), Long=rep(maritimes2$Long, 13))
 
+write.csv(prop.press_byyear, "C:/Users/keyserf/Documents/Data/R output/prop.press_byyear_2017-01-20.csv")
+
 # match to river mouth coords
 prop.press_MILLIONRIVERS <- data.frame(Name = maritimes2$Name, Lat=maritimes2$Lat, Long =maritimes2$Long, prop.press = prop.press_MILLIONRIVERS, sfa=maritimes2$SFA)
+
+write.csv(prop.press_MILLIONRIVERS, "C:/Users/keyserf/Documents/Data/R output/prop.press_maritimes_2017-01-20.csv")
 
 prop.press_MILLIONRIVERS <- arrange(prop.press_MILLIONRIVERS, -prop.press)
 
@@ -1773,4 +1777,275 @@ ggplot() + geom_point(data=sfalist, aes(Long,Lat, colour=COSEWIC.DU)) + coord_ma
 str(sfalist)
 
 ```
+
+### reports
+```{r}
+
+reports <- read.csv("C:/Users/keyserf/Documents/Data/Escape events and reports/Escapee reports_2017-01-13.csv")
+
+reports <- reports[,c(1:12)]
+
+ddply(.data=reports, .(Year),
+      summarize, 
+      nreports = length(unique(River)))
+
+reports$Year.adj <- as.numeric(as.character(reports$Year))
+
+new <- subset(reports, Year.adj > 2007)
+
+## add bradbury sampling sites (BDN, GAR, LTR, FBN, SMB)
+
+brad2015 <- ddply(.data=bradprops2015, .(River),
+                  summarize,
+                  totalfarmed = sum(Esc),
+                  totalsamp = sum(total))
+
+brad2015[is.na(brad2015)] <- 0
+
+brad2015$propfarmed <- brad2015$totalfarmed / brad2015$totalsamp
+
+brad2015$River[brad2015$River == "Northwest River"] <-  "North West Brook 1"
+brad2015$River[brad2015$River == "Simm's Brook"] <-  "Simmons Brook"
+
+colnames(brad2015)[2] <- "TotalFarmed"
+colnames(brad2015)[3] <- "TotalCombined"
+
+brad2015$ProvState <- "NL"
+brad2015$Year.adj <- 2015
+
+brad2015 <- brad2015[,c(1:3,5:6)]
+
+new <- join(new, brad2015, type="full")
+
+nsrivers <- nsrivers[,c(1,3,2,4)]
+
+marreports <- rbind(nbrivers2, nsrivers)
+
+nlrivers <- sched[,c(3,6,7)]
+names(nlrivers) <- c("River", "long", "lat")
+nlrivers$code <- NA
+
+
+atlreports <- rbind(marreports, nlrivers)
+
+atlreports$River <- as.character(atlreports$River)
+
+atlreports[10,1] <- "St. John River"
+atlreports[22,1] <- "Lahave"
+atlreports[29,1] <- "North (CB)"
+
+
+new <- join(new, atlreports, type="left")
+new[new$River=="Clyburn",14] <- 46.661677
+new[new$River=="Clyburn",15] <- -60.397694
+
+new[,c(1,14:16)]
+
+new$PropFarmed <- as.numeric(new$TotalFarmed) / as.numeric(new$TotalCombined)
+
+newreports <- unique(new[,c(1,14:15)])
+newreports[newreports$River=="Magaguadavic",2:3] <- c(45.122017, -66.910076)
+newreports[newreports$River=="Conne River",2:3] <- c(45.867332, -55.801525)
+
+
+ggplot() + geom_point(data=new, aes(long, lat, size=as.numeric(PropFarmed))) + coord_map()
+
+names(annual)
+NLinv <- annual[,c(1,2,5,6)]
+names(NLinv) <- c("X", "Site.ID", "Lat", "Long")
+NLinv$prov <- "NL"
+
+sitecoords_atl <- rbind(sitecoords_all, NLinv)
+sitecoords_atl <- unique(sitecoords_atl[,2:5])
+sitecoords_atl <- sitecoords_atl[is.na(sitecoords_atl$Long)==FALSE,]
+
+sitecoords_atl[132,3:2] <- c(-55.86193, 47.73514) 
+sitecoords_atl[150,3:2] <- c(-55.82891, 47.54275)
+sitecoords_atl[161,3:2] <- c(-55.82891, 47.54275)
+
+allatl <- getData("GADM", country="CAN", level=2)
+allatl <- crop(allatl, extent(-68, -53, 42, 49))
+
+#build raster file
+r <- raster(ncols=1200, nrows=700)
+extent(r) <- extent(allatl)
+ATLrast <- rasterize(allatl, r, fun="first")
+
+#save it in case of changes
+ATLrast2 <- ATLrast
+plot(ATLrast2)
+
+#change land values to make them impassable
+ATLrast2@data@values <- ifelse(is.na(ATLrast2@data@values)=="FALSE", 100000, 1)
+
+#canso causeway is impassable
+ATLrast2@data@values <- ifelse(coordinates(ATLrast2)[,1] > -61.42577 & coordinates(ATLrast2)[,1] < -61.414002 & coordinates(ATLrast2)[,2] > 45.641238 & coordinates(ATLrast2)[,2] < 45.647156, 1000000, ATLrast2@data@values)
+
+#transition layers
+tratl <- transition(1/ATLrast2, transitionFunction=mean, directions=8)
+tratlc <- geoCorrection(tratl, type="c")
+
+datl_new <- costDistance(tratlc, fromCoords = cbind(as.numeric(sitecoords_atl$Long), as.numeric(sitecoords_atl$Lat)), 
+                      toCoords = cbind(as.numeric(newreports$long), as.numeric(newreports$lat)))
+
+datl_new <- cbind(datl_new, sitecoords_atl$Site.ID, sitecoords_atl$prov)
+datl_new <- as.data.frame(datl_new)
+colnames(datl_new)[11] <- "Site.ID"
+
+datl_new <- cbind(datl_new, sitecoords_atl$prov)
+colnames(datl_new)[12] <- "prov"
+
+dist2AQ_NB <- subset(NB_stocking, Year >2007 & is.na(lat)==FALSE)
+
+NSsitecoords <- subset(NSsitecoords, select=c(Site.ID, Lat, Long))
+NSsitecoords <- unique(NSsitecoords)
+
+NSinv <- join(NSinv, NSsitecoords, type="left")
+dist2AQ_NS <- subset(NSinv, Year >2007 & is.na(Lat)==FALSE)
+
+names(dist2AQ_NB) <- c("X", "Site.ID", "Year", "totalfish", "Long", "Lat", "Area")
+names(dist2AQ_NS)
+
+dist2AQ_NB <- dist2AQ_NB[,c(1,2,3,4,6,5)]
+dist2AQ_NB$prov <- "NB"
+dist2AQ_NS$prov <- "NS"
+
+dist2AQ_NL <- annual
+names(dist2AQ_NL) <- c("X", "Site.ID", "Year", "totalfish", "Lat", "Long")
+dist2AQ_NL$prov <- "NL"
+
+dist2AQ_sub <- rbind(dist2AQ_NB, dist2AQ_NS, dist2AQ_NL)
+dist2AQ_sub <- dist2AQ_sub[,2:7]
+#dist2AQ_sub <- ddply(.data=dist2AQ_sub, .(Site.ID, Lat, Long),
+                     summarize,
+                     totalfish=length(unique(Year)))
+
+dist2AQ <- join(datl_new, dist2AQ_sub, type="left")
+dist2AQ <- subset(dist2AQ, is.na(totalfish)==FALSE)
+
+dist2AQ[,1:15] <- apply(dist2AQ[,1:15], 2, function(x) as.character(x))
+dist2AQ[,1:15] <- apply(dist2AQ[,1:15], 2, function(x) as.numeric(x))
+
+dist2AQ[dist2AQ == 0] <- 1000
+
+# for byyear calcs, change totalfish to 1 (1 year)
+dist2AQ$totalfish <- 1
+
+# For each AQ site, caclulate total fish/distance from river
+## original calculation
+test <- c(dist2AQ$totalfish/dist2AQ[,1:10])
+dist2AQ <- cbind(dist2AQ, test)
+
+# sum all pressures for total propagule pressure at a river
+prop.press_atlreports <- apply(as.matrix(dist2AQ[,17:26]), 2, function(x) sum(x, na.rm=TRUE))
+
+# for each year
+prop.pressatl_2008 <- apply(as.matrix(dist2AQ[dist2AQ$Year==2008, 17:26]), 2, function(x) sum(x, na.rm=TRUE))
+prop.pressatl_2009 <- apply(as.matrix(dist2AQ[dist2AQ$Year==2009,  17:26]), 2, function(x) sum(x, na.rm=TRUE))
+prop.pressatl_2010<- apply(as.matrix(dist2AQ[dist2AQ$Year==2010,  17:26]), 2, function(x) sum(x, na.rm=TRUE))
+prop.pressatl_2011<- apply(as.matrix(dist2AQ[dist2AQ$Year==2011,  17:26]), 2, function(x) sum(x, na.rm=TRUE))
+prop.pressatl_2012<- apply(as.matrix(dist2AQ[dist2AQ$Year==2012,  17:26]), 2, function(x) sum(x, na.rm=TRUE))
+prop.pressatl_2013<- apply(as.matrix(dist2AQ[dist2AQ$Year==2013,  17:26]), 2, function(x) sum(x, na.rm=TRUE))
+prop.pressatl_2014<- apply(as.matrix(dist2AQ[dist2AQ$Year==2014,  17:26]), 2, function(x) sum(x, na.rm=TRUE))
+prop.pressatl_2015<- apply(as.matrix(dist2AQ[dist2AQ$Year==2015,  17:26]), 2, function(x) sum(x, na.rm=TRUE))
+prop.pressatl_2016<- apply(as.matrix(dist2AQ[dist2AQ$Year==2016,  17:26]), 2, function(x) sum(x, na.rm=TRUE))
+
+
+
+prop.press_atl_byyear <- data.frame(prop.press=c(prop.pressatl_2008, prop.pressatl_2009, prop.pressatl_2010, prop.pressatl_2011, prop.pressatl_2012, prop.pressatl_2013, prop.pressatl_2014, prop.pressatl_2015, prop.pressatl_2016), Year=rep(2008:2016, each=10), River=rep(newreports$River, 9), lat=rep(newreports$lat, 9), long=rep(newreports$long, 9))
+
+prop.press_atl_byyear <- join(prop.press_atl_byyear, newreports, type="left")
+
+
+new2 <- new
+colnames(new2)[c(3,13)] <- c("year.desc", "Year")
+
+prop.press_atl_byyear <- join(prop.press_atl_byyear, new2, type="left", by=c("River", "Year"))
+
+prop.press_atl_byyear$PropFarmed <- as.numeric(prop.press_atl_byyear$PropFarmed)
+
+prop.press_atl_byyear$detect <- 0
+prop.press_atl_byyear$detect[prop.press_atl_byyear$TotalFarmed > 0] <- 1
+prop.press_atl_byyear$detect[is.na(prop.press_atl_byyear$TotalFarmed)] <- NA
+
+prop.press_atl_byyear$sProp.press <- scale(prop.press_atl_byyear$prop.press)
+          
+scaleList <- list(scale = attr(prop.press_atl_byyear$sProp.press, "scaled:scale"),
+                            center = attr(prop.press_atl_byyear$sProp.press, "scaled:center"))
+
+
+mod <- glmer(detect~sProp.press+1|River,data=prop.press_atl_byyear,family=binomial(link="logit"))
+sdata <-  scale(seq(from=0,to=0.0015,by=0.00001),scale=scaleList$scale,center=scaleList$center)
+newdata <- data.frame(expand.grid(unique(as.character(prop.press_atl_byyear$River)),sdata),stringsAsFactors = F)
+colnames(newdata)=c("River","sProp.press")
+
+prediction <- predict(mod,newdata)
+newdata <- cbind(newdata,AICcmodavg::predictSE(mod,newdata,se.fit=T)%>%data.frame())
+newdata$fixedprop.press <- newdata$prop.press* scaleList$scale + scaleList$center 
+
+newdata$prop.press <- newdata$sProp.press
+plotdata <- filter(newdata,River=="Big Salmon")
+
+ggplot()+
+  geom_point(data=prop.press_atl_byyear,aes(x=prop.press,y=detect))+
+  geom_point(data=newdata,aes(x=fixedprop.press,y=fit))+
+  theme_bw()
+
+ggplot(prop.press_atl_byyear,aes(x=prop.press,y=detect))+geom_point()+theme_bw()
+
+ggplot() + geom_point(data=prop.press_atl_byyear, aes(prop.press, PropFarmed, colour=as.factor(Year))) +
+  #geom_boxplot(data=prop.press_atl_byyear, aes(detect, prop.press)) +
+  
+  theme_bw()
+  
+#geom_smooth(data=prop.press_atl_byyear, aes(prop.press, PropFarmed, colour=as.factor(Year)), method="lm") + 
+  #geom_text_repel(data=prop.press_atl_byyear, aes(prop.press, PropFarmed, label=River, colour=as.factor(Year)), size=2)
+
+write.csv(prop.press_atl_byyear, "C:/Users/keyserf/Documents/Data/R output/prop.press_atl_byyear_2017-01-20.csv")
+
+          
+          
+## bulk years together
+### fix names and classes first
+colnames(prop.press_atl_byyear)[4:5] <- c("Lat", "Long")
+str(prop.press_atl_byyear)
+prop.press_atl_byyear[,8:10] <- apply(prop.press_atl_byyear[,8:10], 2, function(x) as.numeric(x)) 
+
+# NA's in TotalWild, TotalFarmed and TotalCombined indicate that a propagule pressure was calculated for that year, but that there were no reports of escapees
+
+## I checked, and it's correct to simply add together the PP's to get the overall PP!
+
+prop.press_atl <- ddply(.data=prop.press_atl_byyear, .(River, Lat, Long),
+                        summarize,
+                        totalfarmed = sum(TotalFarmed, na.rm=T),
+                        totalsamp = sum(TotalCombined,na.rm=T),
+                        totalprop.press = sum(prop.press))
+
+prop.press_atl$propfarmed <- prop.press_atl$totalfarmed / prop.press_atl$totalsamp
+
+ggplot() + geom_point(data=prop.press_atl, aes(totalprop.press, propfarmed)) +
+  theme_bw() +
+  geom_smooth(data=prop.press_atl, aes(totalprop.press, propfarmed)) + 
+  geom_smooth(data=prop.press_atl, aes(totalprop.press, propfarmed), method="lm", colour="red") + 
+  geom_text_repel(data=prop.press_atl, aes(totalprop.press, propfarmed, label=River), size=2)
+  
+
+yearssampled <- ddply(.data=new2, .(River),
+                      summarize,
+                      effort = length(unique(Year)))
+
+## Bring over bradprops2015 from Bradbury sampling 2015 script too. 
+
+brad2015 <- ddply(.data=bradprops2015, .(River),
+                  summarize,
+                  totalfarmed = sum(Esc),
+                  totalsamp = sum(total))
+
+brad2015[is.na(brad2015)] <- 0
+
+brad2015$propfarmed <- brad2015$totalfarmed / brad2015$totalsamp
+
+
+```
+
 

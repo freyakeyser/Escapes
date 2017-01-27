@@ -234,7 +234,7 @@ NB_monitor <- NB_monitor[1:57,]
 
 ## compare to stocking numbers
 
-names(NB_monitor) <- c("Site.ID", "BMA", "Number", "Year", "YC", "X", "x", "y", "Area")
+names(NB_monitor) <- c("Site.ID", "BMA", "Number", "Year", "YC")
 
 ggplot() + geom_point(data=NB_monitor, aes(as.factor(ID), Number), colour="red") +
   geom_point(data=NB_stocking, aes(as.factor(Site.ID), totalfish), colour="blue") +
@@ -257,6 +257,17 @@ ggplot() + geom_bar(data=NB_2012, aes(Site.ID, value, fill=variable), stat="iden
   scale_y_continuous(labels=comma, name="Number of Fish")+
   scale_x_discrete(labels=NULL, name="Aquaculture Sites") +
   ggtitle("New Brunswick 2012")
+
+### IF I COMBINE NB_STOCKING AND INVENTORY FOR RECENT YEARS, MY TOTAL RANGE IS 2005-2015.
+
+NB_stockingsub <- subset(NB_stocking, Year<2012)
+
+stocking1 <- NB_stockingsub[,2:6]
+monitor1 <- NB_monitor[,c(1,3:4,7:8)]
+
+names(monitor1) <- c("Site.ID", "totalfish", "Year", "long", "lat")
+
+NB_inv <- join(stocking1, monitor1, type="full")
 
 ```
 

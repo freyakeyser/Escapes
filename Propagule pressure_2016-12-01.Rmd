@@ -2260,7 +2260,7 @@ fullreports[fullreports$River=="Clyburn",18] <- -60.397694
 fullreports$lat <- ifelse(is.na(fullreports$lat)=="TRUE", fullreports$Latitude.in, fullreports$lat)
 fullreports$long <- ifelse(is.na(fullreports$long)=="TRUE", fullreports$Longitude.in, fullreports$long)
 
-fullreports[,c(1:2,14:16)]
+fullreports[,c(1,14:16)]
 
 # Cobscott Bay is a typo. Remove.
 fullreports <- fullreports[!fullreports$River=="Cobscott Bay",]
@@ -2274,9 +2274,9 @@ fullreports <- fullreports[!fullreports$River=="Unknown",]
 
 #new$PropFarmed <- as.numeric(new$TotalFarmed) / as.numeric(new$TotalCombined)
 
-reportlocs <- unique(fullreports[,c(1:2,17:18)])
+reportlocs <- unique(fullreports[,c(1,17:18)])
 reportlocs[reportlocs$River=="Magaguadavic",2:3] <- c(45.122017, -66.910076)
-reportlocs[reportlocs$River=="Conne River",2:3] <- c(45.867332, -55.801525)
+reportlocs[reportlocs$River=="Conne River",2:3] <- c(47.867332, -55.801525)
 
 #reportlocs[is.na(reportlocs$lat),]
 
@@ -2335,11 +2335,13 @@ sitecoords_atl[161,3:2] <- c(-55.82891, 47.54275)
 sitecoords_atl[135,3:2] <- c(-55.33238, 47.65957)
 
 
-allatl <- getData("GADM", country="CAN", level=2)
-allatl <- crop(allatl, extent(-68, -53, 42, 49))
+all <- getData("GADM", country="CAN", level=1)
+allatl <- crop(all, extent(-71, -53, 42, 49))
 
-eastus <- getData("GADM", country="USA", level=2)
-eastus <- crop(eastus, extent(-71, -67, 42, 49))
+eastus <- getData("GADM", country="USA", level=1)
+eastus <- crop(eastus, extent(-71, -53, 42, 49))
+
+plot(allatl)
 
 east <- rbind(allatl, eastus)
 plot(east)
@@ -2375,26 +2377,26 @@ dev.off()
 plot(ATLrast2, xlim=c(-58, -57), ylim=c(47, 48))
 points(reportlocs$longfinal[reportlocs$River=="Grandy Brook"], reportlocs$latfinal[reportlocs$River=="Grandy Brook"])
 
-reportlocs[reportlocs$River=="Bear", 3:2] <- c(-65.69852, 44.62575)
-reportlocs[reportlocs$River=="Dennis Stream", 3:2] <- c(-67.19659, 45.1643)
-reportlocs[reportlocs$River=="East Machias", 3:2] <- c(-67.39036, 44.68688)
-reportlocs[reportlocs$River=="Hobart Stream", 3:2] <- c(-67.12043, 44.88428)
-reportlocs[reportlocs$River=="Lahave", 3:2] <- c(-64.34176, 44.28187)
-reportlocs[reportlocs$River=="Little River", 3:2] <- c(-55.81197, 47.7953)
-reportlocs[reportlocs$River=="Margaree", 3:2] <- c(-61.10427, 46.44772)
-reportlocs[reportlocs$River=="Narraguagus", 3:2] <- c(-67.887, 44.54183)
-reportlocs[reportlocs$River=="North (CB)", 3:2] <- c(-60.58669, 46.24114)
-reportlocs[reportlocs$River=="Penobscot", 3:2] <- c(-68.79487, 44.48683)
-reportlocs[reportlocs$River=="Saco River", 3:2] <- c(-70.37678, 43.46604)
-reportlocs[reportlocs$River=="St. Croix River", 3:2] <- c(-67.19257, 45.16494)
-reportlocs[reportlocs$River=="Bay Du Nord", 3:2] <- c(-55.4175, 47.71868)
-reportlocs[reportlocs$River=="Tailrace", 3:2] <- c(-55.76375, 47.93676)
-reportlocs[reportlocs$River=="Shoal Brook", 3:2] <- c(-55.68705, 47.66858)
-reportlocs[reportlocs$River=="Terrenceville Brook", 3:2] <- c(-54.73114, 47.67646)
-reportlocs[reportlocs$River=="Frenchman's Cove", 3:2] <- c(-55.38782, 47.21629)
-reportlocs[reportlocs$River=="Long Harbour", 3:2] <- c(-54.96017, 47.764)
-reportlocs[reportlocs$River=="Collins Brook ", 3:2] <- c(-55.82494, 47.79367)
-reportlocs[reportlocs$River=="Grandy Brook", 3:2] <- c(-57.68647, 47.62023)
+reportlocs[reportlocs$River=="Bear", 4:3] <- c(-65.69852, 44.62575)
+reportlocs[reportlocs$River=="Dennis Stream", 4:3] <- c(-67.19659, 45.1643)
+reportlocs[reportlocs$River=="East Machias", 4:3] <- c(-67.39036, 44.68688)
+reportlocs[reportlocs$River=="Hobart Stream", 4:3] <- c(-67.12043, 44.88428)
+reportlocs[reportlocs$River=="Lahave", 4:3] <- c(-64.34176, 44.28187)
+reportlocs[reportlocs$River=="Little River", 4:3] <- c(-55.81197, 47.7953)
+reportlocs[reportlocs$River=="Margaree", 4:3] <- c(-61.10427, 46.44772)
+reportlocs[reportlocs$River=="Narraguagus", 4:3] <- c(-67.887, 44.54183)
+reportlocs[reportlocs$River=="North (CB)", 4:3] <- c(-60.58669, 46.24114)
+reportlocs[reportlocs$River=="Penobscot", 4:3] <- c(-68.79487, 44.48683)
+reportlocs[reportlocs$River=="Saco River", 4:3] <- c(-70.37678, 43.46604)
+reportlocs[reportlocs$River=="St. Croix River", 4:3] <- c(-67.19257, 45.16494)
+reportlocs[reportlocs$River=="Bay Du Nord", 4:3] <- c(-55.4175, 47.71868)
+reportlocs[reportlocs$River=="Tailrace", 4:3] <- c(-55.76375, 47.93676)
+reportlocs[reportlocs$River=="Shoal Brook", 4:3] <- c(-55.68705, 47.66858)
+reportlocs[reportlocs$River=="Terrenceville Brook", 4:3] <- c(-54.73114, 47.67646)
+reportlocs[reportlocs$River=="Frenchman's Cove", 4:3] <- c(-55.38782, 47.21629)
+reportlocs[reportlocs$River=="Long Harbour", 4:3] <- c(-54.96017, 47.764)
+reportlocs[reportlocs$River=="Collins Brook ", 4:3] <- c(-55.82494, 47.79367)
+reportlocs[reportlocs$River=="Grandy Brook", 4:3] <- c(-57.68647, 47.62023)
 
 #transition layers
 tratl <- transition(1/ATLrast2, transitionFunction=mean, directions=8)
@@ -2484,7 +2486,11 @@ prop.press_avg_reports <- ddply(.data=prop.press_all_byyear, .(River, long, lat)
                                 averagepress = mean(prop.press),
                                 stdpress = sd(prop.press))
 
-detections <- ddply(.data=fullreports, .(River),
+
+timereports <- read.csv("C:/Users/keyserf/Documents/Data/R output/fullreports_yearfixed.csv")
+
+# because some rivers cross provincial borders so need to combine their results
+detections <- ddply(.data=timereports[timereports$Year.adj > 2004 & fullreports$Year.adj < 2016,], .(River),
                     summarize,
                     detect = max(detected))
 
@@ -2541,11 +2547,7 @@ ggplot()+
   labs(x="Propagule pressure",y=expression(paste("Probability of farmed presence " %+-% " se",sep=" ")))+
   theme_bw()
 
-head(prop.press_avg_reports)
 
-
-plotavg <- join(prop.press_avg_reports, fullreports, type="left")
-ggplot() + geom_point(data=prop.press_avg_reports, aes(averagepress, detect2)) + theme_classic() +
 
 
 
@@ -2633,7 +2635,40 @@ ggplot() + geom_spatial(data=NB.low, aes(fill=ctry_en)) + ### canvec spatialpoly
   theme_classic() 
 
 
+timereports$count <- as.numeric(as.character(timereports$TotalFarmed))
 
+alldetections <- ddply(.data=timereports, .(River, longfinal, latfinal, detected),
+                    summarize,
+                    totalfarmed = sum(count, na.rm=T),
+                    minyear = min(Year.adj, na.rm=T),
+                    maxyear = max(Year.adj, na.rm=T))
+
+eastland <- fortify(east)
+
+ggplot() + 
+  geom_polygon(data=eastland, aes(long, lat, group=group), fill="grey") + ### canvec spatialpolygonsdataframe
+  # geom_spatial(data=PE.low, aes(fill=ctry_en)) + ### canvec spatialpolygonsdataframe
+  # geom_spatial(data=NS.low, aes(fill=ctry_en)) + ### canvec spatialpolygonsdataframe
+  # scale_fill_manual(values=c("grey"), guide=FALSE) + ### fills geom_spatials with grey
+  # geom_polygon(data=GOMclip, aes(long, lat, group=group), fill="grey") + ### Gulf of Maine shapefile to get Grand Manan & Maine
+  # #geom_path(data=CA.df, aes(long, lat, group=group),colour="black") + ### plots black outline on provinces
+  # annotate(geom="rect", xmin=-60, xmax=-59.5, ymin=47.5, ymax= 48, fill="grey") + ### these annotates hide white space!
+  # annotate(geom="rect", xmin=-64, xmax=-59.5, ymin=43.2, ymax= 44, fill="grey") +
+  # annotate(geom="rect", xmin=-61, xmax=-59.5, ymin=44, ymax= 45, fill="grey") + 
+ geom_point(data=alldetections[alldetections$detected==0.5 | alldetections$detected==0,], aes(longfinal, latfinal, fill=as.factor(detected)), shape=21, size=2) +
+  geom_point(data=alldetections[alldetections$totalfarmed>0,], aes(longfinal, latfinal, size=totalfarmed), shape=21, fill="red2") + 
+  scale_fill_manual(values=c("springgreen3", "gold"), labels=c("None detected", "Detected (no count)"), name=NULL)+
+  scale_size(name="Number detected", range=c(2,12), breaks=c(100, 1000, 3000, 6000), limits=c(1,6000)) +
+  theme_classic() +
+  theme(plot.background=element_rect(fill="white"), panel.border=element_rect(fill=NA, colour="black"))+
+  coord_map(xlim=c(-71,-53), ylim=c(42, 49)) +
+  guides(size=guide_legend(order=1),
+         fill=guide_legend(order=2)) +
+  ylab("Latitude") +
+  xlab("Longitude") +
+  scalebar(data=eastland, location="bottomright", dd2km = T, model="WGS84", dist=100, anchor=c(x=-55, y=42.5), st.size=3, height=0.015) +
+  ggtitle("Reports of escaped farmed salmon in rivers")
+  
 
 ```
 

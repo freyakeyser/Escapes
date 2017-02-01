@@ -269,6 +269,12 @@ names(monitor1) <- c("Site.ID", "totalfish", "Year", "long", "lat")
 
 NB_inv <- join(stocking1, monitor1, type="full")
 
+
+
+##### skip all that, read in:
+NB_inv <- read.csv("C:/Users/keyserf/Documents/Data/R output/NB_inv.csv")
+NB_inv <- NB_inv[,2:6]
+
 ```
 
 
@@ -290,7 +296,7 @@ NSinv[] <- sapply(NSinv, clean)
 
 NSinv[,c(1,2,4,5,6)] <- apply(NSinv[,c(1,2,4,5,6)], 2, function(x) as.numeric(x))
 
-NSinv <- ddply(.data=NSinv, .(Site.ID, Year), 
+NSinv <- ddply(.data=NSinv, .(Site.ID, Year, Lat, Long), 
                      summarize, 
                      totalfish = sum(Number))
 

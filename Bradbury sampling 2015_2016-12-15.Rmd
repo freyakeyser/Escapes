@@ -61,7 +61,7 @@ bradprops2015 <- rbind(bradprops2015, add)
 
 bradprops2015$prop <- bradprops2015$count/bradprops2015$total
 
-
+write.csv(bradprops2015, "C:/Users/keyserf/Documents/Data/R output/bradprops2015.csv")
 
 bradesc2015 <- subset(bradesc2015, Life.Stage=="Farmed")
 

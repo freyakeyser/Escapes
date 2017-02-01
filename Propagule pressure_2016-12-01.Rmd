@@ -103,8 +103,6 @@ plot(NLsouthrast)
 tr3s <- transition(1/NLsouthrast, transitionFunction=mean, directions=8)
 tr3cs <- geoCorrection(tr3s, type="c")
 ```
-
-
 ## Newfoundland - AQ site coordinates and river mouths
 ```{r}
 # site coords
@@ -192,7 +190,6 @@ sampling2015 <- rbind(rivermouths, bdn)
 sched <- read.csv("C:/Users/keyserf/Documents/Data/Rivers/NL Scheduled Coordinates.csv")
 
 ```
-
 ## Newfoundland - Q values coords
 ```{r}
 # read in sites
@@ -230,7 +227,6 @@ qsites[qsites$Code=="RKR",]$Lat <- 47.18433
 # plot(NLprovrast, xlim=c(-57.5, -55.5), ylim=c(47.5, 48))
 # text(qsites$Long, qsites$Lat)
 ```
-
 ### Newfoundland - for SFA 10 and 11. Fixing river coords
 ```{r}
 sched <- arrange(sched, Long)
@@ -318,7 +314,6 @@ sched <- cbind(sched, southcoords)
 names(sched) <-c("Prov", "SFA", "Name", "Long.1", "Lat.1", "Long", "Lat")
 sched$Number <- c(1:74)
 ```
-
 ### Newfoundland - Fix some AQ site coords
 ```{r}
 # for 2013 only:
@@ -357,8 +352,6 @@ siterast[18,] <- c(-56.06056, 47.77635)
 
 
 ```
-
-
 ## Newfoundland - calculate distance matrix
 ```{r}
 # calculate least-cost distance between siterast (site location) and testrast (escaped fish location)
@@ -376,8 +369,6 @@ d3
 # 
 # d3s
 ```
-
-
 ## Newfoundland - merge with site coords and inventory data
 ```{r}
 d3 <- as.data.frame(cbind(d3, sitecoords$ID))
@@ -395,8 +386,6 @@ colnames(d3)[1:18] <- as.list(as.character(rivermouths$code))
 # colnames(d3s)[75] <- "ID"
 
 ```
-
-
 ## Newfoundland - pick the years you want and summarize
 ```{r}
 dist2AQ_sub <- subset(annual, ReportYear >2003 & ReportYear<2016 & is.na(Lat)==FALSE)
@@ -418,8 +407,6 @@ dist2AQ <- join(d3q, dist2AQ_sub_NL, type="left")
 dist2AQ_NL <- subset(dist2AQ, is.na(totalfish)==FALSE)
 
 ```
-
-
 ## Newfoundland - Calculate propagule pressure for each river. 
 ```{r}
 dist2AQ[,1:18] <- apply(dist2AQ[,1:18], 2, function(x) as.character(x))
@@ -581,8 +568,6 @@ write.csv(prop.press_201415, "C:/Users/keyserf/Documents/Data/R output/Propagule
 # write.csv(prop.press_sfa, "C:/Users/keyserf/Documents/Data/R output/Propagule Pressure_NL_sfa rivers_2005-2015_2017-01-16.csv")
 
 ```
-
-
 ## Newfoundland - plot propagule pressure
 ```{r}
 dist2AQ_sub_plot <- subset(dist2AQ_sub, totalfish > 0)
@@ -626,8 +611,6 @@ grid.draw(cbind(gA, gB))
 
 
 ```
-
-
 ## Newfoundland - Q value analysis
 ```{r}
 qsites <- join(qsites, prop.press_q[,c(1,4)], type="left") 
@@ -665,8 +648,6 @@ ggplot() +
   geom_label_repel(data=prop.press_q, aes(long, lat, label=Code), size=3, point.padding = unit(0.5,"lines"))
 
 ```
-
-
 ### SFA plots
 ```{r}
 
@@ -701,6 +682,53 @@ ggplot() + geom_point(data=prop.press_sfa, aes(prop.press, Name)) + facet_grid(S
   
   
 ```
+### Assigning DU's
+```{r}
+sfalist <- read.csv("C:/Users/keyserf/Documents/Data/Rivers/Salmon Fishing Areas and Rivers.csv")
+
+# Get shapefile
+atlcan <- getData("GADM", country="CAN", level=1)
+extent(atlcan)
+
+# crop it
+can <- crop(atlcan, extent(-77, -52, 43, 59))
+can <- fortify(can)
+
+colnames(sfalist)[c(2,5,6,7,8)] <- c("SFA", "Number", "Long", "Pos", "Lat")
+sfalist$Long <- -sfalist$Long
+
+sfalist <- sfalist[sfalist$Long<0,]
+
+sfalist$COSEWIC.DU <- as.character(sfalist$COSEWIC.DU)
+
+ggplot() + #geom_polygon(data=can, aes(long, lat, group=group)) +
+  geom_point(data=sfalist[sfalist$SFA%in%c("Q8", "Q9"),], aes(Long, Lat, colour=SFA)) +
+  #geom_text_repel(data=sfalist[sfalist$SFA%in%c("Q8","Q9"),], aes(Long, Lat, colour=SFA, label=River.name)) +
+  coord_map(xlim=c(-61, -58)), ylim=c(50, 51))
+
+test <- subset(sfalist, Province =="Labrador" | SFA=="Q9" & Long > -61.60047)
+test <- subset(sfalist, SFA=="Q9")
+
+ggplot() + geom_point(data=test, aes(Long, Lat, colour=SFA)) +
+  #geom_text_repel(data=sfalist, aes(Long, Lat, colour=SFA, label=River.name))+
+  coord_map()
+
+min(sfalist$Long[sfalist$SFA=="Q9"])
+
+## DU 7
+sfalist$COSEWIC.DU <- ifelse(sfalist$Long > -61.370021 & sfalist$Long < -58.131350 & sfalist$SFA %in% c("Q8", "Q9"), "DU-7", sfalist$COSEWIC.DU)
+
+# DU 8
+sfalist$COSEWIC.DU <- ifelse(sfalist$Long > -69.405171 & sfalist$Long < -61.60047 & sfalist$Lat> 48 & sfalist$Lat < 51 & sfalist$SFA %in% c("Q8", "Q7"), "DU-8", sfalist$COSEWIC.DU)
+
+#DU 2
+sfalist$COSEWIC.DU <- ifelse(sfalist$Province =="Labrador" | sfalist$Long > -58.131351 & sfalist$SFA %in% c("Q8", "Q7", "Q9"), "DU-2", sfalist$COSEWIC.DU)
+
+ggplot() + geom_point(data=sfalist, aes(Long,Lat, colour=COSEWIC.DU)) + coord_map()
+
+str(sfalist)
+
+```
 
 
 ---------------------------------------------------------------------------------------------------------------------
@@ -732,8 +760,6 @@ tr5 <- transition(1/NSrast, transitionFunction=mean, directions=8)
 tr5c <- geoCorrection(tr5, type="c")
 
 ```
-
-
 ## Nova Scotia - AQ site coordinates and rivermouths
 ```{r}
 # read in sites from I&T file. Adjust years as desired. Min for NS is 1999, max is 2015. 
@@ -829,8 +855,6 @@ NSQ[9, 5:6] <- c(-61.92785, 45.02375)
 NSQ[10, 5:6] <- c(-63.48755, 45.32147)
 
 ```
-
-
 ### Nova Scotia - Fix some river coords
 ```{r}
 # make nictaux = to annapolis
@@ -845,8 +869,6 @@ NSQ[10, 5:6] <- c(-63.48755, 45.32147)
 # # text(nsrivers[,3], nsrivers[,2], col="red")
 # nsrivers[10,2:3] <- c(45.024369, -61.989859)
 ```
-
-
 ## Nova Scotia - Transition layer, Geocorrection, calculate distance matrix
 ```{r}
 
@@ -861,8 +883,6 @@ d5
 # d5q
 
 ```
-
-
 ## Nova Scotia - Merge with site coords and inventory data
 ```{r}
 colnames(sitecoords)[1] <- "Site.ID"
@@ -888,8 +908,6 @@ colnames(d5q)[1:10] <- as.list(as.character(NSQ$Code))
 dist2AQ_NS <- join(d5q, sitecoords, type="left")
 
 ```
-
-
 ## Nova Scotia - pick the years you want and summarize
 ```{r}
 NSinv <- read.csv("C:/Users/keyserf/Documents/Data/Inventory data/NS Inventory.csv")
@@ -921,8 +939,6 @@ dist2AQ_sub_NS <- ddply(.data=dist2AQ_sub_NS, .(Site.ID, Lat, Long),
 dist2AQ <- join(d5, dist2AQ_sub_NS, type="left")
 dist2AQ_NS <- subset(dist2AQ, is.na(totalfish)==FALSE)
 ```
-
-
 ## Nova Scotia - Calculate propagule pressure for each river. 
 ```{r}
 dist2AQ_NS[,1:25] <- apply(dist2AQ_NS[,1:25], 2, function(x) as.character(x))
@@ -990,8 +1006,6 @@ prop.press_NS_q <- data.frame(code=NSQ$Code, lat=NSQ$Lat, long = NSQ$Long, prop.
 
 write.csv(prop.press_NS_q, "C:/Users/keyserf/Documents/Data/R output/Propagule Pressure NS_Q values_2016-12-07.csv")
 ```
-
-
 ## Nova Scotia - plot propagule pressure
 ```{r}
 dist2AQ_NS_plot <- arrange(subset(dist2AQ_NS, select=c(Site.ID, Lat, Long, totalfish)), -totalfish)
@@ -1054,9 +1068,6 @@ ggplot() + geom_text(data=prop.press_NS, aes(long, lat, label=code))
 ```
 
 
-
-
-
 ---------------------------------------------------------------------------------------------------------------------
 # NEW BRUNSWICK CAGE SITE DISTANCES TEMPLATE CODE ---------------------------------------------------------------------------------------------------------------------
 
@@ -1110,8 +1121,6 @@ tr4cq <- geoCorrection(tr4q, type="c")
 plot(raster(tr4cq))
 
 ```
-
-
 ## New Brunswick - AQ site coordinates and river mouths
 ```{r}
 # site coords
@@ -1197,8 +1206,6 @@ NBQ[5, 5:6] <- c(-66.03602, 45.24463)
 NBQ <- NBQ[c(1,4:5),]
 
 ```
-
-
 ## New Brunswick - calculate distance matrix
 ```{r}
 # calculate least-cost distance between siterast (site location) and testrast (escaped fish location)
@@ -1211,8 +1218,6 @@ d4
 
 # d4q
 ```
-
-
 ## New Brunswick - merge with site coords and inventory data
 ```{r}
 d4 <- as.data.frame(cbind(d4, sitecoords$Site.ID))
@@ -1226,8 +1231,6 @@ colnames(d4q)[4] <- "Site.ID"
 colnames(d4q)[1:3] <- as.list(as.character(NBQ$Code))
 
 ```
-
-
 ## New Brunswick - pick the years you want and summarize
 ```{r}
 dist2AQ_sub <- subset(NB_stocking, Year >1998 & Year<2016 & is.na(lat)==FALSE)
@@ -1255,8 +1258,6 @@ dist2AQ <- subset(dist2AQ, is.na(totalfish)==FALSE)
 dist2AQ$TOB <- dist2AQ$TOB + 293000
 dist2AQ$NSH <- dist2AQ$NSH + 116000
 ```
-
-
 ## New Brunswick - Calculate propagule pressure for each river. 
 ```{r}
 dist2AQ[,1:13] <- apply(dist2AQ[,1:13], 2, function(x) as.character(x))
@@ -1310,8 +1311,6 @@ prop.press_NB_q <- data.frame(code=NBQ$Code, lat=NBQ[,6], long = NBQ[,5], prop.p
 write.csv(prop.press_NB_q, "C:/Users/keyserf/Documents/Data/R output/Propagule Pressure_NB_q values_2016-12-07.csv")
 
 ```
-
-
 ## New Brunswick - plot propagule pressure
 ```{r}
 dist2AQ_sub_plot <- subset(dist2AQ_sub, totalfish > 0)
@@ -1431,8 +1430,6 @@ ggplot() +
 
 
 ```
-
-
 ## all q values together with distance-only pressure
 ```{r}
 qvals <- rbind(prop.press_NB_q, prop.press_NS_q)
@@ -1516,6 +1513,7 @@ ggplot() + geom_point(data=hybrids, aes(Propagule.pressure, pWildNC)) +
 
 
 
+------------------------------------------------------------------------------------------
 ### ALL PROVS COMBINED
 ```{r}
 atlcan <- getData("GADM", country="CAN", level=2)
@@ -2121,54 +2119,6 @@ ggplot() + geom_point(data=prop.press_MILLIONRIVERS, aes(prop.press, Name)) + fa
 
 ```
 
-### Assigning DU's
-```{r}
-sfalist <- read.csv("C:/Users/keyserf/Documents/Data/Rivers/Salmon Fishing Areas and Rivers.csv")
-
-# Get shapefile
-atlcan <- getData("GADM", country="CAN", level=1)
-extent(atlcan)
-
-# crop it
-can <- crop(atlcan, extent(-77, -52, 43, 59))
-can <- fortify(can)
-
-colnames(sfalist)[c(2,5,6,7,8)] <- c("SFA", "Number", "Long", "Pos", "Lat")
-sfalist$Long <- -sfalist$Long
-
-sfalist <- sfalist[sfalist$Long<0,]
-
-sfalist$COSEWIC.DU <- as.character(sfalist$COSEWIC.DU)
-
-ggplot() + #geom_polygon(data=can, aes(long, lat, group=group)) +
-  geom_point(data=sfalist[sfalist$SFA%in%c("Q8", "Q9"),], aes(Long, Lat, colour=SFA)) +
-  #geom_text_repel(data=sfalist[sfalist$SFA%in%c("Q8","Q9"),], aes(Long, Lat, colour=SFA, label=River.name)) +
-  coord_map(xlim=c(-61, -58)), ylim=c(50, 51))
-
-test <- subset(sfalist, Province =="Labrador" | SFA=="Q9" & Long > -61.60047)
-test <- subset(sfalist, SFA=="Q9")
-
-ggplot() + geom_point(data=test, aes(Long, Lat, colour=SFA)) +
-  #geom_text_repel(data=sfalist, aes(Long, Lat, colour=SFA, label=River.name))+
-  coord_map()
-
-min(sfalist$Long[sfalist$SFA=="Q9"])
-
-## DU 7
-sfalist$COSEWIC.DU <- ifelse(sfalist$Long > -61.370021 & sfalist$Long < -58.131350 & sfalist$SFA %in% c("Q8", "Q9"), "DU-7", sfalist$COSEWIC.DU)
-
-# DU 8
-sfalist$COSEWIC.DU <- ifelse(sfalist$Long > -69.405171 & sfalist$Long < -61.60047 & sfalist$Lat> 48 & sfalist$Lat < 51 & sfalist$SFA %in% c("Q8", "Q7"), "DU-8", sfalist$COSEWIC.DU)
-
-#DU 2
-sfalist$COSEWIC.DU <- ifelse(sfalist$Province =="Labrador" | sfalist$Long > -58.131351 & sfalist$SFA %in% c("Q8", "Q7", "Q9"), "DU-2", sfalist$COSEWIC.DU)
-
-ggplot() + geom_point(data=sfalist, aes(Long,Lat, colour=COSEWIC.DU)) + coord_map()
-
-str(sfalist)
-
-```
-
 ### reports
 ```{r}
 
@@ -2305,9 +2255,6 @@ reportlocs[reportlocs$River=="Union River", 3:2] <- c(-68.430865, 44.490147)
 
 names(reportlocs) <-c("River", "latfinal", "longfinal")
 
-write.csv(reportlocs, "C:/Users/keyserf/Documents/Data/R output/reportlocs.csv")
-reportlocs <- read.csv("C:/Users/keyserf/Documents/Data/R output/reportlocs.csv")
-
 fullreports <- join(fullreports, reportlocs, type="left")
 
 write.csv(fullreports, "C:/Users/keyserf/Documents/Data/R output/fullreports.csv")
@@ -2340,23 +2287,7 @@ sitecoords_atl[161,3:2] <- c(-55.82891, 47.54275)
 sitecoords_atl[135,3:2] <- c(-55.33238, 47.65957) 
 
 
-dev.off()
-plot(NAm, xlim=c(-65, -64), ylim=c(44,45))
-points(sitecoords_atl[sitecoords_atl$Site.ID%in%c(74) & sitecoords_atl$prov=="NS", 4:3]$Long, sitecoords_atl[sitecoords_atl$Site.ID%in%c(74) & sitecoords_atl$prov=="NS", 4:3]$Lat) <- c()
-plot(NAm, xlim=c(-61, -60.5), ylim=c(46,46.5))
-sitecoords_atl[sitecoords_atl$Site.ID%in%c(193) & sitecoords_atl$prov=="NS", 4:3] <- c()
 
-plot(NAm, xlim=c(-61, -60.5), ylim=c(46,46.5))
-sitecoords_atl[sitecoords_atl$Site.ID%in%c(16,34,54,168,350,491,14,44,49,156) & sitecoords_atl$prov=="NB", 4:3] <- c()
-
-plot(NAm, xlim=c(-61.5, -60), ylim=c(46,46.8))
-reportlocs[reportlocs$River %in% c("Clyburn", "Margaree"), 4:3] <- c()
-
-plot(NAm, xlim=c(-65, -64), ylim=c(44, 45))
-reportlocs[reportlocs$River == "Lahave", 4:3] <- c()
-
-
-write.csv(sitecoords_atl, "C:/Users/keyserf/Documents/Data/R output/sitecoords_atl.csv")
 
 all <- getData("GADM", country="CAN", level=1)
 allatl <- crop(all, extent(-71, -53, 42, 49))
@@ -2385,7 +2316,7 @@ ATLrast2@data@values <- ifelse(is.na(ATLrast2@data@values)=="FALSE", 100000, 1)
 ATLrast2@data@values <- ifelse(coordinates(ATLrast2)[,1] > -61.42577 & coordinates(ATLrast2)[,1] < -61.414002 & coordinates(ATLrast2)[,2] > 45.641238 & coordinates(ATLrast2)[,2] < 45.647156, 1000000, ATLrast2@data@values)
 ```
 
-# Skip below and read in files
+# Skip below and read in files instead (fullreports and reportlocs)
 ```{r}
 # fix bad river coords
 
@@ -2443,7 +2374,7 @@ dev.off()
 plot(ATLrast2), xlim=c(-67.2, -66.4), ylim=c(44.5, 45.2))
 text(badsites3[badsites3$prov=="NB",]$Long, badsites3[badsites3$prov=="NB",]$Lat, labels=badsites3[badsites3$prov=="NB",]$Site.ID)
 
-badsites3[badsites3$prov=="NB",4:3] <- c(-66.72366, -66.81626,
+badsites3[badsites3$prov=="NB",5:4] <- c(-66.72366, -66.81626,
                                          -66.84110, -66.87046,
                                          -66.93822, -66.94725,
                                          -66.94725, -67.02178,
@@ -2465,7 +2396,7 @@ badsites3[badsites3$prov=="NB",4:3] <- c(-66.72366, -66.81626,
 plot(ATLrast2, xlim=c(-67, -64), ylim=c(44.2, 44.7))
 text(badsites3[badsites3$prov=="NS",]$Long, badsites3[badsites3$prov=="NS",]$Lat, labels=badsites3[badsites3$prov=="NS",]$Site.ID)
 
-badsites3[badsites3$prov=="NS" & !badsites3$Site.ID==193,4:3] <- rbind(c(-64.31949, 44.40483), 
+badsites3[badsites3$prov=="NS" & !badsites3$Site.ID==193,5:4] <- rbind(c(-64.31949, 44.40483), 
                                                                        c(-66.33586, 44.26520), 
                                                                        c(-65.74907, 44.64712), 
                                                                        c(-65.70305, 44.65533))
@@ -2474,13 +2405,13 @@ dev.off()
 plot(ATLrast2, xlim=c(-61.5, -60.5), ylim=c(45.8, 46.5))
 text(badsites3[badsites3$prov=="NS",]$Long, badsites3[badsites3$prov=="NS",]$Lat, labels=badsites3[badsites3$prov=="NS",]$Site.ID)
 
-badsites3[badsites3$prov=="NS" & badsites3$Site.ID==193,4:3] <- c(-60.97574, 46.01276)
+badsites3[badsites3$prov=="NS" & badsites3$Site.ID==193,5:4] <- c(-60.97574, 46.01276)
 
 dev.off() 
 plot(ATLrast2, xlim=c(-56, -55), ylim=c(47.4, 48))
 text(badsites3[badsites3$prov=="NL",]$Long, badsites3[badsites3$prov=="NL",]$Lat, labels=badsites3[badsites3$prov=="NL",]$Site.ID)
 
-badsites3[badsites3$prov=="NL", 4:3] <- rbind(c(-55.36079, 47.70331),
+badsites3[badsites3$prov=="NL", 5:4] <- rbind(c(-55.36079, 47.70331),
                                               c(-55.61069, 47.53106),
                                               c(-55.83952, 47.79449),
                                               c(-55.85006, 47.81273),
@@ -2500,11 +2431,92 @@ sitecoords_atl <- join(sitecoords_atl, badsites3, type="left")
 sitecoords_atl$Long <- ifelse(is.na(sitecoords_atl$longfinal)==FALSE, sitecoords_atl$longfinal, sitecoords_atl$Long)
 sitecoords_atl$Lat <- ifelse(is.na(sitecoords_atl$latfinal)==FALSE, sitecoords_atl$latfinal, sitecoords_atl$Lat)
 
+
+# FOR AQPRESS USAGE ONLY:
+#
+#
+# dev.off()
+# plot(rasterAQ, xlim=c(-64.5, -64.2), ylim=c(44.3,44.5))
+# points(sitecoords_atl[sitecoords_atl$Site.ID%in%c(74) & sitecoords_atl$prov=="NS", 4:3]$Long, sitecoords_atl[sitecoords_atl$Site.ID%in%c(74) & sitecoords_atl$prov=="NS", 4:3]$Lat) 
+# sitecoords_atl[sitecoords_atl$Site.ID%in%c(74) & sitecoords_atl$prov=="NS",4:3] <- c(-64.31927, 44.40678)
+# 
+# dev.off()
+# plot(rasterAQ, xlim=c(-61.1, -60.9), ylim=c(45.9,46.1))
+# points(sitecoords_atl[sitecoords_atl$Site.ID%in%c(193) & sitecoords_atl$prov=="NS",]$Long,sitecoords_atl[sitecoords_atl$Site.ID%in%c(193) & sitecoords_atl$prov=="NS",]$Lat) 
+# sitecoords_atl[sitecoords_atl$Site.ID%in%c(193) & sitecoords_atl$prov=="NS",4:3] <- c(-60.97104, 46.01466)
+# 
+# 
+# dev.off()
+# plot(rasterAQ, xlim=c(-67.1, -66.7), ylim=c(44.5,45.2))
+# text(sitecoords_atl[sitecoords_atl$Site.ID%in%c(16,34,52,168,350,491,14,44,49,159) & sitecoords_atl$prov=="NB",]$Long, sitecoords_atl[sitecoords_atl$Site.ID%in%c(16,34,52,168,350,491,14,44,49,159) & sitecoords_atl$prov=="NB",]$Lat, labels=sitecoords_atl[sitecoords_atl$Site.ID%in%c(16,34,52,168,350,491,14,44,49,159) & sitecoords_atl$prov=="NB",]$Site.ID)
+# sitecoords_atl[sitecoords_atl$Site.ID%in%c(16,34,52,168,350,491,14,44,49,159) & sitecoords_atl$prov=="NB",4:3] <- rbind(c(-66.81515, 45.04547), 
+#                                                                                                                         c(-66.86131, 45.04885), c(-66.94248, 44.92473), 
+#                                                                                                                         c(-66.98068, 44.87282), c(-66.71965, 44.72049),
+#                                                                                                                         c(-66.81992, 44.61554), c(-66.81037, 45.06239),
+#                                                                                                                         c(-66.90746, 44.99356), c(-66.97590, 44.93375),
+#                                                                                                                         c(-66.85972, 45.05111))
+# 
+# sitecoords_atl[sitecoords_atl$Site.ID==54,4:3] <- c(-66.93211, 44.91673)
+# 
+# dev.off()
+# plot(rasterAQ, xlim=c(-61.5, -60), ylim=c(46,46.8))
+# text(reportlocs[reportlocs$River %in% c("Clyburn", "Margaree"),]$Long, 
+#      reportlocs[reportlocs$River %in% c("Clyburn", "Margaree"),]$Lat,
+#      labels=reportlocs[reportlocs$River %in% c("Clyburn", "Margaree"),]$River) 
+# reportlocs[reportlocs$River =="Clyburn", 5:4] <- c(-60.39119, 46.66155)
+# reportlocs[reportlocs$River =="Margaree", 5:4] <- c(-61.11375, 46.4434)
+# 
+# 
+# dev.off()
+# plot(rasterAQ, xlim=c(-65, -64), ylim=c(44, 45))
+# points(reportlocs[reportlocs$River == "Lahave",]$longfinal, 
+#        reportlocs[reportlocs$River == "Lahave",]$latfinal)
+# reportlocs[reportlocs$River == "Lahave",5:4] <-c(-64.34928, 44.27843)
+# 
+# dev.off()
+# plot(rasterAQ, xlim=c(-67.1, -66.7), ylim=c(44.5,45.2))
+# points(sitecoords_atl[sitecoords_atl$Site.ID==52,]$Long, sitecoords_atl[sitecoords_atl$Site.ID==52,]$Lat)
+# sitecoords_atl[sitecoords_atl$Site.ID==52, 5:4] <- c(-66.94248, 44.92473)
+# 
+# dev.off()
+# plot(rasterAQ, xlim=c(-67, -66.8), ylim=c(44.9, 45.2))
+# points(sitecoords_atl[sitecoords_atl$Site.ID==39,]$Long, sitecoords_atl[sitecoords_atl$Site.ID==39,]$Lat)
+# sitecoords_atl[sitecoords_atl$Site.ID==39,5:4] <- c(-66.9123, 45.05808)
+# 
+# dev.off()
+# plot(rasterAQ, xlim=c(-66.9, -66.6), ylim=c(44.9, 45.2))
+# points(sitecoords_atl[sitecoords_atl$Site.ID==20,]$Long, sitecoords_atl[sitecoords_atl$Site.ID==20,]$Lat)
+# sitecoords_atl[sitecoords_atl$Site.ID==20, 5:4] <- c(-66.83126, 45.06165)
+# 
+# points(sitecoords_atl[sitecoords_atl$Site.ID==26,]$Long, sitecoords_atl[sitecoords_atl$Site.ID==26,]$Lat)
+# sitecoords_atl[sitecoords_atl$Site.ID==26, 5:4] <- c(-66.82261, 45.04128)
+# 
+# dev.off()
+# plot(rasterAQ, xlim=c(-67, -66.8), ylim=c(44.9, 45.1))
+# points(sitecoords_atl[sitecoords_atl$Site.ID==46,]$Long, sitecoords_atl[sitecoords_atl$Site.ID==46,]$Lat)
+# sitecoords_atl[sitecoords_atl$Site.ID==46, 5:4] <- c(-66.93936, 45.00064)
+# 
+# points(sitecoords_atl[sitecoords_atl$Site.ID==40,]$Long, sitecoords_atl[sitecoords_atl$Site.ID==40,]$Lat)
+# sitecoords_atl[sitecoords_atl$Site.ID==40, 5:4] <- c(-66.91425, 45.06824)
+# 
+# dev.off()
+# plot(rasterAQ, xlim=c(-57, -56), ylim=c(47, 48))
+# points(sitecoords_atl[sitecoords_atl$Site.ID==2023,]$Long, sitecoords_atl[sitecoords_atl$Site.ID==2023,]$Lat)
+# sitecoords_atl[sitecoords_atl$Site.ID==2023, 5:4] <- c(-56.21113, 47.64143)
+# 
+# dev.off()
+# plot(rasterAQ, xlim=c(-55, -54), ylim=c(47, 48))
+# points(reportlocs[reportlocs$River=="Terrenceville Brook",]$Long,
+#        reportlocs[reportlocs$River=="Terrenceville Brook",]$Lat)
+# reportlocs[reportlocs$River=="Terrenceville Brook",5:4] <- c(-54.74464, 47.6669)
+
+write.csv(reportlocs[2:5], "C:/Users/keyserf/Documents/Data/R output/reportlocs.csv")
+
 sitecoords_atl <- sitecoords_atl[,1:4]
 write.csv(sitecoords_atl, "C:/Users/keyserf/Documents/Data/R output/sitecoords_atl.csv")
 ```
 
-#transition layers
+#transition layers and calculating propagule pressure
 ```{r}
 tratl <- transition(1/ATLrast2, transitionFunction=mean, directions=8)
 tratlc <- geoCorrection(tratl, type="c")
@@ -2611,6 +2623,11 @@ write.csv(prop.press_avg_reports, "C:/Users/keyserf/Documents/Data/R output/prop
 # prop.press_atl_byyear <- join(prop.press_atl_byyear, new2, type="left", by=c("River", "Year"))
 
 # prop.press_atl_byyear$PropFarmed <- as.numeric(prop.press_atl_byyear$PropFarmed)
+```
+
+# Modelling average propagule pressure
+```{r}
+prop.press_avg_reports <- read.csv("C:/Users/keyserf/Documents/Data/R output/prop.press_avg_reports.csv")
 
 prop.press_avg_reports$detect2 <- 0
 prop.press_avg_reports$detect2[prop.press_avg_reports$detect > 0] <- 1
@@ -2618,8 +2635,14 @@ prop.press_avg_reports$detect2[is.na(prop.press_avg_reports$detect)] <- NA
 
 prop.press_avg_reports$sProp.press <- scale(prop.press_avg_reports$averagepress)
 
+prop.press_avg_reports$River <- factor(prop.press_avg_reports$River, levels=prop.press_avg_reports$River[order(prop.press_avg_reports$long)], ordered=TRUE)
 
-ggplot() + geom_point(data=prop.press_avg_reports, aes(as.character(River), sProp.press))
+prop.press_avg_plot <- join(prop.press_avg_reports, fullreports, type="left")
+
+ggplot() + geom_point(data=prop.press_avg_reports, aes(River, averagepress)) +
+  geom_errorbar(data=prop.press_avg_reports, aes(x=River, ymin=averagepress-stdpress, ymax=averagepress+stdpress)) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
 scaleList <- list(scale = attr(prop.press_avg_reports$sProp.press, "scaled:scale"),
                             center = attr(prop.press_avg_reports$sProp.press, "scaled:center"))
@@ -2700,7 +2723,7 @@ ggplot() + geom_point(data=prop.press_atl, aes(totalprop.press, propfarmed)) +
   geom_smooth(data=prop.press_atl, aes(totalprop.press, propfarmed)) + 
   geom_smooth(data=prop.press_atl, aes(totalprop.press, propfarmed), method="lm", colour="red") + 
   geom_text_repel(data=prop.press_atl, aes(totalprop.press, propfarmed, label=River), size=2)
-  
+
 
 yearssampled <- ddply(.data=new2, .(River),
                       summarize,
@@ -2825,7 +2848,7 @@ inventory1 <- rbind(annual[,c(2,5,6,3,7,4)], NB_inv[,c(2,6,5,3,7,4)], NSinv[,c(2
 names(reportlocs) <- c("X.1", "X", "River", "Lat", "Long")
 
 ## for all reports
-calcAQpress(AQsites = sitecoords_atl[is.na(sitecoords_atl$Long)=="FALSE",], inventory = inventory1[is.na(inventory1$Long)=="FALSE",], rivercoords = reportlocs, dir="C:/Users/keyserf/Documents/Data/R output")
+calcAQpress(AQsites = sitecoords_atl[is.na(sitecoords_atl$Long)=="FALSE",], inventory = inventory1[is.na(inventory1$Long)=="FALSE",], rivercoords = reportlocs, dir="C:/Users/keyserf/Documents/Data/R output", saveRast=FALSE)
 
 
 

@@ -136,3 +136,41 @@ ggplot() + geom_point(data=test, aes(time, catch))
 
 
 ```
+
+### Add in 2016 sampling
+```{r}
+brad2016 <- read.csv("C:/Users/keyserf/Documents/Data/Escape events and Reports/Bradbury sampling 2016.csv")
+dev.off()
+plot(ATLrast2, xlim=c(-56.3, -55), ylim=c(47.4,48.2))
+text(sched$Long, sched$Lat, labels=sched$Number, col="red")
+text(brad2016$Longitude[21:30], brad2016$Latitude__[21:30])
+
+
+brad2016$Number <- c(47,47,48,48,37,27,25,29,38,29,
+                           16, 47, 48, "NA", 16, 47, 48, "NA", 29, 19,
+                           19,"NA",19,38, 29, 25, 37,38, 35, "NA", 
+                           "NA", 29, 37,37,37,37,35,35,38,38,
+                            38,25,27,27,25,25,25,40,40,25,
+                           38,37,37,27,27,25,25,25,38,"NA",
+                           29,29,"NA", "NA", 31,30,37)
+
+brad2016 <- join(brad2016, sched, type="left")
+
+brad2016[is.na(brad2016$Long)=="TRUE",11:10] <- rbind(c(47.688344, -55.124000),
+                                                      c(47.688344, -55.124000),
+                                                      c(47.569167, -55.731452),
+                                                      c(47.569167, -55.731452),
+                                                      c(47.569167, -55.731452),
+                                                      c(47.65225, -55.93152),
+                                                      c(47.569167, -55.731452),
+                                                      c(47.569167, -55.731452))
+
+brad2016$Name <- as.character(brad2016$Name)
+
+brad2016[brad2016$Long==-55.124000,7] <- "Tickle Harbour"
+brad2016[brad2016$Long==-55.731452,7] <- "Bill Skinners Cove"
+brad2016[brad2016$Long==-55.93152,7] <- "Seal Nest Cove"
+
+
+```
+

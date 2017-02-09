@@ -40,7 +40,12 @@ require(scales)
 escapelocs <- read.csv("C:/Users/keyserf/Documents/Data/Escape events and reports/NL escape locations.csv")
 
 annual <- read.csv("C:/Users/keyserf/Documents/Data/Inventory data/NL annual inventory and coords_summary_2016-11-29.csv")
+
 sitecoords <- unique(subset(annual, is.na(Lat)=="FALSE", select=c("ID","Lat", "Long")))
+
+
+
+
 ```
 
 ### Newfoundland - Read in Geoff's escape reports db and tidy up
@@ -49,12 +54,6 @@ geoescapes <- read.csv("C:/Users/keyserf/Documents/Data/Escape events and report
 
 str(geoescapes)
 
-geoescapes_sal <- subset(geoescapes, Species %in% c("Atlanticsalmon", "AtlanticSalmon", "Salmon"))
-
-head(geoescapes_sal)
-geoescapes_sal$Year <- as.numeric(as.character(geoescapes_sal$Year))
-geoescapes_sal$Number <- as.character(geoescapes_sal$Number)
-
 clean <- function(i) { 
   temp=gsub(pattern=",", replacement="",x=i)
   temp=gsub(pattern=" ", replacement="",x=temp)
@@ -62,7 +61,15 @@ clean <- function(i) {
   return(temp)
 }
 
-geoescapes_sal[]<- sapply(geoescapes_sal, clean)
+geoescapes[,c(4,7:12)]<- sapply(geoescapes[,c(4,7:12)], clean)
+
+geoescapes_sal <- subset(geoescapes, Species %in% c("Atlanticsalmon", "AtlanticSalmon", "Salmon"))
+
+head(geoescapes_sal)
+geoescapes_sal$Year <- as.numeric(as.character(geoescapes_sal$Year))
+geoescapes_sal$Number <- as.character(geoescapes_sal$Number)
+
+
 geoescapes_sal$Number.adj <- as.numeric(as.character(geoescapes_sal$Number))
 geoescapes_sal$Size.adj <- as.numeric(as.character(geoescapes_sal$Size))
 geoescapes_sal$Size.bin <- ifelse(geoescapes_sal$Size.adj > 1000 | geoescapes_sal$Size %in% c("mkts", "near-mkt"), "large", ifelse(geoescapes_sal$Size.adj < 1001, "small", NA))
@@ -121,8 +128,13 @@ options(scipen=999)
 #   theme(panel.background = element_blank(), panel.border=element_rect(colour="black", fill=NA)) + 
 #   ylab("Number of fish") +
 #   scale_x_continuous(breaks=seq(1980, 2015, by=5))
-
+names(geoescapes_sal)
 geoescapes_2 <- dplyr::select(geoescapes_sal, Year, Location, Lat, Long, Number.adj, Size.adj, Size.bin, Other.Observations)
+
+geoescapes_3 <- dplyr::select(geoescapes_sal, Year, Date, Location, Lat, Long, Number.adj, Size.adj, Size.bin, Cause.and.Comments, Other.Observations)
+
+write.csv(geoescapes_3, "C:/Users/keyserf/Documents/Data/R output/NL Atlantic Salmon Escape Events2.csv")
+
 
 geoescapes_2$Year <- as.numeric(as.character(geoescapes_sal$Year))
 geoescapes_2$Size.bin <- as.factor(as.character(geoescapes_sal$Size.bin))
@@ -145,7 +157,7 @@ summary(geoescapes_2$Number.adj)
 mean(geoescapes_2$Number.adj, na.rm=TRUE)
 
 # If escape size is unknown, assume that it is equal to average escape size
-geoescapes_2$escapesize <- ifelse(is.na(geoescapes_2$Number.adj)=="TRUE", "10375", geoescapes_2$Number.adj)
+geoescapes_2$escapesize <- ifelse(is.na(geoescapes_2$Number.adj)=="TRUE", "26432", geoescapes_2$Number.adj)
 
 geoescapes_2$escapesize <- as.numeric(geoescapes_2$escapesize)
 
@@ -161,6 +173,9 @@ geoescapes_2$escapesizetype <- is.na(geoescapes_2$Number.adj)
 #   theme_classic() + 
 #   theme(panel.border=element_rect(colour="black", fill=NA)) +
 #   facet_wrap(~Location)
+
+
+
 ```
 
 ### Newfoundland - Escape summary tables
@@ -171,8 +186,11 @@ escape_summ <- ddply(.data=escapes0212, .(Location, Lat, Long),
                      summarize,
                     totalescape = sum(escapesize))
 
+escapelocs[] <- sapply(escapelocs, clean)
+
+
 ### ALL YEARS
-escape_summ_2 <- ddply(.data=geoescapes_2, .(Location, Lat, Long),
+escape_summ_2 <- ddply(.data=geoescapes_2, .(Location, Lat, Long, Year),
                      summarize,
                     totalescape = sum(escapesize))
 
@@ -546,7 +564,7 @@ ggplot() + geom_point(data=NBescapes[NBescapes$escapesize>0,], aes(Year, escapes
 ### New Brunswick - Escape summary tables
 ```{r}
 ### ALL YEARS
-escape_summ_2 <- ddply(.data=NBescapes, .(ID, Lat, Long),
+escape_summ_2 <- ddply(.data=NBescapes, .(ID, Lat, Long, Year),
                      summarize,
                     totalescape = sum(escapesize))
 
@@ -560,7 +578,7 @@ text(NBescapes$Long, NBescapes$Lat, col="red")
 # for q values
 NBescapes2 <- subset(NBescapes, Year < 2013)
 
-escape_summ <- ddply(.data=NBescapes2, .(ID, Lat, Long),
+escape_summ <- ddply(.data=NBescapes2, .(ID, Lat, Long, Year),
                      summarize,
                      totalescape = sum(escapesize))
 ```
@@ -998,5 +1016,167 @@ NSmorrismap <- ggplot() +
   geom_point(data=nbrivers, aes(long, lat), shape=21, fill="blue", colour="black", size=5) +
   geom_point(data=nbmorris_true, aes(long, lat), size=5, fill="red", shape=21, colour="black")
   #geom_label_repel(data=nbrivers, aes(long, lat, label=River), size=3, point.padding = unit(0.5,"lines"), min.segment.length = unit(0.1, "lines"))
+
+```
+
+### avg escape pressure
+```{r}
+#Escape pressure NL PARR
+
+sitecoords <- unique(escape_summ_2[escape_summ_2$Year < 2013,1:3])
+names(sitecoords) <- c("Site.ID", "Lat", "Long")
+sitecoords$prov <- "NL"
+names(escape_summ_2) <- c("Site.ID", "Lat", "Long", "Year", "totalfish")
+escape_summ_2$prov <- "NL"
+
+plot(NLprovrast, xlim=c(-56, -55.5), ylim=c(47.5, 48))
+points(sitecoords[sitecoords$Site.ID=="GreenPoint",]$Long, sitecoords[sitecoords$Site.ID=="GreenPoint",]$Lat)
+
+sitecoords <- sitecoords[1:12,]
+
+sitecoords[sitecoords$Site.ID=="GreenPoint",]$Long <- -55.81946
+sitecoords[sitecoords$Site.ID=="GreenPoint",]$Lat <- 47.61969
+
+calcAQpress(AQsites=sitecoords, inventory=escape_summ_2[escape_summ_2$Year < 2013 & escape_summ_2$Year > 2001,], rivercoords=qsites.in, dir = "C:/Users/keyserf/Documents/Data/R output", inputRast = TRUE, saveRast = FALSE, rastName = NLprovrast, distType = "weightedDist", stocking = TRUE)
+
+escNL <- read.csv("C:/Users/keyserf/Documents/Data/R output/prop.press_final_2017-02-07.csv")
+escNL <- read.csv("C:/Users/keyserf/Documents/Data/R output/prop.press_final_2017-02-06escNL2.csv")
+
+totalescNL <- ddply(.data=escNL, .(River),
+                    summarize,
+                    totalpp = sum(prop.press))
+
+escNL <- join(qsites, totalescNL, type="left")
+
+ggplot() + geom_point(data=escNL, aes(totalpp, Q)) + 
+  geom_smooth(data=escNL, aes(totalpp, Q), method="lm", colour="black") +
+  theme_classic() + 
+  theme(panel.background=element_rect(colour="black")) +
+  geom_label_repel(data=escNL, aes(totalpp, Q, label=River)) +
+  xlab("Total escape event pressure")
+
+# escNL2 <- read.csv("C:/Users/keyserf/Documents/Data/R output/prop.press_avg_2017-02-06.csv")
+# 
+# escNL2 <- join(qsites, escNL2, type="left")
+# 
+# ggplot() + geom_point(data=escNL2, aes(averagepress, Q)) + 
+#   geom_smooth(data=escNL2, aes(averagepress, Q), method="lm", colour="black") +
+#   theme_classic() + 
+#   theme(panel.background=element_rect(colour="black")) +
+#   geom_label_repel(data=escNL2, aes(averagepress, Q, label=River)) +
+#   xlab("Average propagule pressure")
+
+
+subreportsNL <- subset(timereports2, ProvState=="NL")
+
+subreportslocs <- unique(subreportsNL[,c(2,3,15,23,24)])
+names(subreportslocs) <- c("River", "prov", "Year", "Lat", "Long")
+
+calcAQpress(AQsites=sitecoords, inventory=escape_summ_2[is.na(escape_summ_2$Long)==FALSE,], rivercoords=unique(subreportslocs[,c(1,2,4,5)]), dir = "C:/Users/keyserf/Documents/Data/R output", inputRast = TRUE, saveRast = FALSE, rastName = NLprovrast, distType = "weightedDist", stocking = TRUE)
+
+escrep <- read.csv("C:/Users/keyserf/Documents/Data/R output/prop.press_final_2017-02-06.csv")
+
+escrep <- ddply(.data=escrep, .(River, Long, Lat),
+                summarize,
+                totalpp = sum(prop.press))
+
+escpress_PA <- join(escrep[,1:4], subreportsNL, type="left")
+
+escpress_PA <- ddply(.data=escpress_PA, .(River, totalpp),
+                     summarize,
+                     totalesc = sum(count),
+                     detected = max(detected))
+
+ggplot() + geom_point(data=escpress_PA, aes(totalpp, totalesc)) + 
+  geom_smooth(data=escpress_PA, aes(totalpp, totalesc), method="lm", colour="black") +
+  geom_label_repel(data=escpress_PA, aes(totalpp, totalesc, label=River), size=2) +
+  theme_classic() + 
+  theme(panel.background=element_rect(colour="black")) + 
+  ylab("Total number of escapees detected") +
+  xlab("Total escape event pressure")
+
+summary(lm(data=escpress_PA, totalesc ~ totalpp))
+
+
+
+detectionssub$River <- gsub("\\s",".", detectionssub$River)
+timereports$River <- gsub("\\s",".", timereports$River)
+
+prop.press_avg_fun <- join(prop.press_avg_fun, detections, type="left")
+
+prop.press_avg_fun$detect2 <- 0
+prop.press_avg_fun$detect2[prop.press_avg_fun$detect > 0] <- 1
+prop.press_avg_fun$detect2[is.na(prop.press_avg_fun$detect)] <- NA
+
+# prop.press_avg_fun$River <- factor(prop.press_avg_fun$River, levels=prop.press_avg_fun$River[order(prop.press_avg_fun$long)], ordered=TRUE)
+
+prop.press_avg_fun <- subset(prop.press_avg_fun, !River=="Bay.du.Nord.River")
+
+prop.press_avg_plot <- join(prop.press_avg_fun, timereports[,c(2:17,20:24)], type="left")
+
+ggplot() + geom_point(data=prop.press_avg_plot, aes(River, averagepress)) +
+  geom_errorbar(data=prop.press_avg_plot, aes(x=River, ymin=averagepress-stdpress, ymax=averagepress+stdpress)) +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+prop.press_avg_sub <- subset(prop.press_avg_fun, !is.na(detect2)=="TRUE")
+
+prop.press_avg_sub$sProp.press <- scale(prop.press_avg_sub$averagepress)
+
+scaleList <- list(scale = attr(prop.press_avg_sub$sProp.press, "scaled:scale"),
+                            center = attr(prop.press_avg_sub$sProp.press, "scaled:center"))
+
+require(lme4)
+mod <- glmer(detect2~sProp.press+(1|River),data=prop.press_avg_sub,family=binomial(link="logit"))
+
+sdata <-  scale(seq(from=min(prop.press_avg_sub$averagepress),to=max(prop.press_avg_sub$averagepress),by=0.00001),scale=scaleList$scale,center=scaleList$center)
+newdata <- data.frame(expand.grid(unique(as.character(prop.press_avg_sub$River)),sdata),stringsAsFactors = F)
+#newdata <- data.frame(River="Big Salmon",sdata,stringsAsFactors = F)
+
+colnames(newdata) <- c("River","sProp.press")
+
+## predictSE computes predicted values based on linear predictor and associated standard errors
+newdata <- cbind(newdata,AICcmodavg::predictSE(mod,newdata,se.fit=T,type="response")%>%data.frame())
+newdata$fixedprop.press <- newdata$sProp.press * (as.numeric(scaleList$scale) + as.numeric(scaleList$center))
+
+#mod_coef=as.data.frame(coef(mod)$River)
+#int <- ((log(p/(1-p)) - mod_coef[1,1]) / mod_coef[1,2])*scaleList$scale + scaleList$center
+
+Intercept <- mean(newdata[which(round(newdata$fit,1)==0.5),"fixedprop.press"]) #there are two values, answer is in between
+
+newdata2 <- newdata
+
+ggplot()+
+  geom_segment(aes(x=Intercept,xend=Intercept,y=-Inf,yend=0.5),lty=2,colour="grey40")+
+  geom_segment(aes(x=-Inf,xend=Intercept,y=0.5,yend=0.5),lty=2,colour="grey40")+
+  geom_line(data=newdata2,aes(x=fixedprop.press,y=fit,group=River),lwd=1.12)+
+  geom_line(data=newdata2,aes(x=fixedprop.press,y=fit+se.fit,group=River),lty=2,lwd=1.05)+
+  geom_line(data=newdata2,aes(x=fixedprop.press,y=fit-se.fit,group=River),lty=2,lwd=1.05)+
+  geom_point(data=prop.press_avg_sub,aes(x=averagepress,y=detect2),pch=21,fill="white")+
+  labs(x="Propagule pressure",y=expression(paste("Probability of farmed presence " %+-% " se",sep=" ")))+
+  theme_bw()
+
+
+
+##NB - unreliable because not enough NB q-values and no NS escape data
+# 
+# escape_summ
+# NBQ2 <- NBQ[,c(1,5,6)]
+# names(NBQ2) <- c("River", "Long", "Lat")
+# NBQ2$prov <- "NB"
+# 
+# 
+# calcAQpress(AQsites=sitecoords, inventory=escape_summ_2[escape_summ_2$Year < 2013,], rivercoords=qsites.in, dir = "C:/Users/keyserf/Documents/Data/R output", inputRast = TRUE, saveRast = FALSE, rastName = NLprovrast, distType = "weightedDist", stocking = TRUE)
+# 
+# escNL <- read.csv("C:/Users/keyserf/Documents/Data/R output/prop.press_avg_2017-02-06_escNL.csv")
+# 
+# escNL <- join(qsites, escNL, type="left")
+# 
+# ggplot() + geom_point(data=escNL, aes(averagepress, Q)) + 
+#   geom_smooth(data=escNL, aes(averagepress, Q), method="lm", colour="black") +
+#   theme_classic() + 
+#   theme(panel.background=element_rect(colour="black")) +
+#   geom_label_repel(data=escNL, aes(averagepress, Q, label=River)) +
+#   xlab("Average escape pressure")
 
 ```

@@ -48,3 +48,10 @@ canvec/NL.low.ocean.prj
 propagule pressure.png
 *.png
 propagule pressure.png
+*.rds
+*.pdf
+*/
+*.tiff
+calcAQpress function.R
+distance analyses.R
+pdftools code.Rmd

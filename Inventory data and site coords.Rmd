@@ -57,7 +57,6 @@ inventory_clean[, 6:13] <- abs(inventory_clean[, 6:13])
 
 inventory_clean$ReportYear <- as.numeric(inventory_clean$ReportYear)
 
-
 ################### CALCULATE FISH YEARS ########################
 
 # 2 rules: 
@@ -78,6 +77,29 @@ inventory_clean$fishcount <- ifelse(inventory_clean$case==1, (inventory_clean$NS
                                      ifelse(inventory_clean$case==3, inventory_clean$NRemain + 
                                               ((abs(inventory_clean$NMort) + abs(inventory_clean$NHarvest) + abs(inventory_clean$NTransfer))/2), NA)))
 
+
+### annual harvest
+peryear <- ddply(.data=inventory_clean, .(ID, ReportYear),
+                 summarize,
+                 totalharvest = sum(NHarvest))
+harvested <- peryear[peryear$totalharvest >0 ,]
+mean(harvested$totalharvest)
+
+
+avgtest <- ddply(.data=harvested, .(ReportYear),
+                 summarize,
+                 totalharvest = sum(totalharvest),
+                 totalsites = length(unique(ID)))
+
+summary(avgtest$totalharvest / avgtest$totalyears)
+
+head(inventory_clean)
+
+### survival
+survivalaq <- ddply(.data=inventory_clean, .(ID, ReportYear),
+                    summarize,
+                    proportion = (sum(NStart) + sum(NIntro)- sum(NMort))/(sum(NStart) + sum(NIntro)))
+mean(survivalaq$proportion)
 
 
 ### Annual inventory dataframe
@@ -134,13 +156,31 @@ bad <- unique(bad[,c(1, 4:5, 20)])
 otherlocs <- read.csv("C:/Users/keyserf/Documents/Data/Inventory data/locs.csv", header=TRUE)
 otherlocs <- unique(otherlocs)
 
-sites <- unique(select(totfishall, ID, Lat, Long))
+bad[bad$ID==2025,c(3,2)] <- c(-55.845,	47.7967)
+bad[bad$ID==2026,c(3,2)] <- c(-55.879912, 47.798551)
+bad[bad$ID==2027,c(3,2)] <- c(-55.845,	47.7967)
+bad[bad$ID==2028,c(3,2)] <- c(-55.8283,	47.85631)
+bad[bad$ID==2029,c(3,2)] <- c(-55.8913,	47.6328)
+bad[bad$ID==2030,c(3,2)] <- c(-55.88679,	47.74161)
+bad[bad$ID==2031,3] <- -55.8567
+bad[bad$ID==2031,2] <- 47.8148
+bad[bad$ID==2032,c(3,2)] <- c(NA, NA)
+bad[bad$ID==2033,c(3,2)] <- c(-55.833392,	47.8648)
+bad[bad$ID==924,c(3,2)] <- c(-55.8913,	47.6328)
 
-annualinventoryNL <- join(annual, sites, type="left")
-write.csv(annualinventoryNL, "C:/Users/keyserf/Documents/Data/NL annual inventory and coords_summary_2016-11-29.csv")
+bad <- subset(bad, !is.na(Lat))
+
+names(bad) <- c("ID", "Latcor", "Longcor", "Bay")
+
+annual <- join(annual, bad, type="left")
+annual$Lat <- ifelse(is.na(annual$Lat) == TRUE, annual$Latcor, annual$Lat)
+annual$Long <- ifelse(is.na(annual$Long) == TRUE, annual$Longcor, annual$Long)
+
+annualinventoryNL <- select(annual, ID, ReportYear, totalfish, Lat, Long)
+write.csv(annualinventoryNL, "C:/Users/keyserf/Documents/Data/Inventory data/NL annual inventory and coords_summary_2017-02-23.csv")
 
 ### SKIP ABOVE READ THIS:
-annual <- read.csv("C:/Users/keyserf/Documents/Data/Inventory data/NL annual inventory and coords_summary_2016-11-29.csv")
+annual <- read.csv("C:/Users/keyserf/Documents/Data/Inventory data/NL annual inventory and coords_summary_2017-02-23.csv")
 
 
 ```
@@ -307,3 +347,60 @@ write.csv(NSinv, "C:/Users/keyserf/Documents/Data/Inventory data/NS Inventory.cs
 NSinv <- read.csv("C:/Users/keyserf/Documents/Data/Inventory data/NS Inventory.csv")
 ```
 
+
+
+### MAINE ###
+
+```{r}
+MEinv <- read.csv("C:/Users/keyserf/Documents/Data/Inventory data/Maine AQ stocked.csv")
+MEcoords <- read.csv("C:/Users/keyserf/Documents/Data/Inventory data/Maine AQ sites.csv")
+
+MEinv <- melt(MEinv, id.vars=c("SITE.ID", "Site.name"), variable.name="Year")
+
+MEinv$Year<- gsub("X", "", x=MEinv$Year)
+MEinv$Year<- gsub("planned.", "", x=MEinv$Year)
+MEinv <- subset(MEinv, Year<2017 & value==1)
+
+colnames(MEcoords)[1] <- "SITE.ID"
+
+MEinv <- join(MEinv, MEcoords, type="left")
+head(MEinv)
+
+LATS2 <- MEinv$LATSS/60
+LATM2 <- LATS2 + MEinv$LATMM
+LATM3 <- LATM2/60
+MEinv$LAT <- MEinv$LATDD + LATM3
+
+LONS2 <- MEinv$LONSS/60
+LONM2 <- LONS2 + MEinv$LONMM
+LONM3 <- LONM2/60
+MEinv$LON <- MEinv$LONDD + LONM3
+MEinv$LON <- -MEinv$LON
+
+MEinv <- select(MEinv, -Site.name, -value, -LATDD, -LATMM, -LATSS, -X, -LONDD, -LONMM, -LONSS, -X.1)
+MEinv2 <- ddply(.data=MEinv, .(SITE.ID, Year),
+               summarize,
+               Long=mean(LON),
+               Lat=mean(LAT))
+MEinv <- MEinv2
+
+MEinv$SITE.ID <- as.numeric(MEinv$SITE.ID) + 3000
+MEinv$totalfish <- 1
+
+write.csv(MEinv, "C:/Users/keyserf/Documents/Data/R output/MEinv.csv")
+```
+
+### build inventory1
+```{r}
+NB_inv$prov <- "NB"
+annual$prov <- "NL"
+NSinv$prov <- "NS"
+MEinv$prov <- "ME"
+names(annual) <- c("X", "Site.ID", "Year", "totalfish", "Lat", "Long", "prov")
+names(NB_inv) <- c("Site.ID", "Year", "totalfish", "Long", "Lat", "prov")
+names(MEinv) <- c("Site.ID", "Year", "Long", "Lat", "totalfish", "prov")
+
+inventory1 <- rbind(annual[,c(2,5,6,3,7,4)], NB_inv[,c(1,5,4,2,6,3)], NSinv[,c(2,4,5,3,7,6)], MEinv[,c(1, 4, 3, 2, 6, 5)])
+inventory1 <- inventory1[is.na(inventory1$Lat)==FALSE,]
+write.csv(inventory1, "C:/Users/keyserf/Documents/Data/R output/inventory1.csv")
+```

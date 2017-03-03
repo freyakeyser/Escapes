@@ -20,6 +20,7 @@ require(gridExtra)
 require(ggrepel)
 require(scales)
 require(ggspatial)
+require(AQpress)
 ```
 
 -------------------------------------------------------------------------------------------------------------
@@ -255,7 +256,7 @@ c(-56.15274,47.83451),#hughes 17
 c(-56.09250,47.74371),#long reach 18
 c(-56.06645,47.77865),# salmon 19
 c(-55.86821,46.87000),# pierceys 20
-c(-55.83767,47.88911 ),# northwest 21
+c(-55.83767,47.88911 ),# northwest 21 
 c(-55.82535,47.08279),#fortune 22
 c(-55.77261,46.86104),# salmonier river 23
 c(-55.74623,47.10743),# grand bank 24
@@ -272,7 +273,7 @@ c(-55.45720,47.63639),#simms 34
 c(-55.45720,47.63639 ),# salmon 35
 c(-55.46466,47.61965),# southwest 36
 c(-55.42238,47.70501),#bay du nord 37
-c(-55.39005,47.72007 ),#northwest 38
+c(-55.39005,47.72007 ),#northwest 38 
 c(-55.34075,46.91031),#little st. lawrence 39
 c(-55.37016,47.72007),#north east 40
 c(-55.35724,47.23734),#garnish 41
@@ -2121,20 +2122,31 @@ ggplot() + geom_point(data=prop.press_MILLIONRIVERS, aes(prop.press, Name)) + fa
 
 ### reports
 ```{r}
+### Magaguadavic from ASF
 
-reports <- read.csv("C:/Users/keyserf/Documents/Data/Escape events and reports/Escapee reports_2017-01-13.csv")
+# mag <- read.csv("C:/Users/keyserf/Documents/Data/Escape events and reports/ASF Escapees_Magaguadavic_HeadTide.csv")
+# 
+# mag$Date <- dmy(mag$Date.dd.mm.yy)
+# mag$Year <- year(mag$Date)
+# 
+# mag$type <- ifelse(mag$Origin==2, "farm", "other")
+# 
+# mag_summ <- ddply(.data=mag, .(Year, type),
+#                   summarize,
+#                   total = length(Fork.Length..cm.))
+# 
+# mag_summ$River <- "Magaguadavic"
+# mag_summ$ProvState <- "NB"
+# colnames(mag_summ)[3] <- "TotalFarmed"
+# mag_summ$TotalCombined <- mag_summ$TotalFarmed
+# mag_summ$CountMethod <- "fence"
+# mag_summ$SOURCES <- "ASF"
+# mag_summ <- select(mag_summ, -type)
+# mag_summ$detected <- 1
 
-reports$TotalFarmed <- as.character(reports$TotalFarmed)
-reports <- subset(reports, !TotalFarmed %in% c("N/A"))
-reports$detected[reports$TotalFarmed=="N/A"] <- "NA"
-reports$detected[is.na(reports$TotalFarmed)=="FALSE"] <- 1
-reports$detected[reports$TotalFarmed==0] <- 0
-reports$detected[reports$TotalFarmed%in%c("?", "Suspected")] <- 0.5
+### I added mag_summ into csv Feb 24 2017 
 
-reports$Year.adj <- as.numeric(as.character(reports$Year))
-
-new <- subset(reports, Year.adj > 2007)
-
+# Bradbury 2015
 ## add bradbury sampling sites (BDN, GAR, LTR, FBN, SMB)
 
 bradprops2015 <- read.csv("C:/Users/keyserf/Documents/Data/R output/bradprops2015.csv")
@@ -2186,10 +2198,166 @@ bradoverview2015 <- bradoverview2015[,c(1,2,7,8,10)]
 
 names(bradoverview2015) <- c("River", "Year.adj", "Latitude.in", "Longitude.in", "detected")
 
+
+### Add bradbury 2016
+
+brad2016 <- read.csv("C:/Users/keyserf/Documents/Data/Escape events and Reports/Bradbury sampling 2016.csv")
+#dev.off()
+#plot(ATLrast2, xlim=c(-56.3, -55), ylim=c(47.4,48.2))
+#text(sched$Long, sched$Lat, labels=sched$Number, col="red")
+#text(brad2016$Longitude[21:30], brad2016$Latitude__[21:30])
+
+
+brad2016$Number <- c(47,47,48,48,37,27,25,29,38,29,
+                           16, 47, 48, "NA", 16, 47, 48, "NA", 29, 19,
+                           19,"NA",19,38, 29, 25, 37,38, 35, "NA", 
+                           "NA", 29, 37,37,37,37,35,35,38,38,
+                            38,25,27,27,25,25,25,40,40,25,
+                           38,37,37,27,27,25,25,25,38,"NA",
+                           29,29,"NA", "NA", 31,30,37)
+
+brad2016 <- join(brad2016, sched, type="left")
+
+brad2016[is.na(brad2016$Long)=="TRUE",11:10] <- rbind(c(47.688344, -55.124000),
+                                                      c(47.688344, -55.124000),
+                                                      c(47.569167, -55.731452),
+                                                      c(47.569167, -55.731452),
+                                                      c(47.569167, -55.731452),
+                                                      c(47.65225, -55.93152),
+                                                      c(47.569167, -55.731452),
+                                                      c(47.569167, -55.731452))
+
+brad2016$Name <- as.character(brad2016$Name)
+
+brad2016[brad2016$Long==-55.124000,7] <- "Tickle Harbour"
+brad2016[brad2016$Long==-55.731452,7] <- "Bill Skinners Cove"
+brad2016[brad2016$Long==-55.93152,7] <- "Seal Nest Cove"
+
+str(brad2016)
+brad2016$Year.adj <- 2016
+colnames(brad2016)[10] <- "long1"
+colnames(brad2016)[11] <- "lat1"
+
+brad2016simp <- unique(brad2016[,c(7,12, 10, 11)])
+
+brad2016simp$TotalFarmed <- 0 
+colnames(brad2016simp)[1]<-"River"
+brad2016simp$River[brad2016simp$River == "Bay du Nord River"] <- "Bay Du Nord"
+brad2016simp$detected <- 0
+
+
+### read in all contributed reports
+
+reports <- read.csv("C:/Users/keyserf/Documents/Data/Escape events and reports/Escapee reports_2017-02-24.csv")
+
+reports$TotalFarmed <- as.character(reports$TotalFarmed)
+reports <- subset(reports, !TotalFarmed %in% c("N/A"))
+reports$detected[reports$TotalFarmed=="N/A"] <- "NA"
+reports$detected[is.na(reports$TotalFarmed)=="FALSE"] <- 1
+reports$detected[reports$TotalFarmed==0] <- 0
+reports$detected[reports$TotalFarmed%in%c("?", "Suspected", "Unconfirmed")] <- 0.5
+
+reports$Year.adj <- as.numeric(as.character(reports$Year))
+
+
+### join all reports
+
+names(bradoverview2015)
+names(brad2016simp)
+names(reports)
+
 reports <- join(reports, bradoverview2015, type="full")
 
+reports <- join(reports, brad2016simp, type="full")
+# 494 different river/year reports
+```
+
+### get coordinates for reports
+```{r}
+morris <- read.csv("C:/Users/keyserf/Documents/Data/Escape events and reports/Morris et al 2008 data.csv", header=TRUE)
+
+nsrivers <- as.data.frame(unique(morris$River[morris$Prov=="NS"]))
+names(nsrivers) <- c("river")
+#nsrivers
+coords_clean <- rbind(c(-65.59265, 44.69787), # Annap
+c(-60.86494, 46.06677),# Baddeck
+c(-65.69013, 44.61802), #Bear
+c(-60.79996, 45.86143), #BRas
+c(-64.22795, 45.12565), #Gasp
+c(-60.61312, 45.59906), #Grand
+c(-64.09798, 45.39943), #Harr
+c(-60.57251, 46.26069), #Indian
+c(-64.34167, 44.28720), #Lahave
+c(-61.99407, 45.00587), #Liscomb
+c(-61.11676, 46.44321), #Marg
+c(-64.65848, 44.03053), # Mersey
+c(-66.16127, 44.23016), #Meteghan
+c(-60.88931, 46.05536), #MIddle
+c(-65.60077, 44.69787), #Nict
+c(-60.58063, 46.23217), #North
+c(-64.30106, 45.37091), # Parrs
+c(-63.54560, 44.62372), #Sack
+c(-66.18564, 44.05905), #Salmon
+c(-60.93805, 46.01543), #skye
+c(-63.48874, 45.33098), #Stew
+c(-60.50752, 46.36336), #St. Ann
+c(-61.86410, 45.02298), #St. mary
+c(-65.95007, 43.76246), #Tusket
+c(-60.93805, 46.01543)) #Why 
+
+nsrivers <- cbind(nsrivers, coords_clean)
+nsrivers$river <- as.character(nsrivers$river)
+
+names(nsrivers) <- c("River", "long", "lat")
+
+nsrivers$code <- as.character(c("APR", "BAD", "BRR", "BRA", "GAK", "GRA", "HAR", "IND", "LAH", "LIS", "MGR", "MER", "MET", "MID", "NIC", "NRV", "PAR", "SAC", "SAD", "SKY", "STW", "STA", "SMA", "TUS", "WHY"))
 
 nsrivers <- nsrivers[,c(1,3,2,4)]
+
+
+
+morris <- read.csv("C:/Users/keyserf/Documents/Data/Escape events and reports/Morris et al 2008 data.csv", header=TRUE)
+
+nbrivers <- as.data.frame(unique(morris$River[morris$ProvState=="NB"]))
+names(nbrivers) <- c("river")
+coords_clean <- rbind(c(45.545066, -66.011293), 
+               c(45.422197, -65.402976),
+               c(45.262844, -65.781699),
+               c(45.179130, -66.987045),
+               c(45.131204, -67.068731),
+               c(45.199799, -67.261215),
+               c(45.118038, -66.876022),
+               c(47.074048, -65.399438),
+               c(45.570888, -65.774480),
+               c(45.957255, -66.618207),
+               c(45.502517, -66.072903),
+               c(45.167935, -67.194878),
+               c(45.610963, -64.957627),
+               c(45.206954, -67.147044))
+nbrivers <- cbind(nbrivers, coords_clean)
+
+names(nbrivers) <- c("River", "lat", "long")
+
+# plot(NBrast)
+# plot(NB.low, add=TRUE)
+# points(nbrivers[,3], nbrivers[,2], col="red")
+nbrivers[,2:3] <- rbind(c(45.25795, -66.04133),# BIB
+                    c(45.40349, -65.40872), # BSR
+                    c(45.25354, -65.79461), # BKR
+                    c(45.14328, -66.97758), # BOC
+                    c(45.11682, -67.02819), # CHS
+                    c(45.18298, -67.27490), # DNS
+                    c(45.12123, -66.91432), # MDR
+                    c(NA, NA),              # MIR
+                    c(45.12123, -66.91432), # MTB
+                    c(45.24913, -66.04765), # NSH
+                    c(45.24913, -66.04765), # SJR
+                    c(45.16092, -67.19266), # SCR
+                    c(45.58872, -64.93427), # USR
+                    c(45.17416, -67.15471)) # WAR
+
+nbrivers2 <- subset(nbrivers, is.na(lat)=="FALSE")
+nbrivers2$code <- c("BIB", "BSR", "BKR", "BOC", "CHS", "DNS", "MDR", "MTB", "NSH", "SJR", "SCR", "USR", "WAR")
 
 marreports <- rbind(nbrivers2, nsrivers)
 
@@ -2212,6 +2380,9 @@ fullreports[fullreports$River=="Clyburn",18] <- -60.397694
 fullreports$lat <- ifelse(is.na(fullreports$lat)=="TRUE", fullreports$Latitude.in, fullreports$lat)
 fullreports$long <- ifelse(is.na(fullreports$long)=="TRUE", fullreports$Longitude.in, fullreports$long)
 
+fullreports$lat <- ifelse(is.na(fullreports$lat)=="TRUE", fullreports$lat1, fullreports$lat)
+fullreports$long <- ifelse(is.na(fullreports$long)=="TRUE", fullreports$long1, fullreports$long)
+
 # Cobscott Bay is a typo. Remove.
 fullreports <- fullreports[!fullreports$River=="Cobscott Bay",]
 # Connecticut, pawcatuck and merrimack River is way too far inland. Remove.
@@ -2222,28 +2393,8 @@ fullreports <- fullreports[!fullreports$River=="Pawcatuck",]
 # remove unknown locations
 fullreports <- fullreports[!fullreports$River=="Unknown",]
 
-# add bradbury 2016 sampling
-
-str(brad2016)
-brad2016$Year.adj <- 2016
-colnames(brad2016)[10] <- "long1"
-colnames(brad2016)[11] <- "lat1"
-
-brad2016simp <- unique(brad2016[,c(7,12, 10, 11)])
-
-brad2016simp$TotalFarmed <- 0 
-colnames(brad2016simp)[1]<-"River"
-brad2016simp$River[brad2016simp$River == "Bay du Nord River"] <- "Bay Du Nord"
-
-fullreports <- join(fullreports, brad2016simp, type="full")
-
-#new$PropFarmed <- as.numeric(new$TotalFarmed) / as.numeric(new$TotalCombined)
-head(fullreports)
-
-fullreports$lat <- ifelse(is.na(fullreports$lat1)=="FALSE", fullreports$lat1, fullreports$lat)
-fullreports$long <- ifelse(is.na(fullreports$long1)=="FALSE", fullreports$long1, fullreports$long)
-
-reportlocs <- unique(fullreports[,c(1,17:18)])
+# create reportlocs to identify rivers
+reportlocs <- unique(fullreports[,c(1,19:20)])
 
 reportlocs[reportlocs$River=="Androscoggin", 3:2] <- c(-69.878744, 43.953714)
 reportlocs[reportlocs$River=="Aroostook", 3:2] <- c(-66.04765, 45.24913)
@@ -2251,6 +2402,8 @@ reportlocs[reportlocs$River=="Bay Du Nord", 3] <- -55.4175
 reportlocs[reportlocs$River=="Bay Du Nord", 2] <- 47.71868
 reportlocs[reportlocs$River=="Bear", 3:2] <- c(-65.69852, 44.62575)
 reportlocs[reportlocs$River=="Boyden Stream", 3:2] <- c(-67.057162, 44.969617)
+reportlocs[reportlocs$River=="Clyburn", 3] <- -60.39769
+reportlocs[reportlocs$River=="Clyburn", 2] <- 46.66168
 reportlocs[reportlocs$River=="Cobscook Bay", 3:2] <- c(-67.071438, 44.910682)
 reportlocs[reportlocs$River=="Collins Brook ", 3:2] <- c(-55.82494, 47.79367)
 reportlocs[reportlocs$River=="Connaigre Bay", 3:2] <- c(-55.843870, 47.539911)
@@ -2261,10 +2414,13 @@ reportlocs[reportlocs$River=="D'Espoir Brook", 3:2] <- c(-56.16406, 47.84225)
 reportlocs[reportlocs$River=="East Machias", 3:2] <- c(-67.39036, 44.68688)
 reportlocs[reportlocs$River=="Frenchman's Cove", 3:2] <- c(-55.38782, 47.21629)
 reportlocs[reportlocs$River=="Grandy Brook", 3:2] <- c(-57.68647, 47.62023)
+reportlocs[reportlocs$River=="Grand Bank Brook", 3:2] <- c(-55.74006, 47.11024)
+reportlocs[reportlocs$River=="Garnish River", 3:2] <- c(-55.3614, 47.23877)
 reportlocs[reportlocs$River=="Hobart Stream", 3:2] <- c(-67.12043, 44.88428)
 reportlocs[reportlocs$River=="Kennebec", 3:2] <- c(-69.804263, 43.815567)
 reportlocs[reportlocs$River=="Lahave", 3:2] <- c(-64.34176, 44.28187)
-reportlocs[reportlocs$River=="Little River", 3:2] <- c(-55.81197, 47.7953)
+reportlocs[reportlocs$River=="Little River", 3] <- -55.81197
+reportlocs[reportlocs$River=="Little River", 2] <- 47.7953
 reportlocs[reportlocs$River=="Long Harbour", 3:2] <- c(-54.96017, 47.764)
 reportlocs[reportlocs$River=="Machias", 3:2] <- c(-67.390493, 44.688272)
 reportlocs[reportlocs$River=="Magaguadavic",3:2] <- c(-66.910076, 45.122017)
@@ -2273,15 +2429,27 @@ reportlocs[reportlocs$River=="Margaree", 3:2] <- c(-61.10427, 46.44772)
 reportlocs[reportlocs$River=="Miramichi", 3:2] <- c(-65.332628, 47.086688)
 reportlocs[reportlocs$River=="Narraguagus", 3:2] <- c(-67.887, 44.54183)
 reportlocs[reportlocs$River=="North (CB)", 3:2] <- c(-60.58669, 46.24114)
+reportlocs[reportlocs$River=="North East Brook", 3:2] <- c(-55.37232, 47.7188)
+reportlocs[reportlocs$River=="North West Brook 1", 3] <- -55.39005
+reportlocs[reportlocs$River=="North West Brook 1", 2] <- 47.72007
 reportlocs[reportlocs$River=="Old Brook", 3:2] <- c(-55.64168, 47.50313)
 reportlocs[reportlocs$River=="Pennamaquan", 3:2] <- c(-67.164242, 44.943102)
 reportlocs[reportlocs$River=="Penobscot", 3:2] <- c(-68.79487, 44.48683)
 reportlocs[reportlocs$River=="Pleasant River", 3:2] <- c(-70.250974, 43.714297)
+reportlocs[reportlocs$River=="Rencontre Brook", 3:2] <- c(-55.20745, 47.63259)
 reportlocs[reportlocs$River=="Saco River", 3:2] <- c(-70.37678, 43.46604)
+reportlocs[reportlocs$River=="Salmon River 1", 3:2] <- c(-55.46242, 47.63996)
+reportlocs[reportlocs$River=="Salmon River 2", 3:2] <- c(-56.09316, 47.74895)
+reportlocs[reportlocs$River=="Salmonier Brook", 3] <- -55.67354
+reportlocs[reportlocs$River=="Salmonier Brook", 2] <- 47.66986
 reportlocs[reportlocs$River=="Shoal Brook", 3] <- -55.68705
 reportlocs[reportlocs$River=="Shoal Brook", 2] <- 47.66858
+reportlocs[reportlocs$River=="Simmons Brook", 3:2] <-c(-55.45720, 47.63639)
+reportlocs[reportlocs$River=="Southeast Brook", 3:2] <-c(-55.7659, 47.91822)
+reportlocs[reportlocs$River=="South West Brook 1", 3:2] <- c(-55.46466, 47.61965)
 reportlocs[reportlocs$River=="St. Croix River", 3:2] <- c(-67.19257, 45.16494)
 reportlocs[reportlocs$River=="Tailrace", 3:2] <- c(-55.76375, 47.93676)
+reportlocs[reportlocs$River=="Taylors Bay Brook 1", 3:2] <- c(-55.61144, 47.5217)
 reportlocs[reportlocs$River=="Terrenceville Brook", 3:2] <- c(-54.73114, 47.67646)
 reportlocs[reportlocs$River=="Tickle Harbour", 3:2] <- c(-55.13155, 47.67407)
 reportlocs[reportlocs$River=="Togus Stream", 3:2] <- c(-69.804263, 43.815567)
@@ -2295,44 +2463,26 @@ fullreports <- join(fullreports, reportlocs, type="left")
 
 fullreports <- dplyr::select(fullreports, -Latitude.in, -Longitude.in, -lat, -long, -long1, -lat1)
 
-fullreports[fullreports$Year.adj==2016 & is.na(fullreports$detected)==TRUE,]$detected <- 0
-
-fullreports <- fullreports[is.na(fullreports$River)==FALSE,]
+fullreports$Year.adj[is.na(fullreports$Year.adj)==TRUE] <- as.numeric(fullreports$Year[is.na(fullreports$Year.adj)==TRUE])
 
 write.csv(fullreports, "C:/Users/keyserf/Documents/Data/R output/fullreports.csv")
 
 write.csv(reportlocs, "C:/Users/keyserf/Documents/Data/R output/reportlocs.csv")
 
-ggplot() + #geom_spatial(data=NB.low, aes(fill=ctry_en)) + ### canvec spatialpolygonsdataframe
-  #geom_spatial(data=PE.low, aes(fill=ctry_en)) + ### canvec spatialpolygonsdataframe
- # geom_spatial(data=NS.low, aes(fill=ctry_en)) + ### canvec spatialpolygonsdataframe
-  #scale_fill_manual(values=c("grey"), guide=FALSE) + ### fills geom_spatials with grey
-  #geom_polygon(data=GOMclip, aes(long, lat, group=group), fill="grey") + ### Gulf of Maine shapefile to get Grand Manan & Maine
-  #geom_path(data=CA.df, aes(long, lat, group=group),colour="black") + ### plots black outline on provinces
-  # annotate(geom="rect", xmin=-60, xmax=-59.5, ymin=47.5, ymax= 48, fill="grey") + ### these annotates hide white space!
-  # annotate(geom="rect", xmin=-64, xmax=-59.5, ymin=43.2, ymax= 44, fill="grey") +
-  # annotate(geom="rect", xmin=-61, xmax=-59.5, ymin=44, ymax= 45, fill="grey") + 
-  geom_point(data=fullreports, aes(longfinal1, latfinal1, colour=as.factor(detected))) + 
+# check coords
+ggplot() +
+  geom_point(data=reportlocs, aes(longfinal1, latfinal1)) + 
   coord_map() + 
   theme_classic() 
 ```
 
-
 ### site coordinates
 ```{r}
-names(annual)
-NLinv <- annual[,c(2,5,6)]
-names(NLinv) <- c("Site.ID", "Lat", "Long")
-NLinv$prov <- "NL"
+sitecoords_atl_2 <- unique(select(inventory1, Site.ID, Lat, Long, prov))
 
-sitecoords_atl <- rbind(sitecoords_all, NLinv)
-sitecoords_atl <- unique(sitecoords_atl[,2:5])
-sitecoords_atl <- sitecoords_atl[is.na(sitecoords_atl$Long)==FALSE,]
+sitecoords_atl_2[sitecoords_atl_2$Site.ID==2012,3:2] <- c(-55.82891, 47.54275) #ID2012
+sitecoords_atl_2[sitecoords_atl_2$Site.ID==1082,3:2] <- c(-55.33238, 47.65957) #ID1082
 
-sitecoords_atl[132,3:2] <- c(-55.86193, 47.73514) 
-sitecoords_atl[150,3:2] <- c(-55.82891, 47.54275) 
-sitecoords_atl[161,3:2] <- c(-55.82891, 47.54275) 
-sitecoords_atl[135,3:2] <- c(-55.33238, 47.65957) 
 ```
 
 ## get shapefile
@@ -2387,16 +2537,16 @@ ATLrast2@data@values <- ifelse(coordinates(ATLrast2)[,1] > -61.42577 & coordinat
 
 ## find bad AQ sites
 
-bad3<-data.frame(extract(x = ATLrast2, y = SpatialPoints(coords = cbind(sitecoords_atl$Long, sitecoords_atl$Lat), proj4string = CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"))))
-bad3$Site.ID <- sitecoords_atl$Site.ID
-bad3$prov <- sitecoords_atl$prov
+bad3<-data.frame(extract(x = ATLrast2, y = SpatialPoints(coords = cbind(sitecoords_atl_2$Long, sitecoords_atl_2$Lat), proj4string = CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"))))
+bad3$Site.ID <- sitecoords_atl_2$Site.ID
+bad3$prov <- sitecoords_atl_2$prov
 
 get_good3 <- which(bad3[,1] == 1)
 get_bad3 <- which(bad3[,1] == 100000)
 
-badsites3 <- sitecoords_atl[get_bad3, c("Site.ID", "prov")]
+badsites3 <- sitecoords_atl_2[get_bad3, c("Site.ID", "prov")]
 
-badsites3 <- join(badsites3, sitecoords_atl, type="left")
+badsites3 <- join(badsites3, sitecoords_atl_2, type="left")
 
 unique(badsites3[])
 
@@ -2404,62 +2554,66 @@ unique(badsites3[])
 # plot(ATLrast2), xlim=c(-67.2, -66.4), ylim=c(44.5, 45.2))
 # text(badsites3[badsites3$prov=="NB",]$Long, badsites3[badsites3$prov=="NB",]$Lat, labels=badsites3[badsites3$prov=="NB",]$Site.ID)
 
-badsites3[badsites3$prov=="NB",4:3] <- c(-66.72366, -66.81626,
-                                         -66.84110, -66.87046,
-                                         -66.93822, -66.94725,
-                                         -66.94725, -67.02178,
-                                         -66.97210, -66.70334,
-                                         -66.72818, -66.81400,
-                                         -66.88853, -66.97435,
-                                         -66.85240, -66.89982,
-                                         -66.69430, 45.06568, 
-                                         45.05447, 45.03045, 
-                                         45.03846, 45.00003, 
-                                         44.92157, 44.92317, 
-                                         45.12652, 44.87514, 
-                                         44.67979, 44.71182, 
-                                         44.60934, 45.03045, 
-                                         44.93438, 45.05607,
-                                         44.93918, 45.05767)
+badsites3[badsites3$prov=="NB",4:3] <- c(-66.72366, -66.81626, #10, 16
+                                         -66.84110, -66.87046, #29, 37
+                                         -66.93822, -66.94725, #46, 53
+                                         -66.94725, -67.02178, #54, 61
+                                         -66.97210, -66.70334, #168, 298
+                                         -66.72818, -66.81400, #349, 491
+                                         -66.88853, -66.97435, #38, 51
+                                         -66.85240, -66.89982, #159, 206
+                                         -66.69430, 45.06568,  #378, 10
+                                         45.05447, 45.03045,  #16, 29
+                                         45.03846, 45.00003,  #37, 46
+                                         44.92157, 44.92317,  #53, 54
+                                         45.12652, 44.87514,  #61, 168
+                                         44.67979, 44.71182,  #298, 349
+                                         44.60934, 45.03045,  #491, 38
+                                         44.93438, 45.05607,  #51, 159
+                                         44.93918, 45.05767)  #206, 378
 
 
 # plot(ATLrast2, xlim=c(-67, -64), ylim=c(44.2, 44.7))
 # text(badsites3[badsites3$prov=="NS",]$Long, badsites3[badsites3$prov=="NS",]$Lat, labels=badsites3[badsites3$prov=="NS",]$Site.ID)
 
-badsites3[badsites3$prov=="NS" & !badsites3$Site.ID==193,4:3] <- rbind(c(-64.31949, 44.40483), 
-                                                                       c(-66.33586, 44.26520), 
-                                                                       c(-65.74907, 44.64712), 
-                                                                       c(-65.70305, 44.65533))
-
-# dev.off()
-# plot(ATLrast2, xlim=c(-61.5, -60.5), ylim=c(45.8, 46.5))
-# text(badsites3[badsites3$prov=="NS",]$Long, badsites3[badsites3$prov=="NS",]$Lat, labels=badsites3[badsites3$prov=="NS",]$Site.ID)
-
-badsites3[badsites3$prov=="NS" & badsites3$Site.ID==193,4:3] <- c(-60.97574, 46.01276)
+badsites3[badsites3$prov=="NS",4:3] <- rbind(c(-64.31949, 44.40483), #74
+                                                                       c(-66.33586, 44.26520),  #742
+                                                                       c(-65.74907, 44.64712),  #1039
+                                                                       c(-65.70305, 44.65533))  #1040
 
 # dev.off() 
-# plot(ATLrast2, xlim=c(-56, -55), ylim=c(47.4, 48))
-# text(badsites3[badsites3$prov=="NL",]$Long, badsites3[badsites3$prov=="NL",]$Lat, labels=badsites3[badsites3$prov=="NL",]$Site.ID)
+# plot(ATLrast2, xlim=c(-57, -55), ylim=c(47, 48))
+# text(badsites3[badsites3$prov=="NL"& badsites3$Site.ID<1000,]$Long, badsites3[badsites3$prov=="NL" & badsites3$Site.ID<1000,]$Lat)
 
-badsites3[badsites3$prov=="NL", 4:3] <- rbind(c(-55.36079, 47.70331),
-                                              c(-55.61069, 47.53106),
-                                              c(-55.83952, 47.79449),
-                                              c(-55.85006, 47.81273),
-                                              c(-55.88469, 47.62326),
-                                              c(-55.85157, 47.81375),
-                                              c(-55.93437, 47.65366),
-                                              c(-55.92232, 47.64049),
-                                              c(-55.89071, 47.62529),
-                                              c(-55.38337, 47.65974),
-                                              c(-55.73715, 47.64758))
+badsites3[badsites3$prov=="NL", 4:3] <- rbind(c(-55.36514, 47.70264), # 1046
+                                                 c(-55.60664, 47.52799), # 1040
+                                                 c(-55.32772, 47.64749), # 1082
+                                                 c(-55.83114, 47.79226), # 2009
+                                                 c(-55.78352, 47.57625), # 2012
+                                                 c(-55.83454, 47.81524), # 2013
+                                                 c(-55.88896, 47.62680), # 2016
+                                                 c(-55.83794, 47.79455), # 2025
+                                                 c(-55.83454, 47.79455), # 2027
+                                                 c(-55.86856, 47.73481), # 2030
+                                                 c(-55.83454, 47.81064), # 2031
+                                                 c(-55.84134, 47.81524), # 500
+                                                 c(-55.88556, 47.62680), # 781
+                                                 c(-55.88556, 47.62680), # 833
+                                                 c(-55.88556, 47.62680), # 869
+                                                 c(-55.38895, 47.65668), # 886
+                                                 c(-55.74950, 47.64749)) # 939
+                                              
 
-
-head(sitecoords_atl)
+# dev.off() 
+# plot(ATLrast2, xlim=c(-68, -67), ylim=c(44, 45))
+# points(badsites3[badsites3$Site.ID %in% c(3034),]$longfinal, badsites3[badsites3$Site.ID %in% c(3034),]$latfinal)
+badsites3[badsites3$prov=="ME", 4:3] <- c(-67.36914, 44.60755)#3034
+    
 names(badsites3) <-c("Site.ID", "prov", "latfinal", "longfinal")
-sitecoords_atl <- join(sitecoords_atl, badsites3, type="left")
+sitecoords_atl_2 <- join(sitecoords_atl_2, badsites3, type="left")
 
-sitecoords_atl$Long <- ifelse(is.na(sitecoords_atl$longfinal)==FALSE, sitecoords_atl$longfinal, sitecoords_atl$Long)
-sitecoords_atl$Lat <- ifelse(is.na(sitecoords_atl$latfinal)==FALSE, sitecoords_atl$latfinal, sitecoords_atl$Lat)
+sitecoords_atl_2$Long <- ifelse(is.na(sitecoords_atl_2$longfinal)==FALSE, sitecoords_atl_2$longfinal, sitecoords_atl_2$Long)
+sitecoords_atl_2$Lat <- ifelse(is.na(sitecoords_atl_2$latfinal)==FALSE, sitecoords_atl_2$latfinal, sitecoords_atl_2$Lat)
 
 
 # FOR AQPRESS USAGE ONLY:
@@ -2542,37 +2696,63 @@ sitecoords_atl$Lat <- ifelse(is.na(sitecoords_atl$latfinal)==FALSE, sitecoords_a
 
 # write.csv(reportlocs[2:4], "C:/Users/keyserf/Documents/Data/R output/reportlocs.csv")
 
-sitecoords_atl <- sitecoords_atl[,1:4]
-write.csv(sitecoords_atl, "C:/Users/keyserf/Documents/Data/R output/sitecoords_atl.csv")
+sitecoords_atl_2 <- sitecoords_atl_2[,1:4]
+
+write.csv(sitecoords_atl_2, "C:/Users/keyserf/Documents/Data/R output/sitecoords_atl_2.csv")
 
 ##### READ IN FOLLOWING:
 
-sitecoords_atl <- read.csv("C:/Users/keyserf/Documents/Data/R output/sitecoords_atl.csv")
+sitecoords_atl_2 <- read.csv("C:/Users/keyserf/Documents/Data/R output/sitecoords_atl_2.csv")
 reportlocs <- read.csv("C:/Users/keyserf/Documents/Data/R output/reportlocs.csv")
-fullreports <- read.csv("C:/Users/keyserf/Documents/Data/R output/fullreports.csv")
+inventory1 <- read.csv("C:/Users/keyserf/Documents/Data/R output/inventory1.csv")
 
 ```
 
 ### fix years in fullreports
 ```{r}
-fullreports[is.na(fullreports$Year.adj),]$Year
+fullreports[fullreports$Year.adj<1000,]$Year
 
-fullreports[is.na(fullreports$Year.adj),]$Year.adj <- c(1996, 1990, 1989, NA, 2005,
+fullreports[fullreports$Year.adj<1000,]$Year.adj <- c(1996, 1990, 1989, NA, 2005,
                                                         1996, 1996, NA, 1999, NA,
-                                                        1996, NA, 1994, NA, 1998,
+                                                        1996, NA, 1994, 1998,
                                                         2005, 2005, 1988, 1996, 2000,
                                                         2005, 1996, 1998, 2005, 1996,
                                                         NA, NA, 2001, NA, 1998, 
-                                                        2005, 1996, 1998, NA)
+                                                        2005, 1996, 1998, NA, 1989)
 
 write.csv(fullreports, "C:/Users/keyserf/Documents/Data/R output/fullreports_yearfixed.csv")
+
+fullreports <- read.csv("C:/Users/keyserf/Documents/Data/R output/fullreports_yearfixed.csv")
 
 ```
 
 ### calculating propagule pressure for fullreports using AQpress
 ```{r}
 
-calcAQpress(AQsites = sitecoords_atl, rivercoords = reportlocs)
+names(sitecoords_atl_2)
+names(inventory1) 
+names(reportlocs) <- c("X", "River", "Lat", "Long")
+
+reportlocs$River <- gsub("\\s", ".", reportlocs$River)
+reportlocs$River <- gsub("'", ".", reportlocs$River, fixed=TRUE)
+reportlocs$River <- gsub("(", ".", reportlocs$River, fixed=TRUE)
+reportlocs$River <- gsub(")", ".", reportlocs$River, fixed=TRUE)
+
+inventory1 <- subset(inventory1, Year>2004 & Year<2016)
+inventory1 <- subset(inventory1, !is.na(Lat))
+
+calcAQpress(AQsites = sitecoords_atl_2[,2:5], rivercoords = reportlocs[,2:4], inventory=inventory1[,2:7], dir="C:/Users/keyserf/Documents/Data/R output", inputRast=TRUE, rastName=ATLrast2, saveRast=FALSE, distType="weightedDist", stocking=FALSE)
+
+
+avgpp <- read.csv("C:/Users/keyserf/Documents/Data/R output/prop.press_avg_2017-02-10.csv")
+allpp <- read.csv("C:/Users/keyserf/Documents/Data/R output/prop.press_final_2017-02-10.csv")
+
+totalpp <- ddply(.data=allpp, .(River, Lat, Long), 
+                 summarize,
+                 total = sum(prop.press, na.rm=T))
+
+pp <- join(avgpp, totalpp, type="left")
+
 
 ```
 
@@ -2693,20 +2873,22 @@ prop.press_avg_fun <- read.csv("C:/Users/keyserf/Documents/Data/R output/prop.pr
 unique(prop.press_avg_fun$River)
 prop.press_avg_fun$River <- as.character(prop.press_avg_fun$River)
 
-timereports$River<-gsub("\\s", ".", timereports$River)
-timereports$River <- gsub("(",".",timereports$River, fixed=TRUE)
-timereports$River <- gsub(")",".",timereports$River, fixed=TRUE)
-timereports$River <- gsub("'",".",timereports$River, fixed=TRUE)
+fullreports$River<-gsub("\\s", ".", fullreports$River)
+fullreports$River <- gsub("(",".",fullreports$River, fixed=TRUE)
+fullreports$River <- gsub(")",".",fullreports$River, fixed=TRUE)
+fullreports$River <- gsub("'",".",fullreports$River, fixed=TRUE)
 
+# 
+# fullreports[fullreports$River=="Bay.du.Nord.River",]$River<- "Bay.Du.Nord"
+# fullreports[fullreports$River=="Bay.Du.Nord",]$latfinal1 <- 47.70501 
+# fullreports[fullreports$River=="Bay.Du.Nord",]$longfinal1 <- -55.42238
 
-timereports[timereports$River=="Bay.du.Nord.River",]$River<- "Bay.Du.Nord"
-timereports[timereports$River=="Bay.Du.Nord",]$latfinal1 <- 47.70501 
-timereports[timereports$River=="Bay.Du.Nord",]$longfinal1 <- -55.42238
+detections <- ddply(.data=fullreports[fullreports$Year.adj>2004,], .(River, latfinal1, longfinal1),
+                       summarize,
+                       totalfish = sum(as.numeric(as.character(TotalFarmed)), na.rm=T),
+                       PA = max(detected))
 
-detections$River <- gsub("\\s",".",detections$River)
-detections$River <- gsub("(",".",detections$River, fixed=TRUE)
-detections$River <- gsub(")",".",detections$River, fixed=TRUE)
-detections$River <- gsub("'",".",detections$River, fixed=TRUE)
+detections <- detections[is.na(detections$longfinal1)==FALSE,]
 
 # subreports <- subset(timereports, Year.adj>2004)
 # 
@@ -2717,15 +2899,13 @@ detections$River <- gsub("'",".",detections$River, fixed=TRUE)
 # 
 # detectionssub$River <- gsub("\\s",".", detectionssub$River)
 
-prop.press_avg_fun <- join(prop.press_avg_fun, detections, type="left")
+detectpp <- join(detections, pp, type="left")
 
-prop.press_avg_fun$detect2 <- 0
-prop.press_avg_fun$detect2[prop.press_avg_fun$detect > 0] <- 1
-prop.press_avg_fun$detect2[is.na(prop.press_avg_fun$detect)] <- NA
+detectpp$detect2 <- 0
+detectpp$detect2[detectpp$PA > 0] <- 1
+detectpp$detect2[is.na(detectpp$PA)] <- NA
 
 # prop.press_avg_fun$River <- factor(prop.press_avg_fun$River, levels=prop.press_avg_fun$River[order(prop.press_avg_fun$long)], ordered=TRUE)
-
-prop.press_avg_fun <- subset(prop.press_avg_fun, !River=="Bay.du.Nord.River")
 
 prop.press_avg_plot <- join(unique(prop.press_avg_fun[,c(2,5,6,7,10,11)]), unique(timereports[,c(2:3)]), type="left")
 
@@ -2807,19 +2987,29 @@ ggplot() + geom_point(data=prop.press_avg_plot, aes(River, averagepress)) +
 
 prop.press_avg_sub <- subset(prop.press_avg_fun, !is.na(detect2)=="TRUE")
 
-prop.press_avg_sub$sProp.press <- scale(prop.press_avg_sub$averagepress)
+detectpp$sProp.press <- scale(detectpp$averagepress)
 
-scaleList <- list(scale = attr(prop.press_avg_sub$sProp.press, "scaled:scale"),
-                            center = attr(prop.press_avg_sub$sProp.press, "scaled:center"))
+scaleList <- list(scale = attr(detectpp$sProp.press, "scaled:scale"),
+                            center = attr(detectpp$sProp.press, "scaled:center"))
 
 require(lme4)
-mod <- glmer(detect2~sProp.press+(1|River),data=prop.press_avg_sub,family=binomial(link="logit"))
+mod <- glmer(detect2~sProp.press+(1|River),data=detectpp,family=binomial(link="logit"))
+summary(mod)
 
-sdata <-  scale(seq(from=min(prop.press_avg_sub$averagepress),to=max(prop.press_avg_sub$averagepress),by=0.00001),scale=scaleList$scale,center=scaleList$center)
-newdata <- data.frame(expand.grid(unique(as.character(prop.press_avg_sub$River)),sdata),stringsAsFactors = F)
+summary(glm(detect2~averagepress, detectpp, family=binomial(link="logit")))
+
+
+sdata <-  scale(seq(from=min(detectpp$averagepress),to=max(detectpp$averagepress),by=0.00001),scale=scaleList$scale,center=scaleList$center)
+newdata <- data.frame(expand.grid(unique(as.character(detectpp$River)),sdata),stringsAsFactors = F)
 #newdata <- data.frame(River="Big Salmon",sdata,stringsAsFactors = F)
 
 colnames(newdata) <- c("River","sProp.press")
+
+newdata1 <- predict(mod, newdata, se.fit=T)
+
+
+newdata <- cbind(newdata1, newdata2)
+newdata$fixedprop.press <- newdata$sProp.press * (as.numeric(scaleList$scale) + as.numeric(scaleList$center))
 
 ## predictSE computes predicted values based on linear predictor and associated standard errors
 newdata <- cbind(newdata,AICcmodavg::predictSE(mod,newdata,se.fit=T,type="response")%>%data.frame())
@@ -2827,6 +3017,8 @@ newdata$fixedprop.press <- newdata$sProp.press * (as.numeric(scaleList$scale) + 
 
 #mod_coef=as.data.frame(coef(mod)$River)
 #int <- ((log(p/(1-p)) - mod_coef[1,1]) / mod_coef[1,2])*scaleList$scale + scaleList$center
+
+
 
 Intercept <- mean(newdata[which(round(newdata$fit,1)==0.5),"fixedprop.press"]) #there are two values, answer is in between
 
@@ -2838,7 +3030,7 @@ ggplot()+
   geom_line(data=newdata2,aes(x=fixedprop.press,y=fit,group=River),lwd=1.12)+
   geom_line(data=newdata2,aes(x=fixedprop.press,y=fit+se.fit,group=River),lty=2,lwd=1.05)+
   geom_line(data=newdata2,aes(x=fixedprop.press,y=fit-se.fit,group=River),lty=2,lwd=1.05)+
-  geom_point(data=prop.press_avg_sub,aes(x=averagepress,y=detect2),pch=21,fill="white")+
+  geom_point(data=detectpp,aes(x=averagepress,y=detect2),pch=21,fill="white")+
   labs(x="Average propagule pressure",y=expression(paste("Probability of farmed presence " %+-% " se",sep=" ")))+
   theme_bw() + 
   xlim(0,0.003)
@@ -2879,14 +3071,41 @@ totals <- totals[is.na(totals$total)==FALSE,]
 
 require(car)
 require(MASS)
-# poisson <- fitdistr(totals$total, "Poisson")
-# qqp(totals$total, "pois", poisson$estimate)
+# poisson <- fitdistr(detectpp$detect2, "Poisson")
+# qqp(detectpp$detect2, "pois", poisson$estimate)
 
-# qqp(totals$total, "norm")
-# qqp(totals$total, "lnorm")
+qqp(detectpp$detect2, "bernoulli") ## looks better?!
+# qqp(detectpp$detect2, "lnorm")
 
-nbinom <- fitdistr(totals$total, "Negative Binomial")
-qqp(totals$total, "nbinom", size = nbinom$estimate[[1]], mu = nbinom$estimate[[2]])
+detectpp$pp2 <- detectpp$averagepress*1000
+
+mod2 <- glmer(detect2 ~ pp2 + (1|River), detectpp, family=binomial(link="logit"))
+summary(mod2)
+
+newdata <- data.frame(pp2=rep(seq(min(detectpp$pp2), max(detectpp$pp2), 0.02), 50), River=rep(detectpp$River, each=135))
+
+newdata2 <- data.frame(stats::predict(mod2, newdata))
+
+newdata <- cbind(newdata, newdata2)
+colnames(newdata)[3] <- "fit"
+
+ggplot() + geom_line(data=newdata, aes(pp2, fit, colour=River))
+
+require("broom")
+?broom
+
+tidy(mod2, conf.int=TRUE)
+glance(mod2)
+detectpp_mod2 <- augment(mod2, detectpp)
+
+ggplot() + geom_point(data=detectpp_mod2, aes(averagepress, .fitted))
+
+
+expo <- fitdistr(detectpp$detect2, "exponential")
+
+
+nbinom <- fitdistr(detectpp$detect2, "Negative Binomial")
+qqp(detectpp$detect2, "nbinom", size = nbinom$estimate[[1]], mu = nbinom$estimate[[2]])
 
 # gamma <- fitdistr(totals$total, "gamma")
 # qqp(recog$Aggression.t, "gamma", shape = gamma$estimate[[1]], rate = gamma$estimate[[2]])
@@ -3408,3 +3627,39 @@ ggplot() + geom_point(data=qsites.mar[!qsites.mar$River %in% c("NSH", "TOB"),], 
   xlab("Total propagule pressure")
 
 ```
+
+
+### Newfoundland industry production over time
+```{r}
+
+head(annual)
+
+production <- ddply(.data=annual, .(ReportYear),
+                    summarize,
+                    total = sum(totalfish, na.rm=T),
+                    nsites = length(unique(ID)))
+
+
+dev.off()
+par(oma=c(0,0,0,3))
+plot(production$ReportYear, production$total, ylim=c(5500000, 18000000), type="p", pch=20, axes=0, xlab="Reporting year", ylab=NA)
+axis(2, cex.axis=1, labels=T, at=seq(6000000, 18000000, 3000000))
+mtext("Production estimate (number of fish)", side=2, line=3)
+axis(1, labels=T, at=seq(2005, 2015, 1))
+par(new=T)
+plot(production$ReportYear, production$nsites, ylim=c(0,50), type="p", axes=0, xlab=NA, ylab=NA)
+axis(4, cex.axis=1, at=seq(0,50, 10))
+mtext("Number of aquaculture sites", side=4, line=3)
+legend(2005,50, legend=c("Production", "Sites"),
+       pch=c(20,1))
+box(lwd=2)
+mtext("Newfoundland aquaculture (2005 - 2015)", side=3, line=1, cex=1.5, lwd=2)
+
+ggplot() + geom_point(data=production, aes(as.factor(ReportYear), total)) + theme_classic() + theme(panel.border=element_rect(colour="black", fill=NA)) +
+  ylab("Production estimate (number of fish)\n") +
+  xlab("\nReporting Year")
+  
+
+sum(annual[annual$ReportYear==2011,]$totalfish)
+sum(annual[annual$ReportYear==2010,]$totalfish)
+length(annual[annual$ReportYear==2005,]$totalfish)

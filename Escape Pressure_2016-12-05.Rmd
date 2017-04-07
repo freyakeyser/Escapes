@@ -135,33 +135,34 @@ geoescapes_3 <- dplyr::select(geoescapes_sal, Year, Date, Location, Lat, Long, N
 
 write.csv(geoescapes_3, "C:/Users/keyserf/Documents/Data/R output/NL Atlantic Salmon Escape Events2.csv")
 
+geoescapes_3 <- read.csv("C:/Users/keyserf/Documents/Data/R output/NL Atlantic Salmon Escape Events.csv")
 
 geoescapes_2$Year <- as.numeric(as.character(geoescapes_sal$Year))
 geoescapes_2$Size.bin <- as.factor(as.character(geoescapes_sal$Size.bin))
 geoescapes_2$Location <- as.factor(geoescapes_2$Location)
 
-avg.escape.per.year <- ddply(.data=geoescapes_2, .(Location),
+avg.escape.per.year <- ddply(.data=geoescapes_3, .(Location),
       summarize,
       totalescape = sum(Number.adj),
       nyears = max(Year, na.rm=TRUE)-min(Year,na.rm=TRUE)+1,
       average=sum(Number.adj)/(max(Year,na.rm=TRUE)-min(Year,na.rm=TRUE)+1))
 
-avg.escape.size <- ddply(.data=geoescapes_2[is.na(geoescapes_2$Number.adj)==FALSE,], .(Location),
+avg.escape.size <- ddply(.data=geoescapes_3[is.na(geoescapes_3$Number.adj)==FALSE,], .(Location),
       summarize,
       totalescape = sum(Number.adj),
       nyears = length(unique(Year)),
       average=sum(Number.adj)/length(unique(Year)))
 
-summary(geoescapes_2$Number.adj)
+summary(geoescapes_3$Number.adj)
 
-mean(geoescapes_2$Number.adj, na.rm=TRUE)
+mean(geoescapes_3$Number.adj, na.rm=TRUE)
 
 # If escape size is unknown, assume that it is equal to average escape size
-geoescapes_2$escapesize <- ifelse(is.na(geoescapes_2$Number.adj)=="TRUE", "26432", geoescapes_2$Number.adj)
+geoescapes_3$escapesize <- ifelse(is.na(geoescapes_3$Number.adj)=="TRUE", "26432", geoescapes_3$Number.adj)
 
-geoescapes_2$escapesize <- as.numeric(geoescapes_2$escapesize)
+geoescapes_3$escapesize <- as.numeric(geoescapes_3$escapesize)
 
-geoescapes_2$escapesizetype <- is.na(geoescapes_2$Number.adj)
+geoescapes_3$escapesizetype <- is.na(geoescapes_3$Number.adj)
 
 # ggplot() + geom_point(data=geoescapes_2[geoescapes_2$escapesize>0,], aes(Year, escapesize, colour=Location, shape=escapesizetype)) +
 #   scale_shape_manual(values=c(1,4), labels=c("Real", "Estimate"), name="Calculation method") +
@@ -190,13 +191,13 @@ escapelocs[] <- sapply(escapelocs, clean)
 
 
 ### ALL YEARS
-escape_summ_2 <- ddply(.data=geoescapes_2, .(Location, Lat, Long, Year),
+escape_summ_3 <- ddply(.data=geoescapes_3, .(Location, Lat, Long, Year),
                      summarize,
                     totalescape = sum(escapesize))
 
-escape_summ_2$Location <- as.factor(escape_summ_2$Location)
+escape_summ_3$Location <- as.factor(escape_summ_3$Location)
 
-#### USE ESCAPE_SUMM_2 TO CALCULATE ESCAPE PRESSURE IN PROPAGULE PRESSURE.RMD
+#### USE ESCAPE_SUMM_3 TO CALCULATE ESCAPE PRESSURE IN PROPAGULE PRESSURE.RMD
 
 ```
 

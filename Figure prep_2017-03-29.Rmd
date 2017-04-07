@@ -1,0 +1,1111 @@
+----
+title: "Figure prep"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Read in packages
+```{r}
+require(ggplot2)
+require(plyr)
+require(lubridate)
+require(dplyr)
+require(sp)
+require(maptools)
+require(ggmap)
+require(ggplot2)
+require(reshape2)
+require(rgdal)
+require(raster)
+require(rgeos)
+require(PBSmapping)
+require(gdistance)
+require(grid)
+require(gridExtra)
+require(ggrepel)
+require(scales)
+require(ggspatial)
+require(AQpress)
+```
+
+### propagule pressure for all sites
+```{r}
+reportlocs <- read.csv("C:/Users/keyserf/Documents/Data/R output/reportlocs.csv")
+
+reportlocs[reportlocs$River=="Androscoggin", 6:5] <- c(-69.80426, 43.81557)
+reportlocs[reportlocs$River=="Bay.Du.Nord", 6] <- -55.42347 
+reportlocs[reportlocs$River=="Bay.Du.Nord", 5] <- 47.69133
+reportlocs[reportlocs$River=="Tickle.Harbour", 6:5] <- c(-55.14856, 47.64512) 
+reportlocs[reportlocs$River=="Biscay.Bay.River", 6] <- -53.28893 
+reportlocs[reportlocs$River=="Biscay.Bay.River", 5] <- 46.7243
+reportlocs[reportlocs$River=="Bottom.Brook", 6] <- -56.31568 
+reportlocs[reportlocs$River=="Bottom.Brook", 5] <- 47.61992
+reportlocs[reportlocs$River=="Grand.le.Pierre", 6] <- -54.80849  
+reportlocs[reportlocs$River=="Grand.le.Pierre", 5] <- 47.64543
+
+sitecoords_atl_2 <- read.csv("C:/Users/keyserf/Documents/Data/R output/sitecoords_atl_2.csv")
+
+sitecoords_atl_2[sitecoords_atl_2$Site.ID==1002,4:3] <- c(-55.37415, 47.71471) # NL
+sitecoords_atl_2[sitecoords_atl_2$Site.ID==842,4:3] <- c(-56.16188, 47.67719) # NL
+sitecoords_atl_2[sitecoords_atl_2$Site.ID==18,4:3] <- c(-66.82821, 45.05208) # NB
+sitecoords_atl_2[sitecoords_atl_2$Site.ID==57,4:3] <- c(-67.00518, 44.93502) # NB
+
+# calcAQpress(AQsites = sitecoords_atl_2[,2:5], 
+#             rivercoords = reportlocs[,4:7], 
+#             inventory=inventory1[inventory1$Year > 2004 & inventory1$Year < 2016,2:7], 
+#             dir="C:/Users/keyserf/Documents/Data/R output", 
+#             inputRast=TRUE, 
+#             rastName=ATLrast2, 
+#             saveRast=FALSE, 
+#             distType="weightedDist", 
+#             stocking=FALSE)
+
+
+avgpp <- read.csv("C:/Users/keyserf/Documents/Data/R output/prop.press_avg_2017-04-03_All sites pp.csv")
+allpp <- read.csv("C:/Users/keyserf/Documents/Data/R output/prop.press_final_2017-04-03_All sites pp.csv")
+
+totalpp <- ddply(.data=allpp, .(River, Lat, Long), 
+                 summarize,
+                 totalpp = sum(prop.press, na.rm=T))
+
+totalpp_q <- ddply(.data=allpp[allpp$Year > 2004 & allpp$Year < 2013,], .(River, Lat, Long), 
+                 summarize,
+                 totalpp = sum(prop.press, na.rm=T))
+
+totalpp <- totalpp %>%
+  arrange(-totalpp)
+
+summary(totalpp$totalpp)
+
+totalpp_q <- totalpp_q %>%
+  arrange(-totalpp)
+
+summary(totalpp_q$totalpp)
+``` 
+
+### propagule pressure just for NL with Stocking
+```{r}
+calcAQpress(AQsites = sitecoords_atl_2[,2:5],
+            rivercoords = reportlocs[reportlocs$Long > -60,4:7],
+            inventory=inventory1[inventory1$prov== "NL" & inventory1$Year < 2015,2:7],
+            dir="C:/Users/keyserf/Documents/Data/R output",
+            inputRast=TRUE,
+            rastName=ATLrast2,
+            saveRast=FALSE,
+            distType="weightedDist",
+            stocking=TRUE)
+
+# C:/Users/keyserf/Documents/Data/R output/
+avgNLpp <- read.csv("C:/Users/keyserf/Documents/Data/R output/prop.press_avg_2017-04-06_NL_stocked.csv")
+allNLpp <- read.csv("C:/Users/keyserf/Documents/Data/R output/prop.press_final_2017-04-06_NL_stocked.csv")
+
+totalNLpp <- ddply(.data=allNLpp, .(River, Lat, Long), 
+                 summarize,
+                 totalpp = sum(prop.press, na.rm=T))
+
+totalNLpp <- totalNLpp %>%
+  arrange(-totalpp)
+
+summary(totalNLpp$totalpp)
+``` 
+
+
+### figure 2A
+```{r}
+MARpp <- ggplot() + 
+  theme_classic() + ### favourite theme settings plus makes sure land is white
+  theme(panel.background = element_blank(), panel.border=element_rect(colour="black", fill=NA), plot.margin = unit(c(0.5,0.1,0.5,0.1), "cm")) +
+  geom_polygon(data=eastland, aes(long, lat, group=group), fill="grey") +
+  coord_map(xlim=c(-71, -58), ylim=c(43, 47.5)) + ### sets boundaries
+  geom_point(data=totalpp, aes(Long, Lat, size=totalpp), fill="yellow", shape=21, colour="black") +
+  #geom_point(data=sitecoords_atl_2, aes(Long, Lat), size=0.5) + 
+  ggsn::scalebar(data=eastland, dist=100, dd2km=TRUE, model="WGS84", location="bottomright", anchor=c(x = -59, y = 43.5), st.size=3) +
+  scale_size_continuous(name="Propagule\npressure", range = c(0.5,10), limits=c(0.0004,0.035), guide=FALSE) +
+  xlab("Longitude") + ylab("Latitude")
+
+NLpp <- ggplot() + 
+  theme_classic() + ### favourite theme settings plus makes sure land is white
+  theme(panel.background = element_blank(), panel.border=element_rect(colour="black", fill=NA), plot.margin = unit(c(0.5,0.1,0.5,0.1), "cm")) +
+  geom_polygon(data=eastland, aes(long, lat, group=group), fill="grey") +
+  coord_map(xlim=c(-60, -52), ylim=c(46.5, 48.5)) + ### sets boundaries
+  geom_point(data=totalpp, aes(Long, Lat, size=totalpp), fill="yellow", shape=21, colour="black") +
+  #geom_point(data=sitecoords_atl_2, aes(Long, Lat), size=0.5) + 
+  ggsn::scalebar(data=eastland, dist=50, dd2km=TRUE, model="WGS84", location="bottomright", anchor=c(x = -58, y = 47), st.size=3) +
+  scale_size_continuous(name="Propagule\npressure", range = c(0.5,10), limits=c(0.0004,0.035)) +
+  scale_y_continuous(breaks=c(47, 48))+
+  xlab("Longitude") + ylab(NULL)
+
+
+```
+
+### escape pressure NL
+```{r}
+# calcAQpress(AQsites = escape_summ_3[,c(1:3,6)], 
+#             rivercoords = reportlocs[reportlocs$Long > -60,2:4], 
+#             inventory=escape_summ_3[,1:6], 
+#             dir="C:/Users/keyserf/Documents/Data/R output", 
+#             inputRast=TRUE, 
+#             rastName=ATLrast2, 
+#             saveRast=FALSE, 
+#             distType="weightedDist", 
+#             stocking=TRUE)
+
+# C:/Users/keyserf/Documents/Data/R output/
+avgep <- read.csv("C:/Users/keyserf/Documents/Data/R output/prop.press_avg_2017-03-29_NL ep.csv")
+allep <- read.csv("C:/Users/keyserf/Documents/Data/R output/prop.press_final_2017-03-29_NL ep.csv")
+
+totalep <- ddply(.data=allep, .(River, Lat, Long), 
+                 summarize,
+                 totalep = sum(prop.press, na.rm=T))
+
+totalep <- totalep %>%
+  arrange(-totalep)
+
+summary(totalep$totalep)
+
+totalep_q <- ddply(.data=allep[allep$Year < 2013,], .(River, Lat, Long), 
+                 summarize,
+                 totalep = sum(prop.press, na.rm=T))
+
+totalep_q <- totalep_q %>%
+  arrange(-totalep)
+
+summary(totalep_q$totalep)
+
+
+## what if i remove "unknown" escapes
+# calcAQpress(AQsites = escape_summ_3[!escape_summ_3$totalfish==26432,c(1:3,6)], 
+#             rivercoords = reportlocs[reportlocs$Long > -60,2:4], 
+#             inventory=escape_summ_3[!escape_summ_3$totalfish==26432,1:6], 
+#             dir="C:/Users/keyserf/Documents/Data/R output", 
+#             inputRast=TRUE, 
+#             rastName=ATLrast2, 
+#             saveRast=FALSE, 
+#             distType="weightedDist", 
+#             stocking=TRUE)
+
+avgep_nounk <- read.csv("C:/Users/keyserf/Documents/Data/R output/prop.press_avg_2017-03-29_nounk.csv")
+allep_nounk <- read.csv("C:/Users/keyserf/Documents/Data/R output/prop.press_final_2017-03-29_nounk.csv")
+
+totalep_nounk <- ddply(.data=allep_nounk, .(River, Lat, Long), 
+                 summarize,
+                 totalep = sum(prop.press, na.rm=T))
+
+totalep_nounk <- totalep_nounk %>%
+  arrange(-totalep)
+
+summary(totalep_nounk$totalep) ## Conne is still very large
+
+# what about no escape numbers, just event occurrence
+# calcAQpress(AQsites = escape_summ_3[,c(1:3,6)], 
+#             rivercoords = reportlocs[reportlocs$Long > -60,2:4], 
+#             inventory=escape_summ_3[,1:6], 
+#             dir="C:/Users/keyserf/Documents/Data/R output", 
+#             inputRast=TRUE, 
+#             rastName=ATLrast2, 
+#             saveRast=FALSE, 
+#             distType="weightedDist", 
+#             stocking=FALSE)
+
+avgep_noest <- read.csv("C:/Users/keyserf/Documents/Data/R output/prop.press_avg_2017-03-29_noest.csv")
+allep_noest <- read.csv("C:/Users/keyserf/Documents/Data/R output/prop.press_final_2017-03-29_noest.csv")
+
+totalep_noest <- ddply(.data=allep_noest, .(River, Lat, Long), 
+                 summarize,
+                 totalep = sum(prop.press, na.rm=T))
+
+totalep_noest <- totalep_noest %>%
+  arrange(-totalep)
+
+
+```
+
+### Figure 2B
+```{r}
+NLep <- ggplot() + 
+  theme_classic() + ### favourite theme settings plus makes sure land is white
+  theme(panel.background = element_blank(), panel.border=element_rect(colour="black", fill=NA)) +
+  geom_polygon(data=eastland, aes(long, lat, group=group), fill="grey") +
+  coord_map(xlim=c(-60, -52), ylim=c(46.5, 48.5)) + ### sets boundaries
+  geom_point(data=totalep, aes(Long, Lat, size=totalep), fill="red", shape=21, colour="black") +
+  #geom_point(data=sitecoords_atl_2, aes(Long, Lat), size=0.5) + 
+  ggsn::scalebar(data=eastland, dist=50, dd2km=TRUE, model="WGS84", location="bottomright", anchor=c(x = -58, y = 47), st.size=3) +
+  #annotate(geom="rect", xmin = -56.5, xmax = -55, ymin = 47.4, ymax = 48.1, fill=NA, colour="black") +
+  scale_size_continuous(name="Escape event\npressure", range = c(0.5,10), limits=c(0.01,175)) +
+  xlab("Longitude") + ylab("Latitude")
+
+#inset of south
+# insetNL <- ggplotGrob(ggplot() + 
+#                         theme_classic() + ### favourite theme settings plus makes sure land is white
+#                         theme(panel.background = element_blank(), panel.border=element_rect(colour="black", fill=NA)) +
+#                         geom_polygon(data=eastland, aes(long, lat, group=group), fill="grey") +
+#                         coord_map(xlim=c(-56.5, -55), ylim=c(47.4, 48.1)) + ### sets boundaries
+#                         geom_point(data=totalep, aes(Long, Lat, size=totalep), fill="red", shape=21, colour="black") +
+#                         #geom_point(data=sitecoords_atl_2, aes(Long, Lat), size=0.5) + 
+#                         ggsn::scalebar(data=eastland, dist=50, dd2km=TRUE, model="WGS84", location="bottomright", anchor=c(x = -58, y = 47), st.size=3) +
+#                         scale_size_continuous(name="Escape event\npressure", range = c(0.5,10), limits=c(0.01,175), guide = FALSE) +
+#                         theme(axis.title = element_blank(), axis.text = element_blank(), axis.ticks=element_blank(), plot.margin=unit(c(0,0,0,0),"mm")) +
+#                         xlab("Longitude") + ylab("Latitude"))
+png(filename="C:/Users/keyserf/Documents/R/Escapes/figure 2.png",units = "cm", width=30, height=20, res=72)
+grid.newpage()
+v1<-viewport(width = 0.5, height = 0.5, x = 0.25, y = 0.75) #plot area for the top left map
+v2<-viewport(width = 0.5, height = 0.5, x = 0.75, y = 0.75) #plot area for the top right map
+v3<-viewport(width = 0.7, height = 0.7, x = 0.45, y = 0.25) #plot area for the inset map
+print(MARpp,vp=v1)
+print(NLpp,vp=v2)
+print(NLep,vp=v3)
+dev.off()
+```
+
+
+### k=2 set up
+```{r}
+job4 <- read.table("C:/Users/keyserf/Documents/Data/Genetic data/Results/results_job_T4_q")
+names(job4) <- c("ID", "popnum", "Q", "Q2")
+
+pops <- reshape::colsplit(job4$ID, split="_", names=c("pop", "id"))
+
+job4 <- cbind(job4, pops$pop)
+
+colnames(job4)[5] <- "Code"
+
+job4_plot<- job4
+
+job4 <- ddply(.data=job4, .(Code),
+              summarize,
+              meanQ = mean(Q))
+
+unique(job4$popname) 
+job4$prov <- c("NS", "AQU", "NL", "NL", "NB", "NL", "NB", "AQU", "NL", "NL",
+               "PE", "NL", "NS", "NL", "NS", "NL", "NL", "NL", "NL", "NB",  "NS",
+               "NL", "NL", "NL", "NL", "NL", "NL", "NS", "NS", "NS", "NL", "NL",
+               "NL", "NS", "NL", "NL", "NL", "NL", "NS", "NL", "NS", "NL", "NL", 
+               "NL", "NL", "AQU")
+
+job4$prov <- as.factor(job4$prov)
+
+job4$prov <- factor(job4$prov, levels=c("AQU", "NB", "NS", "PE", "NL"))
+
+job4 <- arrange(job4, prov)
+
+job4$Code <- as.factor(job4$Code)
+
+job4$Code <- factor(job4$Code, levels=job4$Code[order(job4$prov)], ordered=TRUE)
+
+ggplot() + geom_point(data=job4, aes(Code, meanQ)) +
+  theme_classic() + 
+  theme(panel.background=element_rect(fill=NA, colour="black"))
+
+names(job4)
+
+job4_plot <- join(job4_plot, reportlocs, type="left")
+
+job4_plot <- job4_plot[which(is.na(job4_plot$Long) | !job4_plot$Long< -60),]
+
+job4_plot[job4_plot$Code=="LSR",]$Long <- -55.67354
+
+job4_plot[is.na(job4_plot$Long),]$Long <- -70 ## dummy variable for long of AQU
+
+job4_plot[job4_plot$Code %in% c("CKA", "WLN"),]$Code <- "AQU"
+
+job4_plot$Code <- factor(job4_plot$Code, levels=job4_plot$Code[order(job4_plot$Long)], ordered=TRUE)
+
+counts <- ddply(.data=job4_plot, .(Code),
+                summarize, 
+                count=length(unique(ID)))
+job4_plot <- join(job4_plot, counts, type="left")
+
+
+ggplot() + 
+  geom_bar(data=job4_plot, aes(Code, Q+Q2, group=ID), fill="grey30", stat="identity", position="dodge") +
+  geom_bar(data=job4_plot, aes(Code, Q, group=ID), fill="grey60", stat="identity", position="dodge") +
+  theme(panel.background=element_blank()) +
+  ylab("Q value") +
+  xlab("Population")+
+  scale_x_discrete(expand = c(0, 0)) +
+  scale_y_continuous(limits=c(0,1), expand=c(0,0))
+  
+```
+
+
+#### Q VALUES and propagule pressure
+```{r}
+# totalpp_q <- join(totalpp_q, reportlocs, type="left")
+# 
+# names(DAPC_mean) <- c("Code", "meanX1", "meanX2")
+# DAPC_mean <- join(DAPC_mean, totalpp, type="left")
+# 
+# preds <- cbind(data.frame(totalpp=seq(min(totalpp$totalpp), max(totalpp$totalpp), 0.001)), (predict(lm(data=DAPC_mean[which(DAPC_mean$Long > -60),], meanX2 ~ totalpp), data.frame(totalpp=seq(min(totalpp$totalpp), max(totalpp$totalpp), 0.001)), se.fit=TRUE)))
+# 
+# NLpp <- ggplot() + geom_point(data=DAPC_mean[which(DAPC_mean$Long > -60),], aes(totalpp, meanX2)) +
+#    theme_classic() + theme(panel.background=element_rect(fill=NA, colour="black"), plot.margin = unit(c(1,1,0.1,0.1), "cm")) +
+#   xlab("Propagule pressure (cumulative)") +
+#   ylab("Mean Q-value from DAPC k=2") +
+#   geom_smooth(data=DAPC_mean[which(DAPC_mean$Long > -60),], aes(totalpp, meanX2), method="lm", se=FALSE, colour="black") +
+#   geom_line(data=preds, aes(totalpp, fit-se.fit), lty="dashed") + 
+#   geom_line(data=preds, aes(totalpp, fit+se.fit), lty="dashed") +
+#   ggtitle("NL Q values from new run")
+# 
+# 
+# NSQ <- read.csv("C:/Users/keyserf/Documents/Data/Rivers/NS Q values.csv")
+# colnames(NSQ)[1] <- "Code"
+# 
+# totalpp_q <- join(totalpp_q, NSQ, type="left")
+# 
+# preds1 <- cbind(data.frame(totalpp = seq(min(totalpp_q[is.na(totalpp_q$Q)==FALSE,]$totalpp), max(totalpp_q[is.na(totalpp_q$Q)==FALSE,]$totalpp), 0.00001)), (predict(lm(data=totalpp_q[is.na(totalpp_q$Q)==FALSE,], Q ~ totalpp), data.frame(totalpp=seq(min(totalpp_q[is.na(totalpp_q$Q)==FALSE,]$totalpp), max(totalpp_q[is.na(totalpp_q$Q)==FALSE,]$totalpp), 0.00001)), se.fit=TRUE)))
+# 
+# MARpp <- ggplot() + 
+#   geom_point(data=totalpp_q[is.na(totalpp_q$Q)==FALSE,], aes(totalpp, Q)) + 
+#   theme_classic() + theme(panel.background=element_rect(fill=NA, colour="black"), plot.margin = unit(c(0.1,1,1,0.1), "cm")) +
+#   xlab("Propagule pressure (cumulative)") +
+#   ylab("Q-value") +
+#   geom_smooth(data=totalpp_q[is.na(totalpp_q$Q)==FALSE,], aes(totalpp, Q), method="lm", se=FALSE, colour="black") +
+#   geom_line(data=preds1, aes(totalpp, fit-se.fit), lty="dashed") + 
+#   geom_line(data=preds1, aes(totalpp, fit+se.fit), lty="dashed") +
+#   ggtitle("Maritimes Q values (2005-2012 sites)")
+# 
+# 
+# grid.arrange(MARpp, NLpp, nrow=1)
+# 
+
+### NL Q VALUES AND STOCKING PROPAGULE PRESSURE
+
+totalNLpp <- join(totalNLpp, reportlocs, type="left")
+# NLQ <- read.csv("C:/Users/keyserf/Documents/Data/Rivers/Qvalues_All NL_2016-11-10.csv")
+# NLQ <- NLQ[,1:3]
+# 
+# totalNLpp <- join(totalNLpp, NLQ, type="left")
+# 
+# predsNL <- cbind(data.frame(totalNLpp=seq(min(totalNLpp[which(!is.na(totalNLpp$Q)),]$totalpp), max(totalNLpp[which(!is.na(totalNLpp$Q)),]$totalpp), 75)), (predict(lm(data=totalNLpp[which(!is.na(totalNLpp$Q)),], Q ~ totalpp), data.frame(totalpp=seq(min(totalNLpp[which(!is.na(totalNLpp$Q)),]$totalpp), max(totalNLpp[which(!is.na(totalNLpp$Q)),]$totalpp), 75)), se.fit=TRUE)))
+# 
+# NL_stocked_pp <- ggplot() + geom_point(data=totalNLpp[which(!is.na(totalNLpp$Q)),], aes(totalpp, Q)) +
+#    theme_classic() + theme(panel.background=element_rect(fill=NA, colour="black"), plot.margin = unit(c(1,1,0.1,0.1), "cm")) +
+#   xlab("Propagule pressure (cumulative)") +
+#   ylab("Mean Q-value from Moore") +
+#   geom_smooth(data=totalNLpp[which(!is.na(totalNLpp$Q)),], aes(totalpp, Q), method="lm", se=FALSE, colour="black") +
+#   geom_line(data=predsNL, aes(totalNLpp, fit-se.fit), lty="dashed") + 
+#   geom_line(data=predsNL, aes(totalNLpp, fit+se.fit), lty="dashed") +
+#   ggtitle("NL Q values from Moore (2005-2012 sites)")
+
+totalNLpp <- join(totalNLpp, job4, type="left")
+
+predsNL_2 <- cbind(data.frame(totalNLpp=
+                                seq(min(totalNLpp[which(!is.na(totalNLpp$meanQ)),]$totalpp),
+                                    max(totalNLpp[which(!is.na(totalNLpp$meanQ)),]$totalpp), 50)),
+                   (predict(lm(data=totalNLpp[which(!is.na(totalNLpp$meanQ)),], meanQ ~ totalpp),
+                            data.frame(totalpp=seq(min(totalNLpp[which(!is.na(totalNLpp$meanQ)),]$totalpp), max(totalNLpp[which(!is.na(totalNLpp$meanQ)),]$totalpp), 50)), 
+                            se.fit=TRUE, type="response")))
+
+summary(lm(data=totalNLpp[which(!is.na(totalNLpp$meanQ)),], meanQ ~ totalpp))
+
+predsNL_log <- cbind(data.frame(totalNLpp=
+                                  seq(min((totalNLpp[which(!is.na(totalNLpp$meanQ)),]$totalpp)), 
+                                      max((totalNLpp[which(!is.na(totalNLpp$meanQ)),]$totalpp)), 50)), 
+                     (predict(lm(data=
+                                   totalNLpp[which(!is.na(totalNLpp$meanQ)),], log(meanQ) ~ log(totalpp)), 
+                              data.frame(totalpp=seq((min(totalNLpp[which(!is.na(totalNLpp$meanQ)),]$totalpp)), max((totalNLpp[which(!is.na(totalNLpp$meanQ)),]$totalpp)), 50)),
+                              se.fit=TRUE, typo="response")))
+
+summary(lm(data=totalNLpp[which(!is.na(totalNLpp$meanQ)),], log(meanQ) ~ log(totalpp)))
+
+predsNL_glm <- cbind(data.frame(totalNLpp=
+                                  seq(min((totalNLpp[which(!is.na(totalNLpp$meanQ)),]$totalpp)), 
+                                      max((totalNLpp[which(!is.na(totalNLpp$meanQ)),]$totalpp)), 50)), 
+                     (predict(glm(data=
+                                   totalNLpp[which(!is.na(totalNLpp$meanQ)),], meanQ ~ totalpp, family=binomial(link="logit")), 
+                              data.frame(totalpp=seq((min(totalNLpp[which(!is.na(totalNLpp$meanQ)),]$totalpp)), max((totalNLpp[which(!is.na(totalNLpp$meanQ)),]$totalpp)), 50)),
+                              se.fit=TRUE, type="response")))
+
+summary(glm(data=totalNLpp[which(!is.na(totalNLpp$meanQ)),], meanQ ~ totalpp, family=binomial(link="logit")))
+
+NL_stocked_pp_STR <- ggplot() + geom_point(data=totalNLpp[which(!is.na(totalNLpp$meanQ)),], aes(totalpp, meanQ)) +
+   theme_classic() + theme(panel.background=element_rect(fill=NA, colour="black"), plot.margin = unit(c(0.1,0.1,0.1,0.1), "cm")) +
+  xlab("Propagule pressure (cumulative)") +
+  ylab("Mean Q-value from k=2 STRUCTURE") +
+  geom_smooth(data=totalNLpp[which(!is.na(totalNLpp$meanQ)),], aes(totalpp, meanQ), method="lm", se=FALSE, colour="black") +
+  geom_line(data=predsNL_2, aes(totalNLpp, fit-1.96*se.fit), lty="dashed") + 
+  geom_line(data=predsNL_2, aes(totalNLpp, fit+1.96*se.fit), lty="dashed") +
+  ggtitle("NL Q values for STRUCTURE k=2 (2005-2012 sites)")
+
+### below is significant: summary(lm(data=totalNLpp[which(!is.na(totalNLpp$meanQ)),], log(meanQ) ~ log(totalpp)))
+### adj Rsquared = 0.2122, p-value 0.007929
+NL_stocked_pp_STR_log <- ggplot() + geom_point(data=totalNLpp, aes(log(totalpp), log(meanQ))) +
+   theme_classic() + theme(panel.background=element_rect(fill=NA, colour="black"), plot.margin = unit(c(0.1,0.1,0.1,0.1), "cm")) +
+  xlab("Propagule pressure (cumulative)") +
+  ylab("Mean Q-value from k=2 STRUCTURE") +
+  geom_smooth(data=totalNLpp, aes(log(totalpp), log(meanQ)), method="lm", se=FALSE, colour="black") +
+  geom_line(data=predsNL_log, aes(log(totalNLpp), fit-1.96*se.fit), lty="dashed") +
+  geom_line(data=predsNL_log, aes(log(totalNLpp), fit+1.96*se.fit), lty="dashed") #+
+  # geom_line(data=predsNL_glm, aes(totalNLpp, fit)) +
+  # geom_line(data=predsNL_glm, aes(totalNLpp, fit-se.fit), lty="dashed") + 
+  # geom_line(data=predsNL_glm, aes(totalNLpp, fit+se.fit), lty="dashed") +
+  #ggtitle("NL_stocked_pp_STR_log\n\nNL Q values for STRUCTURE k=2 (2005-2014 sites)")
+
+mod_log_lm <- lm(data=totalNLpp[which(!is.na(totalNLpp$meanQ)),], log(meanQ) ~ log(totalpp))
+
+out_log_lm<- round(data.frame(rbind(coefficient=coef(mod_log_lm), 
+                                     lower = confint(mod_log_lm)[,1], 
+                                     upper= confint(mod_log_lm)[,2], 
+                                     pvalT = coef(summary(mod_log_lm))[,4],
+                                     Fval = c(NA, Anova(mod_log_lm)[1,3]),
+                                     pvalF = c(NA, Anova(mod_log_lm)[1,4]),
+                                     Rsq.a = NA,
+                                     AIC = NA)), 3)
+ 
+out_log_lm$model <- c(NA, NA, NA, NA, NA, NA, summary(mod_log_lm)$adj.r.squared, AIC(mod_log_lm))
+out_log_lm<-round(out_log_lm,3)
+
+eff_log_lm <- data.frame(effect(term="log(totalpp)",mod=mod_log_lm, default.levels=100, se=TRUE, confidence.level=0.95, transformation=list(link=log, inverse=exp)))
+
+eff_prop_lm <- ggplot() + geom_line(data=eff_log_lm, aes(totalpp, fit)) +
+  geom_line(data=eff_log_lm, aes(totalpp, lower), lty="dashed") +
+  geom_line(data=eff_log_lm, aes(totalpp, upper), lty="dashed") +
+  geom_point(data=totalNLpp[which(!is.na(totalNLpp$Length)),], aes(totalpp, meanQ)) +
+  theme_classic() + 
+  theme(panel.background=element_rect(fill=NA, colour="black")) +
+  ylab("Mean Q") +
+  xlab("Propagule pressure (cumulative)") 
+
+
+preds_resid_new <- cbind(data.frame(totalNLpp[which(!is.na(totalNLpp$meanQ)),]), (predict(lm(data=totalNLpp[which(!is.na(totalNLpp$meanQ)),], log(meanQ) ~ log(totalpp)), data.frame(totalpp=totalNLpp[which(!is.na(totalNLpp$meanQ)),]$totalpp), se.fit=TRUE, type="response")))
+
+preds_resid_old <- cbind(data.frame(totalNLpp[which(!is.na(totalNLpp$Q)),]), (predict(lm(data=totalNLpp[which(!is.na(totalNLpp$Q)),], Q ~ totalpp), data.frame(totalpp=totalNLpp[which(!is.na(totalNLpp$Q)),]$totalpp), se.fit=TRUE)))
+
+oldQ <- ggplot() + geom_point(data=preds_resid_old, aes(totalpp, Q - fit), colour="blue") +
+  theme_classic() + theme(panel.background=element_rect(fill=NA, colour="black")) +
+  ylim(-0.25,0.5) +
+  xlim(0,8500) +
+  ggtitle("Pre-2013 Q values") +
+  xlab("Propagule pressure (cumulative)") +
+  ylab("Residuals (Q-fit)")
+  #geom_smooth(data=preds_resid_old, aes(totalpp, Q - fit), colour="blue", method="lm", se=FALSE) 
+  
+newQ <- ggplot() + geom_point(data=preds_resid_new, aes(totalpp, meanQ - fit), colour="black") +
+    theme_classic() + theme(panel.background=element_rect(fill=NA, colour="black")) +
+  #ylim(-0.25,0.5) +
+  #xlim(0,8500) +
+  #ggtitle("New Q values (98 SNPs)")  +
+  xlab("Propagule pressure (cumulative)") +
+  ylab("Residuals (Mean Q-fit)")
+  #geom_smooth(data=preds_resid_new, aes(totalpp, meanQ - fit), colour="black", method="lm", se=FALSE) 
+
+grid.arrange(newQ, eff_prop_lm, ncol=1)
+
+
+
+totalpp <- join(totalpp, reportlocs, type="left")
+totalpp <- join(totalpp, job4, type="left")
+
+totalpp$region <- ifelse(totalpp$prov=="NL", "NL", "Maritimes")
+
+predsNL_nostock <- cbind(data.frame(totalpp=seq(min(totalpp[which(totalpp$prov=="NL" &!is.na(totalpp$meanQ)),]$totalpp), 
+                                                max(totalpp[which(totalpp$prov=="NL" &!is.na(totalpp$meanQ)),]$totalpp), 0.0001)), 
+                         (predict(lm(data=totalpp[which(totalpp$prov=="NL" &!is.na(totalpp$meanQ)),], meanQ ~ totalpp), 
+                                  data.frame(totalpp=seq(min(totalpp[which(totalpp$prov=="NL" &!is.na(totalpp$meanQ)),]$totalpp), 
+                                                         max(totalpp[which(totalpp$prov=="NL" &!is.na(totalpp$meanQ)),]$totalpp), 0.0001)), se.fit=TRUE)))
+
+ggplot() + geom_point(data=totalpp[which(totalpp$prov=="NL" & !is.na(totalpp$meanQ)),], aes(totalpp, meanQ)) +
+  geom_smooth(data=totalpp[which(totalpp$prov=="NL" & !is.na(totalpp$meanQ)),], aes(totalpp, meanQ), method="lm", se=FALSE, colour="black") +
+  geom_line(data=predsNL_nostock, aes(totalpp, fit - se.fit), lty="dashed") +
+  geom_line(data=predsNL_nostock, aes(totalpp, fit + se.fit), lty="dashed") +
+  theme_classic() + 
+  theme(panel.background=element_rect(fill=NA, colour="black")) +
+  ylab("Mean Q value (k=2, 98 SNPs)") +
+  xlab("Propagule pressure (cumulative)") +
+  ggtitle("NL Q values for STRUCTURE k=2\n(2005-2012 sites, without stocking)")
+
+```
+
+### clean up axial length data and attach to totalNLpp
+```{r}
+
+axial <- read.csv("C:/Users/keyserf/Documents/Data/Rivers/axial length.csv")
+names(axial) <- c("River", "Length", "prov", "Long.deg", "Lat.deg")
+
+axial$River<-gsub("\\s", ".", axial$River)
+axial$River <- gsub("(",".",axial$River, fixed=TRUE)
+axial$River <- gsub(")",".",axial$River, fixed=TRUE)
+axial$River <- gsub("'",".",axial$River, fixed=TRUE)
+
+axial <- subset(axial, prov=="Newfoundland")
+axial <- subset(axial, is.na(Length)==FALSE)
+axial <- axial[,c(1,2,4,5)]
+
+unique(select(totalNLpp, River, Long, Lat))
+
+totalNLpp <- join(totalNLpp[,c(1:4, 8:10)], axial, type="left")
+
+totalNLpp <- totalNLpp[-8,] ## remove Little River row with Length of 10.8
+
+missing <- subset(totalNLpp, is.na(Length)==TRUE)
+
+totalNLpp[totalNLpp$River=="South.West.Brook.1",]$Length <- 4.8
+totalNLpp[totalNLpp$River=="Bay.Du.Nord",]$Length <- 67.6
+totalNLpp[totalNLpp$River=="Salmon.River.1",]$Length <- 25.3
+totalNLpp[totalNLpp$River=="North.East.Brook",]$Length <- 25.7
+totalNLpp[totalNLpp$River=="Taylors.Bay.Brook.1",]$Length <- 8.4
+totalNLpp[totalNLpp$River=="North.West.Brook.1",]$Length <- 18
+totalNLpp[totalNLpp$River=="Bottom.Brook",]$Length <- 23.0
+totalNLpp[totalNLpp$River=="Salmon.River.2",]$Length <- 83.2
+totalNLpp[totalNLpp$River=="Southeast.Brook",]$Length <- 17.6
+totalNLpp[totalNLpp$River=="Salmonier.Brook",]$Length <- 8.3
+totalNLpp[totalNLpp$River=="Dollard",]$Length <- 52.3
+totalNLpp[totalNLpp$River=="Long.Harbour",]$Length <- 52.3
+totalNLpp[totalNLpp$River=="Grand.le.Pierre",]$Length <- 9.0
+totalNLpp[totalNLpp$River=="Grey",]$Length <- 102.2
+totalNLpp[totalNLpp$River=="La.Poile",]$Length <- 39.9
+totalNLpp[totalNLpp$River=="Northeast.River.Placentia",]$Length <- 23.5
+totalNLpp[totalNLpp$River=="Northeast.Brook.Trepassey",]$Length <- 8.8
+totalNLpp[totalNLpp$River=="St..Genevieve",]$Length <- 26.2
+totalNLpp[totalNLpp$River=="Western.Arm",]$Length <- 26.7
+
+totalNLpp <- totalNLpp[,c(1:8)]
+
+## totalNLpp <- totalNLpp[-8,] make sure LIttle river length=10.8 is gone
+```
+
+### model Q values against propagule pressure with axial length (NL only)
+```{r}
+ggplot() + geom_point(data=totalNLpp, aes(Length, meanQ)) + 
+  geom_smooth(data=totalNLpp, aes(Length, meanQ), method="lm")
+
+ggplot() + geom_point(data=totalNLpp, aes(Length, Q)) + 
+  geom_smooth(data=totalNLpp, aes(Length, Q), method="lm")
+
+ggplot() + geom_point(data=totalNLpp[which(is.na(totalNLpp$Code)==FALSE),], aes(log(totalpp), Length)) + 
+  geom_smooth(data=totalNLpp[which(is.na(totalNLpp$Code)==FALSE),], aes(log(totalpp), Length), method="lm") #+
+ # geom_label_repel(data=totalNLpp[which(is.na(totalNLpp$Code)==FALSE),], aes(log(totalpp), Length, label=Code))
+
+summary(glm(data=totalNLpp, meanQ ~ totalpp + Length, family=binomial))
+summary(glm(data=totalNLpp, log(meanQ) ~ log(totalpp) + log(Length)))
+
+## the significant model earlier was summary(lm(data=totalNLpp, log(meanQ) ~ log(totalpp)))
+summary(lm(data=totalNLpp, log(meanQ) ~ log(totalpp))) # 0.007929
+summary(lm(data=totalNLpp[which(!is.na(totalNLpp$Length)),], meanQ ~ totalpp + Length)) # 0.458464
+summary(glm(data=totalNLpp[which(!is.na(totalNLpp$Length)),], log(meanQ) ~ log(totalpp) + log(Length))) # 0.0173
+
+preds_log_glm_size <- cbind(expand.grid(totalNLpp=seq(min(totalNLpp[which(!is.na(totalNLpp$meanQ) & !is.na(totalNLpp$Length)),]$totalpp), 
+                                                max(totalNLpp[which(!is.na(totalNLpp$meanQ) & !is.na(totalNLpp$Length)),]$totalpp), 50),
+                                             Length=seq(min(totalNLpp[which(!is.na(totalNLpp$meanQ) & !is.na(totalNLpp$Length)),]$Length), 
+                                                max(totalNLpp[which(!is.na(totalNLpp$meanQ) & !is.na(totalNLpp$Length)),]$Length), 1)), 
+                         (predict(glm(data=totalNLpp[which(!is.na(totalNLpp$meanQ) & !is.na(totalNLpp$Length)),], log(meanQ) ~ log(totalpp) + log(Length)), 
+                                  expand.grid(totalpp=seq(min(totalNLpp[which(!is.na(totalNLpp$meanQ) & !is.na(totalNLpp$Length)),]$totalpp), 
+                                                max(totalNLpp[which(!is.na(totalNLpp$meanQ) & !is.na(totalNLpp$Length)),]$totalpp), 50),
+                                             Length=seq(min(totalNLpp[which(!is.na(totalNLpp$meanQ) & !is.na(totalNLpp$Length)),]$Length), 
+                                                max(totalNLpp[which(!is.na(totalNLpp$meanQ) & !is.na(totalNLpp$Length)),]$Length), 1)), se.fit=TRUE, type="response")))
+
+resids_log_glm_size <- cbind(data.frame(totalNLpp[which(!is.na(totalNLpp$meanQ) & !is.na(totalNLpp$Length)),]), 
+                             (predict(glm(data=totalNLpp[which(!is.na(totalNLpp$meanQ) & !is.na(totalNLpp$Length)),], log(meanQ) ~ log(totalpp) + log(Length)),
+                                      data.frame(totalpp=totalNLpp[which(!is.na(totalNLpp$meanQ) & !is.na(totalNLpp$Length)),]$totalpp, 
+                                                 Length=totalNLpp[which(!is.na(totalNLpp$meanQ) & !is.na(totalNLpp$Length)),]$Length), se.fit=TRUE)))
+
+mod_log_glm_size <- glm(data=totalNLpp[which(!is.na(totalNLpp$meanQ) & !is.na(totalNLpp$Length)),], log(meanQ) ~ log(totalpp) + log(Length))
+
+res_prop <- ggplot() + geom_point(data=resids_log_glm_size, aes(totalpp, meanQ - fit)) +
+  theme_classic() + 
+  theme(panel.background=element_rect(fill=NA, colour="black")) +
+  ylab("Residuals (meanQ - fit)") +
+  xlab("Propagule pressure (cumulative)") #+
+  #ggtitle("NL Q values for STRUCTURE k=2\n\nModel = glm(log(meanQ) ~ log(totalpp) + log(Length))\n\n2005-2014 site inventory")
+
+res_length <- ggplot() + geom_point(data=resids_log_glm_size, aes(Length, meanQ - fit)) +
+  theme_classic() + 
+  theme(panel.background=element_rect(fill=NA, colour="black")) +
+  ylab("Residuals (meanQ - fit)") +
+  xlab("River size (km)") #+
+  #ggtitle("NL Q values for STRUCTURE k=2\n\nModel = glm(log(meanQ) ~ log(totalpp) + log(Length))\n\n2005-2014 site inventory")
+
+install.packages("effects")
+require(effects)
+?effect
+eff_log_glm_size <- data.frame(effect(term="log(totalpp)",mod=mod_log_glm_size,default.levels=100, se=TRUE, confidence.level=0.95, transformation=list(link=log, inverse=exp)))
+
+eff_prop <-ggplot() + geom_line(data=eff_log_glm_size, aes(totalpp, fit)) +
+  geom_line(data=eff_log_glm_size, aes(totalpp, lower), lty="dashed") +
+  geom_line(data=eff_log_glm_size, aes(totalpp, upper), lty="dashed") +
+  geom_point(data=totalNLpp[which(!is.na(totalNLpp$Length)),], aes(totalpp, meanQ)) +
+  theme_classic() + 
+  theme(panel.background=element_rect(fill=NA, colour="black")) +
+  ylab("Mean Q") +
+  xlab("Propagule pressure (cumulative)") #+
+  #ggtitle("NL Q values for STRUCTURE k=2\n\nModel = glm(log(meanQ) ~ log(totalpp) + log(Length))\n\n2005-2014 site inventory")
+
+grid.arrange(res_prop, res_length, eff_prop, ncol=1)
+
+
+out_log_glm_size <- round(data.frame(rbind(coefficient=coef(mod_log_glm_size), 
+                                     lower = confint(mod_log_glm_size)[,1], 
+                                     upper=confint(mod_log_glm_size)[,2], 
+                                     pvalT = coef(summary(mod_log_glm_size))[,4],
+                                     chisq = c(NA, Anova(mod_log_glm_size)[,1]),
+                                     pvalC = c(NA, Anova(mod_log_glm_size)[,3]),
+                                     AIC = c(extractAIC(mod_log_glm_size)[2], NA, NA))), 3)
+
+```
+
+
+### Comparing population DAPC to Population Q values
+```{r}
+geneNL <- join(totalNLpp[,1:8], DAPC_mean[,1:3], type="left")
+
+DAPC_STR <- ggplot() + geom_point(data=geneNL, aes(meanQ, meanX2)) +
+  theme_classic() + 
+  theme(panel.background=element_rect(fill=NA, colour="black")) +
+  ylab("DAPC values") +
+  xlab("STRUCTURE k=2 Q values") #+
+  #ggtitle("Comparison of genetic data")
+
+Q_STR <- ggplot() + geom_point(data=geneNL, aes(meanQ, Q)) +
+  theme_classic() + 
+  theme(panel.background=element_rect(fill=NA, colour="black")) +
+  ylab("Pre-2013 Q values") +
+  xlab("STRUCTURE k=2 Q values") #+
+  #ggtitle("Comparison of genetic data")
+
+DAPC_Q <- ggplot() + geom_point(data=geneNL, aes(meanX2, Q)) +
+  theme_classic() + 
+  theme(panel.background=element_rect(fill=NA, colour="black")) +
+  ylab("Pre-2013 Q values") +
+  xlab("DAPC values") #+
+  #ggtitle("Comparison of genetic data")
+
+grid.arrange(nrow=3, DAPC_Q, Q_STR, DAPC_STR)
+
+
+```
+
+### Q values and escape pressure
+```{r}
+totalep <- join(totalep, reportlocs, type="left")
+totalep <- totalep[,c(1:4, 8)]
+DAPC_mean <- join(DAPC_mean, totalep, type="left")
+
+preds2 <- cbind(data.frame(totalep=seq(min(totalep$totalep), max(totalep$totalep), 1)), (predict(lm(data=DAPC_mean[which(DAPC_mean$Long > -60),], meanX2 ~ totalep), data.frame(totalep=seq(min(totalep$totalep), max(totalep$totalep), 1)), se.fit=TRUE)))
+
+NLep <- ggplot() + geom_point(data=DAPC_mean[which(DAPC_mean$Long > -60),], aes(totalep, meanX2)) + theme_classic() + theme(panel.background=element_rect(fill=NA, colour="black"),
+                                plot.margin = unit(c(0.1,0.1,1,1), "cm")) +
+  xlab("Escape event pressure (cumulative)") +
+  ylab("Mean Q-value from DAPC k=2") +
+  geom_smooth(data=DAPC_mean[which(DAPC_mean$Long > -60),], aes(totalep, meanX2), method="lm", se=FALSE, colour="black") +
+  geom_line(data=preds2, aes(totalep, fit-se.fit), lty="dashed") + 
+  geom_line(data=preds2, aes(totalep, fit+se.fit), lty="dashed") +
+  ggtitle("NL Q-values from new run")
+
+totalep_noest <- join(totalep_noest, reportlocs, type="left")
+totalep_noest <- totalep_noest[,c(1:4, 6)]
+colnames(totalep_noest)[4] <- "totalep_noest"
+DAPC_mean <- join(DAPC_mean, totalep_noest, type="left")
+
+preds3 <- cbind(data.frame(totalep_noest=seq(min(totalep_noest$totalep_noest), max(totalep_noest$totalep_noest), 0.0001)), (predict(lm(data=DAPC_mean[which(DAPC_mean$Long > -60),], meanX2 ~ totalep_noest), data.frame(totalep_noest=seq(min(totalep_noest$totalep_noest), max(totalep_noest$totalep_noest), 0.0001)), se.fit=TRUE)))
+
+NLep_noest <- ggplot() + geom_point(data=DAPC_mean[which(DAPC_mean$Long > -60),], aes(totalep_noest, meanX2)) + theme_classic() + theme(panel.background=element_rect(fill=NA, colour="black"),
+                                               plot.margin = unit(c(1,0.1,0.1,1), "cm")) +
+  xlab("Escape event pressure (cumulative, no estimates)") +
+  ylab("Mean Q-value from DAPC k=2") +
+  geom_smooth(data=DAPC_mean[which(DAPC_mean$Long > -60),], aes(totalep_noest, meanX2), method="lm", se=FALSE, colour="black") +
+  geom_line(data=preds3, aes(totalep_noest, fit-se.fit), lty="dashed") + 
+  geom_line(data=preds3, aes(totalep_noest, fit+se.fit), lty="dashed") +
+  ggtitle("NL Q-values from new run")
+
+grid.arrange(NLep, NLep_noest, nrow=1)
+
+grid.arrange(MARpp, NLep, NLpp, NLep_noest, nrow=2)
+
+
+totalep_q <- join(totalep_q, reportlocs, type="left")
+totalep_q <- totalep_q[,c(1:4, 8)]
+totalep_q <- join(totalep_q, NLQ, type="left")
+
+preds6 <- cbind(data.frame(totalep=seq(min(totalep_q[which(!is.na(totalep_q$Q)),]$totalep), max(totalep_q[which(!is.na(totalep_q$Q)),]$totalep), 0.5)), 
+                (predict(lm(data=totalep_q[which(!is.na(totalep_q$Q)),], Q ~ totalep), data.frame(totalep=seq(min(totalep_q[which(!is.na(totalep_q$Q)),]$totalep), max(totalep_q[which(!is.na(totalep_q$Q)),]$totalep), 0.5)), se.fit=TRUE)))
+
+NLep_stock <- ggplot() + geom_point(data=totalep_q[which(!is.na(totalep_q$Q)),], aes(totalep, Q)) + theme_classic() + theme(panel.background=element_rect(fill=NA, colour="black"),
+                                               plot.margin = unit(c(0.1,0.1,0.1,0.1), "cm")) +
+  xlab("Escape event pressure (cumulative)") +
+  ylab("Mean Q-value from DAPC k=2") +
+  geom_smooth(data=totalep_q[which(!is.na(totalep_q$Q)),], aes(totalep, Q), method="lm", se=FALSE, colour="black") +
+  geom_line(data=preds6, aes(totalep, fit-se.fit), lty="dashed") + 
+  geom_line(data=preds6, aes(totalep, fit+se.fit), lty="dashed") +
+  ggtitle("NL Q-values from Moore (1996-2012)")
+
+```
+
+### detections
+```{r}
+fullreports <- read.csv("C:/Users/keyserf/Documents/Data/R output/fullreports_yearfixed.csv")
+
+fullreports$River<-gsub("\\s", ".", fullreports$River)
+fullreports$River <- gsub("(",".",fullreports$River, fixed=TRUE)
+fullreports$River <- gsub(")",".",fullreports$River, fixed=TRUE)
+fullreports$River <- gsub("'",".",fullreports$River, fixed=TRUE)
+
+fullreports$CountMethod[fullreports$River=="Garnish.River" & fullreports$Year.adj > 2014] <- "Fence"
+fullreports <- rbind(fullreports, data.frame(X=NA, River=c("Northeast.Brook.Trepassey", "Northeast.River.Placentia"), ProvState="NL", Year=NA, TotalWild=NA, TotalFarmed=0, TotalCombined=NA, PropFarmed=NA, LS=NA, CountMethod="Fence", IDMethod=NA, SOURCES="Dempson", Verify=NA, detected=0, Year.adj=2015, code=c("NBT", "NPR"), latfinal1=c(46.74434, 47.24441), longfinal1=c(-53.37387, -53.99627)))
+
+fullreports$CountMethod[which(fullreports$River=="Conne.River"& fullreports$Year.adj < 2015 & !fullreports$CountMethod=="Food Fishery")] <- "Fence"
+fullreports$CountMethod <- gsub(pattern="Fishway", replacement="Fence", x=fullreports$CountMethod, fixed=T)
+fullreports$CountMethod <- gsub(pattern="fishway", replacement="Fence", x=fullreports$CountMethod, fixed=T)
+fullreports$CountMethod <- gsub(pattern="FW", replacement="Fence", x=fullreports$CountMethod, fixed=T)
+fullreports$CountMethod <- gsub(pattern="Food Fishery", replacement="Non-fence", x=fullreports$CountMethod, fixed=T)
+fullreports$CountMethod <- gsub(pattern="A", replacement="Non-fence", x=fullreports$CountMethod, fixed=T)
+fullreports$CountMethod <- gsub(pattern="Diver", replacement="Non-fence", x=fullreports$CountMethod, fixed=T)
+fullreports$CountMethod <- gsub(pattern="Dive", replacement="Non-fence", x=fullreports$CountMethod, fixed=T)
+fullreports$CountMethod <- gsub(pattern="CF", replacement="Fence", x=fullreports$CountMethod, fixed=T)
+#fullreports$CountMethod <- gsub(pattern="", replacement="Non-fence", x=fullreports$CountMethod, fixed=T)
+fullreports$CountMethod <- gsub(pattern="M&R", replacement="Non-fence", x=fullreports$CountMethod, fixed=T)
+fullreports$CountMethod <- gsub(pattern="SC", replacement="Non-fence", x=fullreports$CountMethod, fixed=T)
+fullreports$CountMethod <- gsub(pattern="S", replacement="Non-fence", x=fullreports$CountMethod, fixed=T)
+fullreports$CountMethod <- gsub(pattern="W", replacement="Non-fence", x=fullreports$CountMethod, fixed=T)
+fullreports$CountMethod <- gsub(pattern="SH", replacement="Non-fence", x=fullreports$CountMethod, fixed=T)
+fullreports$CountMethod <- gsub(pattern="GN", replacement="Non-fence", x=fullreports$CountMethod, fixed=T)
+fullreports$CountMethod <- gsub(pattern="EF", replacement="Non-fence", x=fullreports$CountMethod, fixed=T)
+fullreports$CountMethod <- gsub(pattern="D", replacement="Non-fence", x=fullreports$CountMethod, fixed=T)
+fullreports$CountMethod <- gsub(pattern="HT", replacement="Non-fence", x=fullreports$CountMethod, fixed=T)
+fullreports$CountMethod <- gsub(pattern="NA", replacement="Non-fence", x=fullreports$CountMethod, fixed=T)
+fullreports$CountMethod <- gsub(pattern="<NA>", replacement="Non-fence", x=fullreports$CountMethod, fixed=T)
+
+fullreports$CountMethod <- as.factor(fullreports$CountMethod)
+
+levels(fullreports$CountMethod) <- c("Non-fence", "Fence", "Fence", "Non-fence", "Non-fence", "Non-fence", "Non-fence")
+
+fullreports[is.na(fullreports$CountMethod),]$CountMethod <- "Non-fence"
+
+#fullreports[fullreports$River=="Magaguadavic",]
+```
+
+### Propagule pressure vs. counts
+```{r}
+detections <- ddply(.data=fullreports[which(fullreports$Year.adj>2004),], .(River, CountMethod),
+                       summarize,
+                       totaldetect = sum(as.numeric(as.character(TotalFarmed)), na.rm=T),
+                       PA = max(detected))
+
+totalpp <- join(totalpp[,c(1:4, 8:11)], detections, type="left")
+
+totalpp$detect2 <- 0
+totalpp$detect2[totalpp$PA > 0] <- 1
+totalpp$detect2[is.na(totalpp$PA)] <- NA
+
+preds4 <- cbind(data.frame(totalpp=rep(seq(min(totalpp$totalpp), max(totalpp$totalpp), 0.0001),2), CountMethod=c(rep("Fence", 311), rep("Non-fence", 311))), predict(glm(data=totalpp, totaldetect ~ totalpp*as.factor(CountMethod)), data.frame(totalpp=seq(min(totalpp$totalpp), max(totalpp$totalpp), 0.0001), CountMethod=c(rep("Fence", 311), rep("Non-fence", 311))), se.fit=TRUE))
+
+preds4_fence <- cbind(data.frame(totalpp=
+                                   seq(min(totalpp[which(totalpp$CountMethod=="Fence"),]$totalpp), max(totalpp[which(totalpp$CountMethod=="Fence"),]$totalpp), 0.00005)), 
+                      predict(glm(data=totalpp[which(totalpp$CountMethod=="Fence"),], totaldetect ~ totalpp, family=poisson), data.frame(totalpp=
+                                                                                     seq(min(totalpp[which(totalpp$CountMethod=="Fence"),]$totalpp),
+                                                                                         max(totalpp[which(totalpp$CountMethod=="Fence"),]$totalpp), 0.00005)),
+                              type="response", se.fit=TRUE))
+
+#plot(glm(data=totalpp[which(totalpp$CountMethod=="Fence"),], totaldetect ~ totalpp, family=poisson))
+
+#max(totalpp[totalpp$CountMethod=="Fence",]$totalpp, na.rm=T)
+#max(totalpp[totalpp$CountMethod=="Non-fence",]$totalpp, na.rm=T)
+
+preds4 <- preds4[!(preds4$CountMethod =="Fence" & preds4$totalpp > 0.01103263),]
+preds4 <- preds4[!(preds4$CountMethod =="Non-fence" & preds4$totalpp > 0.03153431),]
+
+
+### total detections vs. totalpp by counting method
+ggplot() + geom_point(data=totalpp[which(!is.na(totalpp$CountMethod)),], aes(totalpp, totaldetect)) + 
+  theme_classic() + theme(panel.background=element_rect(fill=NA, colour="black")) +
+  xlab("Propagule pressure (cumulative)") +
+  ylab("Number of escapees detected") +
+  geom_smooth(data=totalpp[which(!is.na(totalpp$CountMethod)),], aes(totalpp, totaldetect), method="lm", se=FALSE, colour="black") +
+  geom_line(data=preds4[which(preds4$fit - preds4$se.fit > 0),], aes(totalpp, fit-se.fit), lty="dashed") +
+  geom_line(data=preds4, aes(totalpp, fit+se.fit), lty="dashed") +
+    facet_wrap(~CountMethod, scales="free_x")
+
+
+### Fence only - ALL RIVERS, MARITIMES AND NL *** SIGNIFICANT ***
+# Magaguadavic    Dennys.River    Conne.River     St..Croix.River Garnish.River   Aroostook       Nashwaak        St..John.River  Narraguagus     Union.River    
+# Penobscot       Lahave          Androscoggin    Kennebec        Pleasant.River  Saco.River      Northeast.Brook.Trepassey    Northeast.River.Placentia
+summary(glm(data=totalpp[which(totalpp$CountMethod=="Fence"),], totaldetect ~ totalpp, family=poisson))
+mod_glm_pois <- glm(data=totalpp[which(totalpp$CountMethod=="Fence"),], totaldetect ~ totalpp, family=poisson)
+# Coefficients:
+#             Estimate Std. Error z value             Pr(>|z|)    
+# (Intercept)  -0.5916     0.1766  -3.351             0.000806 ***
+# totalpp     412.8130    11.4180  36.155 < 0.0000000000000002 ***
+
+totalpp$prov <- as.character(totalpp$prov)
+totalpp[which(totalpp$CountMethod=="Fence" & is.na(totalpp$prov)),]$River
+totalpp[which(totalpp$CountMethod=="Fence" & is.na(totalpp$prov)),]$prov <- c("ME", "ME", "ME", "ME", "NB", "ME", "NB", "ME", "ME", "ME", "NB", "NB", "ME")
+totalpp[which(totalpp$CountMethod=="Fence" & is.na(totalpp$prov)),]$prov <-"ME"
+totalpp[which(totalpp$CountMethod=="Fence"),]
+
+eff_glm_pois <- data.frame(effect(term="totalpp",mod=mod_glm_pois, default.levels=100, se=TRUE, confidence.level=0.95, transformation=list(link=log, inverse=exp)))
+
+plot_glm_pois <- ggplot() + 
+  theme_classic() + theme(panel.background=element_rect(fill=NA, colour="black")) +
+  xlab("Propagule pressure (cumulative)") +
+  ylab("Number of escapees detected\nat fences/fishways") +
+  scale_shape_manual(name="Province/State", values=c(0,1,4,16))+
+  #geom_smooth(data=totalpp[which(totalpp$CountMethod=="Fence"),], aes(totalpp, totaldetect), method="lm", se=FALSE, colour="black") +
+  geom_line(data=eff_glm_pois[which(eff_glm_pois$fit > 0),], aes(totalpp, fit)) +
+  geom_line(data=eff_glm_pois[which(eff_glm_pois$lower > 0),], aes(totalpp, lower), lty="dashed") +
+  geom_line(data=eff_glm_pois[which(eff_glm_pois$upper > 0),], aes(totalpp, upper), lty="dashed") +
+  geom_point(data=totalpp[which(totalpp$CountMethod=="Fence"),], aes(totalpp, totaldetect, shape=prov), size=2) 
+  
+mod_glm_test <- summary(glm(data=totalpp[which(totalpp$CountMethod=="Fence" & totalpp$totalpp<0.015),], totaldetect ~ totalpp, family=poisson))
+### also significant without magaguadavic
+
+eff_glm_test<- data.frame(effect(term="totalpp",mod=mod_glm_test, default.levels=100, se=TRUE, confidence.level=0.95, transformation=list(link=log, inverse=exp)))
+
+plot_glm_pois_woMag <- ggplot() + 
+  theme_classic() + theme(panel.background=element_rect(fill=NA, colour="black")) +
+  xlab("Propagule pressure (cumulative)") +
+  ylab("Number of escapees detected\nat fences/fishways") +
+  scale_shape_manual(name="Province/State", values=c(0,1,4,16))+
+  #geom_smooth(data=totalpp[which(totalpp$CountMethod=="Fence"),], aes(totalpp, totaldetect), method="lm", se=FALSE, colour="black") +
+  geom_line(data=eff_glm_test[which(eff_glm_test$fit > 0),], aes(totalpp, fit)) +
+  geom_line(data=eff_glm_test[which(eff_glm_test$lower > 0),], aes(totalpp, lower), lty="dashed") +
+  geom_line(data=eff_glm_test[which(eff_glm_test$upper > 0),], aes(totalpp, upper), lty="dashed") +
+  geom_point(data=totalpp[which(totalpp$CountMethod=="Fence" & totalpp$totalpp<0.015),], aes(totalpp, totaldetect, shape=prov), size=2) +
+  annotate(geom="text", y=30, x=0.00125, label="* Magaguadavic excluded", size=3, vjust=0, hjust=0)
+
+grid.arrange(plot_glm_pois, plot_glm_pois_woMag, ncol=1)
+
+
+
+detections2 <- ddply(.data=fullreports[which(fullreports$Year.adj>2004),], .(River),
+                       summarize,
+                       totaldetect2 = sum(as.numeric(as.character(TotalFarmed)), na.rm=T),
+                       PA2 = max(detected))
+
+totalpp2 <- unique(totalpp[,c(1:6)])
+##NA's are because no monitoring occurred after 2004 or only genetic sampling was done.
+
+totalpp2 <- join(totalpp2, detections2, type="left")
+
+### just do this for NL because we have better information on non-fence monitoring, and then can use stocking pp
+totalNLpp <- join(totalNLpp, detections2, type="left")
+
+# Overall escapees detected (countmethods combined) vs. propagule pressure. No relationship
+ggplot() + geom_point(data=totalNLpp, aes(totalpp, totaldetect2)) + 
+  theme_classic() + theme(panel.background=element_rect(fill=NA, colour="black")) +
+  xlab("Propagule pressure (cumulative)") +
+  ylab("Number of escapees detected")  +
+  geom_smooth(data=totalNLpp, aes(totalpp, totaldetect2), method="lm")
+
+```
+
+### Propagule pressure vs. presence - No relationship
+```{r}
+
+totalpp2$detect2 <- 0
+totalpp2$detect2[totalpp2$PA2 > 0] <- 1
+totalpp2$detect2[is.na(totalpp2$PA2)] <- NA
+
+totalpp2 <- subset(totalpp2, !is.na(detect2)=="TRUE")
+
+totalpp2$Stotalpp <- scale(totalpp2$totalpp)
+
+scaleList <- list(scale = attr(totalpp2$Stotalpp, "scaled:scale"),
+                            center = attr(totalpp2$Stotalpp, "scaled:center"))
+
+require(lme4)
+mod <- glmer(detect2~Stotalpp+(1|River),data=totalpp2,family=binomial(link="logit"))
+summary(mod)
+
+sdata <-  scale(seq(from=min(totalpp2$totalpp),to=max(totalpp2$totalpp),by=0.0001),scale=scaleList$scale,center=scaleList$center)
+newdata <- data.frame(expand.grid(unique(as.character(totalpp2$River)),sdata),stringsAsFactors = F)
+#newdata <- data.frame(River="Big Salmon",sdata,stringsAsFactors = F)
+
+colnames(newdata) <- c("River","Stotalpp")
+
+# newdata <- cbind(newdata, data.frame(fit=predict(mod, newdata)))
+
+newdata$fixedtotalpp <- newdata$Stotalpp * (as.numeric(scaleList$scale) + as.numeric(scaleList$center))
+
+## predictSE computes predicted values based on linear predictor and associated standard errors
+newdata <- cbind(newdata,AICcmodavg::predictSE(mod,newdata,se.fit=T,type="response")%>%data.frame())
+
+Intercept <- mean(newdata[which(round(newdata$fit, 1)==0.5),"fixedtotalpp"]) #there are two values, answer is in between
+
+newdata2 <- newdata
+
+ggplot()+
+  #geom_segment(aes(x=Intercept,xend=Intercept,y=-Inf,yend=0.5),lty=2,colour="grey40")+
+  #geom_segment(aes(x=-Inf,xend=Intercept,y=0.5,yend=0.5),lty=2,colour="grey40")+
+  geom_line(data=newdata2,aes(x=fixedtotalpp,y=fit,group=River),lwd=1.12)+
+  geom_line(data=newdata2,aes(x=fixedtotalpp,y=fit+se.fit,group=River),lty=2,lwd=1.05)+
+  geom_line(data=newdata2,aes(x=fixedtotalpp,y=fit-se.fit,group=River),lty=2,lwd=1.05)+
+  geom_point(data=totalpp2,aes(x=totalpp,y=detect2),pch=21,fill="white")+
+  labs(x="Propagule pressure (cumulative)",y=expression(paste("Probability of farmed presence " %+-% " se",sep=" ")))+
+  theme_classic() + theme(panel.background=element_rect(fill=NA, colour="black")) +
+  xlim(0,max(totalpp2$totalpp) + 0.005) +
+  scale_y_continuous(breaks = c(0, 0.5, 1))
+
+
+
+#### just NL
+
+totalNLpp$detect2 <- 0
+totalNLpp$detect2[totalNLpp$PA2 > 0] <- 1
+totalNLpp$detect2[is.na(totalNLpp$PA2)] <- NA
+
+totalNLpp <- subset(totalNLpp, !is.na(detect2)=="TRUE")
+
+totalNLpp$Stotalpp <- scale(totalNLpp$totalpp)
+
+scaleList <- list(scale = attr(totalNLpp$Stotalpp, "scaled:scale"),
+                            center = attr(totalNLpp$Stotalpp, "scaled:center"))
+
+require(lme4)
+mod <- glm(detect2~totalpp*Length,data=totalNLpp[!is.na(totalNLpp$Length),],family=binomial(link="logit"))
+summary(mod)
+
+preds_PA_NL <- cbind(expand.grid(totalpp=seq(min(totalNLpp[!is.na(totalNLpp$Length),]$totalpp), max(totalNLpp[!is.na(totalNLpp$Length),]$totalpp), 50), 
+                                Length=seq(min(totalNLpp[!is.na(totalNLpp$Length),]$Length), max(totalNLpp[!is.na(totalNLpp$Length),]$Length), 1)),
+                predict(glm(data=totalNLpp[!is.na(totalNLpp$Length),], detect2 ~ totalpp*Length, family=binomial), 
+                        expand.grid(totalpp=seq(min(totalNLpp[!is.na(totalNLpp$Length),]$totalpp), max(totalNLpp[!is.na(totalNLpp$Length),]$totalpp), 50), 
+                                Length=seq(min(totalNLpp[!is.na(totalNLpp$Length),]$Length), max(totalNLpp[!is.na(totalNLpp$Length),]$Length), 1)), 
+                        se.fit=TRUE, type="response"))
+
+
+Intercept <- mean(preds_PA_NL[which(round(preds_PA_NL$fit, 1)==0.5),"totalpp"]) #there are two values, answer is in between
+
+###HERE
+
+totalNLpp
+
+ggplot()+
+  #geom_segment(aes(x=Intercept,xend=Intercept,y=-Inf,yend=0.5),lty=2,colour="grey40")+
+  #geom_segment(aes(x=-Inf,xend=Intercept,y=0.5,yend=0.5),lty=2,colour="grey40")+
+  geom_point(data=preds_PA_NL,aes(x=totalpp,y=Length, colour=as.factor(round(fit, 0))))
+#geom_point(data=preds_PA_NL,aes(x=Length,y=fit)), colour=as.factor(round(fit, 0))))
+
+  geom_line(data=preds_PA_NL,aes(x=totalpp,y=fit+1.96*se.fit),lty=2,lwd=1.05)+
+  geom_line(data=preds_PA_NL,aes(x=totalpp,y=fit-1.96*se.fit),lty=2,lwd=1.05)+
+  geom_point(data=totalNLpp,aes(x=totalpp,y=detect2),pch=21,fill="white")+
+  labs(x="Propagule pressure (cumulative)",y=expression(paste("Probability of farmed presence " %+-% " se",sep=" ")))+
+  theme_classic() + theme(panel.background=element_rect(fill=NA, colour="black")) +
+  xlim(0,max(totalNLpp$totalpp) + 0.005) +
+  scale_y_continuous(breaks = c(0, 0.5, 1)) +
+  ggtitle("Presence of escapees in NL")
+  
+  
+  ggplot() + geom_point(data=totalNLpp, aes(Length, totalpp))+
+    facet_wrap(~detect2)
+  geom_smooth(data=totalNLpp, aes(Length, totalpp, colour=as.factor(detect2)), method="lm")
+
+```
+
+
+### Escape pressure vs. counts
+```{r}
+
+totalep2 <- join(totalep, detections2, type="left")
+
+totalep2 <- subset(totalep2, !is.na(totaldetect2))
+
+preds5 <- cbind(data.frame(totalep=seq(min(totalep2$totalep), max(totalep2$totalep), 0.5)),
+                predict(glm(data=totalep2, totaldetect2 ~ totalep), 
+                        data.frame(totalep=seq(min(totalep2$totalep), max(totalep2$totalep), 0.5)), 
+                        se.fit=TRUE))
+
+#max(totalep2[totalep2$CountMethod=="Fence",]$total2p, na.rm=T)
+
+# preds5 <- preds5[!(preds5$CountMethod =="Fence" & preds5$totalpp > 0.01103263),]
+
+### total detections vs. totalep
+ggplot() + geom_point(data=totalep2, aes(totalep, totaldetect2)) + 
+  theme_classic() + theme(panel.background=element_rect(fill=NA, colour="black")) +
+  xlab("Escape event pressure (cumulative)") +
+  ylab("Number of escapees detected") +
+  geom_smooth(data=totalep2, aes(totalep, totaldetect2), method="lm", se=FALSE, colour="black") +
+  geom_line(data=preds5[which(preds5$fit - preds5$se.fit > 0),], aes(totalep, fit-se.fit), lty="dashed") +
+  geom_line(data=preds5, aes(totalep, fit+se.fit), lty="dashed")+
+  ggtitle("NL only - Escape event pressure and escapee detection")
+```
+
+### Escape pressure vs. presence
+
+```{r}
+totalep2$detect2 <- 0
+totalep2$detect2[totalep2$PA2 > 0] <- 1
+totalep2$detect2[is.na(totalep2$PA2)] <- NA
+
+totalep2$Stotalep <- scale(totalep2$totalep)
+
+scaleList <- list(scale = attr(totalep2$Stotalep, "scaled:scale"),
+                            center = attr(totalep2$Stotalep, "scaled:center"))
+
+require(lme4)
+mod2 <- glmer(detect2~Stotalep+(1|River),data=totalep2,family=binomial(link="logit"))
+summary(mod2)
+
+sdata <-  scale(seq(from=min(totalep2$totalep),to=max(totalep2$totalep),by=0.5),scale=scaleList$scale,center=scaleList$center)
+newdata <- data.frame(expand.grid(unique(as.character(totalep2$River)),sdata),stringsAsFactors = F)
+#newdata <- data.frame(River="Big Salmon",sdata,stringsAsFactors = F)
+
+colnames(newdata) <- c("River","Stotalep")
+
+# newdata <- cbind(newdata, data.frame(fit=predict(mod, newdata)))
+
+newdata$fixedtotalep <- newdata$Stotalep * (as.numeric(scaleList$scale) + as.numeric(scaleList$center))
+
+## predictSE computes predicted values based on linear predictor and associated standard errors
+newdata <- cbind(newdata,AICcmodavg::predictSE(mod2,newdata,se.fit=T,type="response")%>%data.frame())
+
+Intercept <- mean(newdata[which(round(newdata$fit, 1)==0.5),"fixedtotalep"]) #there are two values, answer is in between
+
+newdata3 <- newdata
+
+ggplot()+
+  geom_line(data=newdata3,aes(x=fixedtotalep,y=fit,group=River),lwd=1.12)+
+  geom_line(data=newdata3,aes(x=fixedtotalep,y=fit+se.fit,group=River),lty=2,lwd=1.05)+
+  geom_line(data=newdata3,aes(x=fixedtotalep,y=fit-se.fit,group=River),lty=2,lwd=1.05)+
+  geom_point(data=totalep2,aes(x=totalep,y=detect2),pch=21,fill="white")+
+  labs(x="Escape event pressure (cumulative)",y=expression(paste("Probability of farmed presence " %+-% " se",sep=" ")))+
+  theme_classic() + theme(panel.background=element_rect(fill=NA, colour="black")) +
+  xlim(0,max(totalep2$totalep) + 0.25) +
+  scale_y_continuous(breaks = c(0, 0.5, 1))+
+  ggtitle("Escape event pressure and escapee presence")
+
+
+```
+
+### escape events NL map
+```{r}
+escape_summ_3 <- escape_summ_3 %>%
+  arrange(-totalescape)
+
+options(scipen=999)
+
+zoom <- ggplot() + 
+  ggtitle("Escape locations")+
+  geom_polygon(data=eastland, aes(long, lat, group=group), fill="grey")+ 
+  geom_point(data=escape_summ_3, aes(Long, Lat, size=totalescape), fill="red", shape=21, colour="black") + 
+  theme_bw() +
+  coord_map(xlim=c(-56.7, -54.5), ylim=c(47.2, 48.1)) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
+  scale_size_continuous(name="Escape size estimate", range = c(0.5,10), limits=c(1,150000)) +
+  xlab("Longitude") +
+  ylab("Latitude") + 
+  ggsn::scalebar(data=eastland, dist=15, dd2km=TRUE, model="WGS84", location="bottomleft", anchor=c(x = -56.5, y = 47.3), height=0.005, st.dist=0.005, st.size=3)
+
+zoomout <- ggplot() + 
+  geom_polygon(data=eastland, aes(long, lat, group=group), fill="grey")+ 
+  geom_point(data=escape_summ_3, aes(Long, Lat, size=totalescape), fill="red", shape=21, colour="black") + 
+  theme_bw() +
+  coord_map(xlim=c(-60, -52), ylim=c(46.5, 52)) +
+  scale_size_continuous(name="Escape size estimate", range = c(0.5,10), limits=c(1,150000), guide=FALSE) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.title = element_blank(), axis.text = element_blank(), axis.ticks=element_blank(), plot.margin=unit(c(0,0,0,0),"mm"))
+
+zoom 
+vp = viewport(width=0.00001, height=0.00001, x=0.8, y=0.1)
+pushViewport(vp)
+grid.draw(zoomout)  
+
+
+grid.newpage()
+v1<-viewport(width = 1, height = 1, x = 0.5, y = 0.5) #plot area for the main map
+v2<-viewport(width = 0.2, height = 0.2, x = 0.6, y = 0.6) #plot area for the inset map
+print(zoom,vp=v1) 
+print(zoomout,vp=v2)
+dev.off()
+
+```
+

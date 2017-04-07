@@ -403,4 +403,6 @@ names(MEinv) <- c("Site.ID", "Year", "Long", "Lat", "totalfish", "prov")
 inventory1 <- rbind(annual[,c(2,5,6,3,7,4)], NB_inv[,c(1,5,4,2,6,3)], NSinv[,c(2,4,5,3,7,6)], MEinv[,c(1, 4, 3, 2, 6, 5)])
 inventory1 <- inventory1[is.na(inventory1$Lat)==FALSE,]
 write.csv(inventory1, "C:/Users/keyserf/Documents/Data/R output/inventory1.csv")
+
+inventory1 <- read.csv("C:/Users/keyserf/Documents/Data/R output/inventory1.csv")
 ```

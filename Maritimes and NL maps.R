@@ -70,28 +70,44 @@ sampmap <- read.csv("C:/Users/keyserf/Documents/Data/Escape events and reports/S
 
 sampmapNSNB <- subset(sampmap, Prov %in% c("NS", "NB"))
 
+sampmap_gen <- subset(sampmap, Q.value=="Q"|Bradbury=="B"|PARR=="P")
+sampmap_gen <- subset(sampmap_gen, !Name %in% c("Nashwaak", "Tobique", "St. Paul"))
+
+plotpoints <- data.frame(long=c(sampmap_gen$Longitude, sitecoords_atl_2$Long), 
+                         lat=c(sampmap_gen$Latitude, sitecoords_atl_2$Lat), 
+                         type=c(rep("genetic", 39), rep("industry", 202)))
+
+plotpoints$type <- factor(plotpoints$type, levels=c("industry", "genetic"))
+
 ggplot() + 
-  geom_spatial(data=NB.low, aes(fill=ctry_en), show.legend=FALSE) + ### canvec spatialpolygonsdataframe
-  geom_spatial(data=PE.low, aes(fill=ctry_en), show.legend=FALSE) + ### canvec spatialpolygonsdataframe
-  geom_spatial(data=NS.low, aes(fill=ctry_en), show.legend=FALSE) + ### canvec spatialpolygonsdataframe
-  scale_fill_manual(values=c("grey"), guide=FALSE) + ### fills geom_spatials with grey
-  geom_polygon(data=GOMclip, aes(long, lat, group=group), fill="grey") + ### Gulf of Maine shapefile to get Grand Manan & Maine
+  # geom_spatial(data=NB.low, aes(fill=ctry_en), show.legend=FALSE) + ### canvec spatialpolygonsdataframe
+  # geom_spatial(data=PE.low, aes(fill=ctry_en), show.legend=FALSE) + ### canvec spatialpolygonsdataframe
+  # geom_spatial(data=NS.low, aes(fill=ctry_en), show.legend=FALSE) + ### canvec spatialpolygonsdataframe
+  # scale_fill_manual(values=c("grey"), guide=FALSE) + ### fills geom_spatials with grey
+  # geom_polygon(data=GOMclip, aes(long, lat, group=group), fill="grey") + ### Gulf of Maine shapefile to get Grand Manan & Maine
+  theme_classic() + ### favourite theme settings plus makes sure land is white
+  theme(panel.background = element_blank(), panel.border=element_rect(colour="black", fill=NA)) +
+  geom_polygon(data=eastland, aes(long, lat, group=group), fill="grey") +
   #geom_path(data=CA.df, aes(long, lat, group=group),colour="black", show.legend = FALSE) + ### plots black outline on provinces
-  annotate(geom="rect", xmin=-60, xmax=-59.5, ymin=47.5, ymax= 48, fill="grey") + ### these annotates hide white space!
-  annotate(geom="rect", xmin=-64, xmax=-59.5, ymin=43.2, ymax= 44, fill="grey") +
-  annotate(geom="rect", xmin=-61, xmax=-59.5, ymin=44, ymax= 45, fill="grey") +
-  coord_map(xlim=c(-67.7, -59.5), ylim=c(43.2, 48)) + ### sets boundaries 
+  # annotate(geom="rect", xmin=-60, xmax=-59.5, ymin=47.5, ymax= 48, fill="grey") + ### these annotates hide white space!
+  # annotate(geom="rect", xmin=-64, xmax=-59.5, ymin=43.2, ymax= 44, fill="grey") +
+  # annotate(geom="rect", xmin=-61, xmax=-59.5, ymin=44, ymax= 45, fill="grey") +
   #geom_point(data=sampmapNSNB, aes(Longitude, Latitude, colour=variable), shape=16, size=4, alpha=0.5)+
-  geom_point(data=sampmapNSNB, aes(Longitude, Latitude), shape=1, size=3)+
-  theme_bw() + 
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
-  #scale_color_manual(values=c("red","dodgerblue4", "yellow"), name="Escape data type", labels=c("Q-value", "Morris et al. 2008", "Other"))+
-  scalebar(data=fortify(NS.low), dist=75, dd2km=TRUE, model="WGS84", location="bottomright", anchor=c(x = -60, y = 43.8), st.size=3) +
-  geom_label_repel(data=sampmapNSNB, aes(Longitude, Latitude, label=Code), size=2, point.padding = unit(0.5,"lines")) 
-  
+  geom_point(data=plotpoints, aes(long, lat, shape=type, alpha=type, size=type), fill="skyblue") +
+  scale_shape_manual(values=c(16,21), labels=c("Aquaculture site", "Genetic sample"), name=NULL)+
+  scale_alpha_manual(values=c(1, 0.6), labels=c("Aquaculture site", "Genetic sample"), name=NULL)+
+  scale_size_manual(values=c(1,4), labels=c("Aquaculture site", "Genetic sample"), name=NULL)+
+  coord_map(xlim=c(-60, -52), ylim=c(46, 52)) + ### sets boundaries
+  xlab("Longitude") +
+  ylab("Latitude") +
+  # theme_bw() + 
+  # theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank()) +
+  # #scale_color_manual(values=c("red","dodgerblue4", "yellow"), name="Escape data type", labels=c("Q-value", "Morris et al. 2008", "Other"))+
+  #geom_label_repel(data=sampmap_gen, aes(Longitude, Latitude, label=Code), size=2, point.padding = unit(0.5,"lines")) + 
+  ggsn::scalebar(data=eastland, dist=100, dd2km=TRUE, model="WGS84", location="bottomright", anchor=c(x = -54, y = 44), st.size=3)
 
 
-
+?geom_density2d
 
 ### Newfoundland (canvec 250K hydro shapefile, canvec_1M_CA_Land_shp shoreline_1 shapefile cropped)
 
